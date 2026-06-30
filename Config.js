@@ -25,6 +25,12 @@ const CONFIG = {
   // Google Drive Folder Configuration
   DRIVE_BACKUP_FOLDER_ID: '1E9uY9o-NTHO5ciy4dXFDZ2u7uDojcXaP',
 
+  // Ignored / Excluded Emails from compliance & monitoring tracking
+  IGNORED_EMAILS: [
+    "john.stewart@osttra.com",
+    "misuzu.fujiwara@osttra.com"
+  ],
+
   // BigQuery Configuration
   BQ: {
     PROJECT_ID: 'prj-p-bi-data-5rsa', // Production Project ID from GCP

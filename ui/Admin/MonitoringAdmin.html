@@ -17,7 +17,17 @@
         <p class="text-[10px] font-black uppercase text-white/40 tracking-widest">Total Employees</p>
         <i class="fas fa-users text-white/10 group-hover:text-white/20 transition-colors text-base"></i>
       </div>
-      <p id="stat-total-employees" class="text-3xl font-black text-white mt-4">0</p>
+      <div class="flex items-baseline gap-4 mt-4">
+        <div>
+          <p id="stat-active-employees" class="text-3xl font-black text-emerald-500">0</p>
+          <span class="text-[9px] font-bold text-white/40 uppercase tracking-widest">Active</span>
+        </div>
+        <div class="w-px h-8 bg-white/10"></div>
+        <div>
+          <p id="stat-inactive-employees" class="text-3xl font-black text-[#FF0061]">0</p>
+          <span class="text-[9px] font-bold text-white/40 uppercase tracking-widest">Inactive</span>
+        </div>
+      </div>
     </div>
     <!-- Card 2: Allocations -->
     <div class="p-6 bg-[#222222]/20 border border-white/5 rounded-2xl border-l-4 border-emerald-500 flex flex-col justify-between relative overflow-hidden group hover:border-emerald-500/20 hover:shadow-[0_0_20px_-3px_rgba(16,185,129,0.1)] transition-all duration-300">
@@ -120,9 +130,9 @@
 
         <!-- Filter by Employee Status -->
         <select id="filter-status" class="bg-[#1a1a1a]/50 border border-white/5 rounded-xl px-4 py-2.5 text-xs text-white/70 focus:outline-none focus:border-osttra-rubine/40 transition-all cursor-pointer">
+          <option value="All" selected>All Statuses</option>
           <option value="Active">Active Only</option>
           <option value="Inactive">Inactive Only</option>
-          <option value="All">All Statuses</option>
         </select>
 
         <!-- Filter Actions -->
@@ -492,21 +502,25 @@
     };
 
     function calculateStats() {
-      const total = monitorData.length;
-      const alloc = monitorData.filter(e => e.hasAllocation).length;
-      const skills = monitorData.filter(e => e.hasSkills).length;
-      const products = monitorData.filter(e => e.hasProductScope).length;
+      const activeEmployees = monitorData.filter(e => e.isActive);
+      const activeCount = activeEmployees.length;
+      const inactiveCount = monitorData.length - activeCount;
 
-      document.getElementById('stat-total-employees').innerText = total;
+      const alloc = activeEmployees.filter(e => e.hasAllocation).length;
+      const skills = activeEmployees.filter(e => e.hasSkills).length;
+      const products = activeEmployees.filter(e => e.hasProductScope).length;
+
+      document.getElementById('stat-active-employees').innerText = activeCount;
+      document.getElementById('stat-inactive-employees').innerText = inactiveCount;
       
       document.getElementById('stat-alloc-submitted').innerText = alloc;
-      document.getElementById('stat-alloc-pct').innerText = `(${total ? Math.round((alloc / total) * 100) : 0}%)`;
+      document.getElementById('stat-alloc-pct').innerText = `(${activeCount ? Math.round((alloc / activeCount) * 100) : 0}%)`;
       
       document.getElementById('stat-skills-certified').innerText = skills;
-      document.getElementById('stat-skills-pct').innerText = `(${total ? Math.round((skills / total) * 100) : 0}%)`;
+      document.getElementById('stat-skills-pct').innerText = `(${activeCount ? Math.round((skills / activeCount) * 100) : 0}%)`;
       
       document.getElementById('stat-products-mapped').innerText = products;
-      document.getElementById('stat-products-pct').innerText = `(${total ? Math.round((products / total) * 100) : 0}%)`;
+      document.getElementById('stat-products-pct').innerText = `(${activeCount ? Math.round((products / activeCount) * 100) : 0}%)`;
     }
 
     window.applyFilters = function() {
@@ -731,7 +745,7 @@
       document.getElementById('filter-days-comp').value = "All";
       document.getElementById('filter-skills').value = "All";
       document.getElementById('filter-products').value = "All";
-      document.getElementById('filter-status').value = "Active";
+      document.getElementById('filter-status').value = "All";
       
       applyFilters();
     };

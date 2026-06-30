@@ -3288,8 +3288,8 @@ function getAdminMonitorData(period) {
   const productScopes = getSheetData(CONFIG.SHEETS.MANAGER_PRODUCT_ALLOCATION);
   const auditData = getSheetData(CONFIG.SHEETS.DATA_AUDIT);
   
-  // Find ignored emails from audit mismatches (Exclude any employee explicitly marked with Action Status 'Ignore')
-  const ignoredEmails = new Set(["john.stewart@osttra.com"]); // Exclude top leader from compliance tracking
+  // Find ignored emails from configuration and audit mismatches (Exclude any employee explicitly marked with Action Status 'Ignore')
+  const ignoredEmails = new Set(CONFIG.IGNORED_EMAILS || []);
   auditData.forEach(r => {
     const emailKey = Object.keys(r).find(k => k.toLowerCase().replace(/[^a-z0-9]/g, '') === 'employeeemail') || 'Employee Email';
     const statusKey = Object.keys(r).find(k => k.toLowerCase().replace(/[^a-z0-9]/g, '') === 'actionstatus') || 'Action Status';
