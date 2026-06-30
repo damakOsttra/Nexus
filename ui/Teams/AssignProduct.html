@@ -1,0 +1,378 @@
+<div class="p-8 max-w-7xl mx-auto space-y-12 animate-in fade-in duration-700">
+  <!-- Header -->
+  <div class="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
+    <div class="space-y-2">
+      <h2 class="text-2xl font-black text-osttra-rubine uppercase tracking-widest flex items-center gap-2">
+        <i class="fas fa-cubes text-xl"></i> Assign Products
+      </h2>
+      <p class="text-white/40 text-sm font-medium tracking-wide uppercase">Define the Monthly Allocation Scope for Your Direct Reports</p>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
+    <!-- Direct Reports Sidebar (Left) -->
+    <div class="lg:col-span-1 space-y-4">
+      <h4 class="text-[10px] font-black text-white/30 uppercase tracking-[0.2em] px-2">Direct Reports</h4>
+      
+      <!-- Roster Search -->
+      <div class="px-2">
+        <div class="relative flex items-center">
+          <input type="text" id="roster-search" oninput="filterRoster(this.value)" placeholder="Search employee..." class="w-full bg-white/5 border border-white/5 focus:border-osttra-violet/40 rounded-xl py-2.5 pl-10 pr-4 text-xs text-white placeholder-white/30 focus:outline-none transition-all font-semibold" />
+          <i class="fas fa-search absolute left-3.5 text-white/20 text-xs"></i>
+        </div>
+      </div>
+
+      <div id="reports-list-container" class="space-y-2 max-h-[600px] overflow-y-auto pr-2 no-scrollbar">
+         <!-- Skeleton Loading State -->
+         <div class="space-y-3 animate-pulse">
+           <div class="h-20 bg-white/5 border border-white/5 rounded-2xl p-4 flex flex-col justify-center gap-2">
+             <div class="h-3 bg-white/10 rounded w-2/3"></div>
+             <div class="h-2 bg-white/5 rounded w-1/2"></div>
+           </div>
+           <div class="h-20 bg-white/5 border border-white/5 rounded-2xl p-4 flex flex-col justify-center gap-2">
+             <div class="h-3 bg-white/10 rounded w-3/4"></div>
+             <div class="h-2 bg-white/5 rounded w-1/3"></div>
+           </div>
+           <div class="h-20 bg-white/5 border border-white/5 rounded-2xl p-4 flex flex-col justify-center gap-2">
+             <div class="h-3 bg-white/10 rounded w-1/2"></div>
+             <div class="h-2 bg-white/5 rounded w-2/3"></div>
+           </div>
+         </div>
+      </div>
+    </div>
+
+    <!-- Mapping Workspace (Right) -->
+    <div class="lg:col-span-3">
+      <div id="mapping-workspace" class="p-24 glass rounded-[2.5rem] border border-white/5 text-center flex flex-col justify-center items-center gap-4 h-full min-h-[400px]">
+        <i class="fas fa-cubes text-5xl text-white/10 animate-bounce"></i>
+        <h4 class="text-sm font-black uppercase text-white/40">No Rep Selected</h4>
+        <p class="text-xs text-white/20 max-w-md mx-auto leading-relaxed">
+          Select a direct report from the left roster to view, edit, or assign their product scope and skill proficiencies.
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Confirmation Overlay -->
+<div id="confirm-modal" class="hidden fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
+  <div class="bg-osttra-black border border-white/10 p-8 rounded-3xl max-w-sm w-full shadow-2xl">
+    <h3 class="text-lg font-black text-white uppercase tracking-wider mb-2">Are you sure?</h3>
+    <p id="confirm-modal-msg" class="text-xs text-white/60 mb-8 leading-relaxed">This action will delete the product assignment.</p>
+    <div class="flex gap-4">
+      <button onclick="document.getElementById('confirm-modal').classList.add('hidden')" class="flex-1 py-3 bg-white/5 rounded-xl text-xs font-black uppercase text-white hover:bg-white/10 transition-all">Cancel</button>
+      <button id="confirm-modal-yes" class="flex-1 py-3 osttra-gradient rounded-xl text-xs font-black uppercase text-white hover:brightness-110 transition-all">Delete</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function() {
+    let teamReports = [];
+    let productCatalog = {};
+    let activeEmp = null;
+    let activeMappings = [];
+    let confirmCallback = null;
+    let searchQuery = ""; // Search query state
+
+    window.filterRoster = function(query) {
+      searchQuery = query || "";
+      renderReportsList();
+    };
+
+    window.showConfirmModal = function(message, onConfirm) {
+      document.getElementById('confirm-modal-msg').innerText = message;
+      document.getElementById('confirm-modal').classList.remove('hidden');
+      confirmCallback = onConfirm;
+    };
+
+    document.getElementById('confirm-modal-yes').onclick = function() {
+      document.getElementById('confirm-modal').classList.add('hidden');
+      if (confirmCallback) confirmCallback();
+    };
+
+    function loadProductSetupData() {
+      // Re-use existing getTeamProductsData since it returns reports list & catalog perfectly!
+      google.script.run
+        .withSuccessHandler(res => {
+          teamReports = res.reports || [];
+          productCatalog = res.catalog || {};
+          renderReportsList();
+        })
+        .withFailureHandler(err => {
+          showNotification('Fetch Error', 'Failed to retrieve setup catalogs: ' + err.message, 'error');
+        })
+        .getTeamProductsData();
+    }
+
+    function renderReportsList() {
+      const container = document.getElementById('reports-list-container');
+      
+      const filtered = teamReports.filter(emp => {
+        const query = searchQuery.toLowerCase().trim();
+        if (!query) return true;
+        return String(emp.name).toLowerCase().includes(query) || String(emp.email).toLowerCase().includes(query);
+      });
+
+      if (filtered.length === 0) {
+        container.innerHTML = `
+          <div class="text-center p-8 text-white/20 uppercase italic text-[10px]">
+            No employees found.
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = filtered.map(emp => {
+        const activeClass = (activeEmp && activeEmp.email === emp.email) ? 'bg-white/10 text-white border-white/10' : 'hover:bg-white/[0.02] border-transparent text-white/60';
+        return `
+          <button onclick="selectReport('${emp.email}')" class="w-full p-4 rounded-2xl border text-left flex items-center justify-between transition-all duration-300 ${activeClass}">
+            <div class="space-y-1">
+              <p class="text-xs font-black uppercase">${emp.name}</p>
+              <p class="text-[9px] font-bold text-white/30 uppercase tracking-widest">${emp.role}</p>
+            </div>
+            <i class="fas fa-chevron-right text-xs opacity-30"></i>
+          </button>
+        `;
+      }).join('');
+    }
+
+    window.selectReport = function(email) {
+      activeEmp = teamReports.find(e => e.email === email);
+      renderReportsList(); // Refresh active highlights
+
+      const workspace = document.getElementById('mapping-workspace');
+      workspace.innerHTML = `
+        <div class="flex flex-col items-center justify-center h-full w-full py-20">
+          <i class="fas fa-circle-notch animate-spin text-3xl text-osttra-rubine mb-4"></i>
+          <span class="text-[9px] font-black uppercase tracking-widest text-white/40 animate-pulse">Fetching scope...</span>
+        </div>
+      `;
+
+      google.script.run
+        .withSuccessHandler(mappings => {
+          activeMappings = mappings || [];
+          renderWorkspace();
+        })
+        .withFailureHandler(err => {
+          showNotification('Fetch Error', 'Failed to retrieve assignments: ' + err.message, 'error');
+        })
+        .getManagerProductAllocation(email);
+    };
+
+    function renderWorkspace() {
+      const workspace = document.getElementById('mapping-workspace');
+      if (!activeEmp) return;
+
+      const productOptions = Object.keys(productCatalog).sort().map(p => `<option value="${p}">${p}</option>`).join('');
+
+      workspace.innerHTML = `
+        <div class="w-full text-left space-y-8 animate-in fade-in duration-500">
+          <!-- Workspace Header -->
+          <div class="flex justify-between items-start border-b border-white/5 pb-6">
+            <div class="space-y-1">
+              <div class="flex items-center gap-3">
+                <h3 class="text-lg font-black text-white uppercase">${activeEmp.name}</h3>
+                <span id="auto-save-status" class="text-[9px] font-bold uppercase tracking-widest text-white/30"></span>
+              </div>
+              <p class="text-[10px] font-bold text-osttra-rubine uppercase tracking-widest">${activeEmp.email}</p>
+            </div>
+            <span class="px-3 py-1.5 bg-white/5 border border-white/10 rounded-xl text-[8px] font-black uppercase tracking-widest text-white/60">
+              Active Scope: ${activeMappings.length} Products
+            </span>
+          </div>
+
+          <!-- Add Product Assignment Form -->
+          <div class="p-6 bg-white/[0.02] border border-white/5 rounded-3xl space-y-4">
+            <h4 class="text-[9px] font-black text-white/30 uppercase tracking-[0.2em]">Add Allocation Assignment</h4>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <!-- Product Select -->
+              <div class="space-y-1">
+                <label class="text-[9px] font-bold text-white/40 uppercase tracking-wider">Product Category</label>
+                <select id="select-catalog-product" onchange="onProductSelectChange(this.value)" class="w-full bg-[#1e1e1e] border border-white/5 rounded-xl px-4 py-3 text-xs font-black text-white focus:outline-none focus:border-osttra-violet">
+                  <option value="" disabled selected>Select Product...</option>
+                  ${productOptions}
+                </select>
+              </div>
+
+              <!-- Sub-Product Select -->
+              <div class="space-y-1">
+                <label class="text-[9px] font-bold text-white/40 uppercase tracking-wider">Sub-Product</label>
+                <select id="select-catalog-sub" disabled class="w-full bg-[#1e1e1e] border border-white/5 rounded-xl px-4 py-3 text-xs font-black text-white focus:outline-none focus:border-osttra-violet disabled:opacity-30 disabled:cursor-not-allowed">
+                  <option value="" disabled selected>Select Sub-Product...</option>
+                </select>
+              </div>
+
+              <!-- Action button -->
+              <div class="flex items-end">
+                <button onclick="addAssignment()" class="w-full py-3 osttra-gradient rounded-xl text-xs font-black uppercase text-white hover:brightness-110 transition-all shadow-lg shadow-osttra-rubine/10">
+                  Add to Scope
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Table of Active Scope -->
+          <div class="space-y-3">
+            <h4 class="text-[9px] font-black text-white/30 uppercase tracking-[0.2em]">Assigned Allocation Scope</h4>
+            <div class="border border-white/5 rounded-3xl overflow-x-auto">
+              <table class="w-full border-collapse">
+                <thead class="bg-white/5 text-[9px] font-black uppercase tracking-widest text-white/40 border-b border-white/5">
+                  <tr>
+                    <th class="p-4 w-12 text-center">No.</th>
+                    <th class="p-4">Product Category</th>
+                    <th class="p-4">Sub-Product</th>
+                    <th class="p-4 text-center w-20">Action</th>
+                  </tr>
+                </thead>
+                <tbody id="mapping-table-body" class="divide-y divide-white/5 text-xs text-white/60">
+                  <!-- Mappings rows will be injected here -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+      `;
+
+      renderMappingsTable();
+    }
+
+    window.onProductSelectChange = function(product) {
+      const subSelect = document.getElementById('select-catalog-sub');
+      if (!subSelect) return;
+
+      const subs = productCatalog[product] || [];
+      if (subs.length === 0) {
+        subSelect.innerHTML = `<option value="General" selected>General</option>`;
+        subSelect.setAttribute('disabled', 'true');
+      } else {
+        subSelect.removeAttribute('disabled');
+        subSelect.innerHTML = `<option value="" disabled selected>Select Sub-Product...</option>` +
+          subs.sort().map(s => `<option value="${s}">${s}</option>`).join('');
+      }
+    };
+
+    window.addAssignment = function() {
+      const pEl = document.getElementById('select-catalog-product');
+      const sEl = document.getElementById('select-catalog-sub');
+
+      const prod = pEl ? pEl.value : '';
+      const sub = sEl ? sEl.value : 'General';
+
+      if (!prod || !sub) {
+        showNotification('Selection Missing', 'Please select both Product and Sub-Product.', 'warning');
+        return;
+      }
+
+      // Check if assignment already exists in state
+      const exists = activeMappings.some(m => 
+        String(m.product).toLowerCase().trim() === prod.toLowerCase().trim() &&
+        String(m.subProduct || "General").toLowerCase().trim() === sub.toLowerCase().trim()
+      );
+
+      if (exists) {
+        showNotification('Duplicate Mapping', `Product '${prod} (${sub})' is already assigned.`, 'warning');
+        return;
+      }
+
+      activeMappings.push({ product: prod, subProduct: sub });
+      renderMappingsTable();
+      triggerAutoSave();
+
+      // Reset select tags
+      if (pEl) pEl.value = "";
+      if (sEl) {
+        sEl.innerHTML = `<option value="" disabled selected>Select Sub-Product...</option>`;
+        sEl.setAttribute('disabled', 'true');
+      }
+    };
+
+    window.removeAssignment = function(idx) {
+      const item = activeMappings[idx];
+      showConfirmModal(`Revoke allocation assignment for Product: ${item.product} (${item.subProduct})?`, () => {
+        activeMappings.splice(idx, 1);
+        renderMappingsTable();
+        triggerAutoSave();
+      });
+    };
+
+    function renderMappingsTable() {
+      const body = document.getElementById('mapping-table-body');
+      if (!body) return;
+
+      if (activeMappings.length === 0) {
+        body.innerHTML = `
+          <tr>
+            <td colspan="4" class="p-12 text-center text-white/20 uppercase italic tracking-widest text-[10px]">
+              No allocation products assigned yet. Click above to append scope.
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      body.innerHTML = activeMappings.map((item, idx) => {
+        return `
+          <tr class="hover:bg-white/[0.01] transition-colors">
+            <td class="p-4 text-center font-bold text-white/30 text-[10px]">${idx + 1}</td>
+            <td class="p-4 uppercase text-white font-black text-xs">${item.product}</td>
+            <td class="p-4 uppercase text-white/70 font-semibold tracking-wider">${item.subProduct || "General"}</td>
+            <td class="p-4 text-center">
+              <button onclick="removeAssignment(${idx})" class="w-8 h-8 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-500 flex items-center justify-center mx-auto transition-colors">
+                <i class="fas fa-trash-alt text-xs"></i>
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function triggerAutoSave() {
+      if (!activeEmp) return;
+
+      window.isSaving = true;
+      const statusEl = document.getElementById('auto-save-status');
+      if (statusEl) {
+        statusEl.innerHTML = '<i class="fas fa-circle-notch animate-spin text-osttra-rubine mr-1"></i> Saving...';
+        statusEl.className = 'text-[9px] font-bold uppercase tracking-widest text-osttra-rubine animate-pulse';
+      }
+
+      google.script.run
+        .withSuccessHandler(msg => {
+          window.isSaving = false;
+          if (statusEl) {
+            statusEl.innerHTML = '<i class="fas fa-check-circle text-emerald-500 mr-1"></i> Saved';
+            statusEl.className = 'text-[9px] font-bold uppercase tracking-widest text-emerald-400';
+            setTimeout(() => {
+              if (!window.isSaving && statusEl.innerText.includes('Saved')) {
+                statusEl.innerHTML = '';
+              }
+            }, 3000);
+          }
+          
+          // Silently clear local session cache so employee reloads pull fresh scope
+          sessionStorage.removeItem('nexus_session');
+          if (window.viewCache) {
+            delete window.viewCache['Allocation'];
+          }
+
+          window.resolvePendingNavigation();
+        })
+        .withFailureHandler(err => {
+          window.isSaving = false;
+          if (statusEl) {
+            statusEl.innerHTML = '<i class="fas fa-exclamation-circle text-red-500 mr-1"></i> Save Failed';
+            statusEl.className = 'text-[9px] font-bold uppercase tracking-widest text-red-500';
+          }
+          showNotification('Save Failed', err.message, 'error');
+
+          window.resolvePendingNavigation();
+        })
+        .saveManagerProductAllocation(activeEmp.email, JSON.parse(JSON.stringify(activeMappings)));
+    }
+
+    // Load data on start
+    loadProductSetupData();
+  })();
+</script>

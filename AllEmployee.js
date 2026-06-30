@@ -1,0 +1,495 @@
+/**
+ * OSTTRA Corporate Master Data Export - Filtered for Anup Hariharan's Org
+ * New Columns: Regional Head/Head of function & Leads
+ */
+function exportAnupOrgMasterData() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  
+  try {
+    // 1. PREPARATION: Load Manual Data
+    console.log("Mapping Manual Data...");
+    const manualMaps = getManualDataMaps(ss);
+    
+    // 2. PREPARATION: Load Directory
+    console.log("Downloading directory...");
+    const directoryMap = getCompleteDirectoryMap();
+    const allEmails = Object.keys(directoryMap);
+    
+    if (allEmails.length === 0) {
+      return "Error: No directory data retrieved. Please check if People API is enabled and has correct permissions.";
+    }
+    
+    const targetSheetName = "App All Employee Data (Read / Write)";
+    let sheet = ss.getSheetByName(targetSheetName);
+    
+    // --- DB CASCADE: Detect Email Changes Before Overwrite ---
+    const existingIdToEmailMap = {};
+    if (sheet) {
+      const existingData = sheet.getDataRange().getValues();
+      if (existingData.length > 1) {
+        const h = existingData[0].map(header => String(header).trim());
+        const idIdx = h.indexOf("Employee ID");
+        const emailIdx = h.indexOf("Email Address");
+        if (idIdx !== -1 && emailIdx !== -1) {
+          for (let i = 1; i < existingData.length; i++) {
+            const eId = String(existingData[i][idIdx]).trim();
+            const eMail = String(existingData[i][emailIdx]).toLowerCase().trim();
+            if (eId && eMail) existingIdToEmailMap[eId] = eMail;
+          }
+        }
+      }
+      sheet.clear(); 
+    } else { 
+      sheet = ss.insertSheet(targetSheetName); 
+    }
+    // ---------------------------------------------------------
+
+    // Define the allowed Regional Heads
+    const allowedHeads = getAllowedHeads();
+    const allowedHeadsLower = allowedHeads.map(h => h.toLowerCase());
+
+    // --- DAYFORCE INTEGRATION: Fetch Dayforce Data ---
+    const dayforceData = fetchDayforceData();
+    const dayforceMap = dayforceData.byEmail || {};
+    const dfEmpMap = dayforceData.byEmpId || {};
+    const dayforceByNameMap = dayforceData.byName || {};
+
+    const isoToCountry = {
+      "IN": "India",
+      "US": "United States",
+      "GB": "United Kingdom",
+      "SG": "Singapore",
+      "SE": "Sweden",
+      "MY": "Malaysia",
+      "JP": "Japan"
+    };
+
+    const allRows = [];
+    // FINAL HEADERS - Expanded with Dayforce HR metrics
+    allRows.push([
+      "Employee ID", "First Name", "Last Name", "Google Chat Full Name", "HR Name", "Email Address", 
+      "Photo URL", "Cost Center", 
+      "Regional Head/Head of function",
+      "Direct Manager Name", "Direct Manager Email", "Manager ID", 
+      "Management Line (Hierarchy)", "Profile", "Start Date",
+      "HR Start Date", "HR Termination Date", "HR Employment Status", "HR Pay Class", "HR Legal Entity"
+    ]);
+
+    allEmails.forEach(email => {
+      const person = directoryMap[email];
+      let dfRecord = dayforceMap[email.toLowerCase().trim()];
+      if (!dfRecord && person && person.name) {
+        const sanitizedName = String(person.name).toLowerCase().replace(/[^a-z0-9]/g, '');
+        if (dayforceByNameMap[sanitizedName]) {
+          dfRecord = dayforceByNameMap[sanitizedName];
+          console.log(`[DAYFORCE_RESOLVER] Email mismatch resolved by name-match for ${email} -> ${dfRecord.hrName}`);
+        }
+      }
+      
+      // Resolve Manager Info & Hierarchy strictly from Dayforce, falling back to Google Workspace Directory
+      let managerEmailAddr = "N/A";
+      let managerName = "N/A";
+      let managerEmpId = "N/A";
+
+      if (dfRecord) {
+        managerEmpId = dfRecord.managerEmpId || "N/A";
+        managerName = dfRecord.managerName || "N/A";
+        
+        // Reverse-lookup manager's email in Dayforce Map using manager ID
+        if (managerEmpId !== "N/A" && dfEmpMap[managerEmpId]) {
+          managerEmailAddr = dfEmpMap[managerEmpId].email || "N/A";
+        }
+      }
+
+      // Fallback to Google Directory for direct manager if Dayforce lookup is empty
+      if (managerEmailAddr === "N/A" || managerName === "N/A") {
+        if (person.managerEmail) {
+          managerEmailAddr = person.managerEmail;
+          if (directoryMap[person.managerEmail.toLowerCase()]) {
+            const mgrObj = directoryMap[person.managerEmail.toLowerCase()];
+            if (managerName === "N/A") managerName = mgrObj.name || "N/A";
+            if (managerEmpId === "N/A") managerEmpId = mgrObj.empId || "N/A";
+          }
+        }
+      }
+
+      // Build Hierarchy utilizing Dayforce recursion, falling back to Google Directory if needed
+      const chain = [{ email: email.toLowerCase().trim(), name: person.name }];
+      let currMngrEmail = managerEmailAddr;
+      const visited = new Set([email.toLowerCase().trim()]);
+
+      while (currMngrEmail && currMngrEmail !== "N/A") {
+        const mgrKey = currMngrEmail.toLowerCase().trim();
+        if (visited.has(mgrKey)) break; // Prevent infinite loops
+        visited.add(mgrKey);
+
+        let nextMgrName = "N/A";
+        let nextMgrEmail = "N/A";
+
+        // Try Dayforce record first
+        if (dayforceMap[mgrKey]) {
+          const dfMgr = dayforceMap[mgrKey];
+          nextMgrName = dfMgr.hrName || (dfMgr.firstName + " " + dfMgr.lastName);
+          nextMgrEmail = dfMgr.managerEmail || "N/A";
+          
+          // Reverse-lookup next manager's email if only ID is present
+          if (nextMgrEmail === "N/A" && dfMgr.managerEmpId && dfMgr.managerEmpId !== "N/A" && dfEmpMap[dfMgr.managerEmpId]) {
+            nextMgrEmail = dfEmpMap[dfMgr.managerEmpId].email || "N/A";
+          }
+        } 
+        
+        // Fallback to Google Directory if next manager is not in Dayforce scope
+        if (nextMgrName === "N/A" && directoryMap[mgrKey]) {
+          const gMgr = directoryMap[mgrKey];
+          nextMgrName = gMgr.name || "N/A";
+          nextMgrEmail = gMgr.managerEmail || "N/A";
+        }
+
+        if (nextMgrName !== "N/A") {
+          chain.push({ email: mgrKey, name: nextMgrName });
+        }
+
+        // Stop if we hit John Stewart or Anup Hariharan (but keep them in the chain)
+        if (mgrKey === "john.stewart@osttra.com" || mgrKey === "anup.hariharan@osttra.com") break;
+
+        currMngrEmail = nextMgrEmail;
+      }
+
+      // Resolve Cost Center (Dayforce Primary, Google Fallback)
+      let costCenterValue = "N/A";
+      if (dfRecord && dfRecord.countryCode && dfRecord.countryCode !== "N/A") {
+        const cc = dfRecord.countryCode;
+        if (isoToCountry[cc]) {
+          costCenterValue = isoToCountry[cc];
+        } else {
+          costCenterValue = cc.toLowerCase().split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+        }
+      } else {
+        const normalizeCase = (str) => {
+          if (!str || str === "N/A") return "N/A";
+          return str.toLowerCase().split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+        };
+        costCenterValue = normalizeCase(person.costCenter);
+      }
+
+      // --- 4. FIND REGIONAL HEAD (Functional Head) ---
+      let regionalHead = "N/A";
+      
+      // Traverse up the chain to find the lowest Functional Head matching the 6 emails
+      for (let i = 0; i < chain.length; i++) {
+        if (allowedHeadsLower.indexOf(chain[i].email) !== -1) {
+          regionalHead = chain[i].name;
+          break; 
+        }
+      }
+
+      const managementLine = chain.slice(1).map(item => item.name).join(" > ");
+      
+      // --- 5. THE FILTERS ---
+      const isJohnStewart = email.toLowerCase().trim() === "john.stewart@osttra.com";
+      const isInAnupOrg = chain.some(item => item.email === "anup.hariharan@osttra.com") || email.toLowerCase().trim() === "anup.hariharan@osttra.com" || isJohnStewart;
+      const hasCostCenter = costCenterValue !== "N/A";
+
+      if (isInAnupOrg && hasCostCenter && (person.empId !== "N/A" || person.title !== "") && dfRecord) {
+        // DB CASCADE: Detect Email Address changes and trigger cascading updates
+        const empIdStr = String(person.empId).trim();
+        const newEmailStr = email.toLowerCase().trim();
+        if (empIdStr && empIdStr !== "N/A" && existingIdToEmailMap[empIdStr]) {
+          const oldEmailStr = existingIdToEmailMap[empIdStr];
+          if (oldEmailStr !== newEmailStr) {
+            console.log(`EMAIL CHANGE DETECTED FOR EMP ${empIdStr}: ${oldEmailStr} -> ${newEmailStr}. Invoking DB Cascade...`);
+            cascadeEmailUpdate(oldEmailStr, newEmailStr);
+          }
+        }
+
+        // Dayforce Data Merge (Enrich Google Payload)
+        const dfRecordMatched = dfRecord;
+        
+        const hrName = dfRecordMatched && dfRecordMatched.hrName ? dfRecordMatched.hrName : `${person.firstName || ""} ${person.lastName || ""}`.trim();
+        const hrStart = dfRecordMatched && dfRecordMatched.hireDate ? String(dfRecordMatched.hireDate).substring(0, 10) : "N/A (Not in HRIS)";
+        const hrTerm = dfRecordMatched && dfRecordMatched.termDate ? String(dfRecordMatched.termDate).substring(0, 10) : "Active (No Term Date)";
+        const hrStatus = dfRecordMatched ? dfRecordMatched.status : "N/A (Not in HRIS)";
+        const hrPay = dfRecordMatched ? dfRecordMatched.payClass : "N/A (Not in HRIS)";
+        const hrLegal = dfRecordMatched ? dfRecordMatched.legalEntity : "N/A (Not in HRIS)";
+        
+        // Let's use HR Start Date as a fallback for standard Start Date to heal both columns!
+        const legacyStart = (person.startDate && person.startDate !== "N/A") 
+          ? person.startDate 
+          : (hrStart !== "N/A (Not in HRIS)" ? hrStart : "N/A");
+
+        // Profile/Role mapped from Google Workspace Directory (Google Chat Title)
+        const hrProfile = person.title || "N/A";
+
+        allRows.push([
+          person.empId, 
+          person.firstName, 
+          person.lastName, 
+          person.name, // Google Chat Full Name (Directory Display Name)
+          hrName,
+          email, 
+          person.photoUrl,
+          costCenterValue, 
+          regionalHead,    
+          managerName,     
+          managerEmailAddr,
+          managerEmpId,
+          managementLine, 
+          hrProfile, // This maps to "Profile" (derived from Dayforce HR)
+          legacyStart,
+          hrStart,
+          hrTerm,
+          hrStatus,
+          hrPay,
+          hrLegal
+        ]);
+      }
+    });
+
+    if (allRows.length > 1) {
+      sheet.getRange(1, 1, allRows.length, allRows[0].length).setValues(allRows);
+      applyFormatting(sheet);
+      
+      // Auto-trigger audit run to sync discrepancies
+      try {
+        console.log("Triggering automated discrepancy audit...");
+        auditDayforceVsGoogle();
+      } catch (auditErr) {
+        console.warn("Automated discrepancy audit failed: ", auditErr);
+      }
+      
+      return "Success";
+    } else {
+      return "Error: No employees matched the filters (Anup Org + Cost Center).";
+    }
+  } catch (e) {
+    return "Error: " + e.toString();
+  }
+}
+
+/**
+ * HELPER: Directory Fetching
+ */
+function getCompleteDirectoryMap() {
+  const map = {};
+  const resourceToEmailMap = {};
+  let pageToken = null;
+  try {
+    do {
+      const response = People.People.listDirectoryPeople({
+        readMask: 'names,emailAddresses,organizations,locations,relations,externalIds,photos',
+        sources: ['DIRECTORY_SOURCE_TYPE_DOMAIN_PROFILE'],
+        pageSize: 1000,
+        pageToken: pageToken
+      });
+      if (response.people) {
+        response.people.forEach(p => {
+          const email = p.emailAddresses?.[0]?.value;
+          if (email) {
+            const org = p.organizations?.[0] || {};
+            const startDateObj = org.startDate || null;
+            const startDateString = startDateObj
+              ? `${startDateObj.year}-${String(startDateObj.month || 1).padStart(2, '0')}-${String(startDateObj.day || 1).padStart(2, '0')}`
+              : "N/A";
+
+            map[email.toLowerCase()] = {
+              resourceName: p.resourceName,
+              name: p.names?.[0]?.displayName || "",
+              firstName: p.names?.[0]?.givenName || "",
+              lastName: p.names?.[0]?.familyName || "",
+              empId: p.externalIds?.find(id => id.type === 'organization')?.value || "N/A",
+              title: org.title || "",
+              dept: org.department || "",
+              costCenter: org.costCenter || "",
+              startDate: startDateString,
+              loc: p.locations?.[0]?.value || "",
+              managerEmailRaw: p.relations?.find(r => r.type === 'manager')?.person || null,
+              photoUrl: p.photos?.[0]?.url || "N/A"
+            };
+
+            if (p.resourceName) {
+              resourceToEmailMap[p.resourceName] = email.toLowerCase();
+            }
+          }
+        });
+      }
+      pageToken = response.nextPageToken;
+    } while (pageToken);
+
+    // Resolve resourceName to email for managerEmail
+    Object.keys(map).forEach(email => {
+      const pObj = map[email];
+      if (pObj.managerEmailRaw) {
+        let rawVal = String(pObj.managerEmailRaw).trim();
+        let resolved = null;
+        
+        // 1. Try exact match in resourceToEmailMap (e.g., 'people/c1234')
+        if (resourceToEmailMap[rawVal]) {
+          resolved = resourceToEmailMap[rawVal];
+        } 
+        // 2. Try prefixing with 'people/' just in case
+        else if (resourceToEmailMap['people/' + rawVal]) {
+          resolved = resourceToEmailMap['people/' + rawVal];
+        }
+        // 3. Try to see if it's already an email address
+        else if (map[rawVal.toLowerCase()]) {
+          resolved = rawVal.toLowerCase();
+        }
+
+        pObj.managerEmail = resolved || null;
+      } else {
+        pObj.managerEmail = null;
+      }
+    });
+
+  } catch (e) {
+    console.error("API Error: " + e.message);
+    throw new Error("People API Error: " + e.message + ". Please ensure People API is enabled in Google Cloud Console.");
+  }
+  return map;
+}
+
+/**
+ * HELPER: Manual Data Maps
+ */
+function getManualDataMaps(ss) {
+  const manualSheet = ss.getSheetByName("Manually Added Data");
+  const idMap = {};
+  const nameMap = {};
+  if (!manualSheet) return {idMap, nameMap};
+
+  const data = manualSheet.getDataRange().getValues();
+  const headers = data[0];
+  
+  const nameIdx = headers.indexOf("Name");
+  const empIdIdx = headers.indexOf("Employee ID");
+  const roleIdx = headers.indexOf("Role");
+  const shortRoleIdx = headers.indexOf("ShortRole");
+  const startDateIdx = headers.indexOf("Start Date");
+
+  for (let i = 1; i < data.length; i++) {
+    const row = data[i];
+    const rowObj = {
+      role: row[roleIdx],
+      shortRole: row[shortRoleIdx],
+      startDate: row[startDateIdx] instanceof Date ? 
+                 Utilities.formatDate(row[startDateIdx], ss.getSpreadsheetTimeZone(), "yyyy-MM-dd") : 
+                 row[startDateIdx]
+    };
+    const empId = String(row[empIdIdx]).trim();
+    const name = String(row[nameIdx]).toLowerCase().trim();
+    if (empId && empId !== "undefined") idMap[empId] = rowObj;
+    if (name) nameMap[name] = rowObj;
+  }
+  return {idMap, nameMap};
+}
+
+/**
+ * HELPER: Region Mapping
+ */
+function mapRegion(cc, loc) {
+  const searchStr = ( (cc || "") + " " + (loc || "") ).toUpperCase();
+  if (searchStr.includes("INDIA") || searchStr.includes("GURUGRAM")) return "India";
+  if (searchStr.includes("UK") || searchStr.includes("LONDON")) return "UK";
+  if (searchStr.includes("USA") || searchStr.includes("NEW YORK")) return "USA";
+  if (searchStr.includes("SWEDEN")) return "Sweden";
+  if (searchStr.includes("JAPAN")) return "Japan";
+  if (searchStr.includes("MALAYSIA")) return "Malaysia";
+  if (searchStr.includes("SINGAPORE")) return "Singapore";
+  return "Global Hub";
+}
+
+/**
+ * HELPER: Formatting
+ */
+function applyFormatting(sheet) {
+  const headerRange = sheet.getRange(1, 1, 1, sheet.getLastColumn());
+  headerRange.setBackground("#0d47a1").setFontColor("white").setFontWeight("bold");
+  sheet.setFrozenRows(1);
+  sheet.autoResizeColumns(1, sheet.getLastColumn());
+}
+
+/**
+ * DAYFORCE: Fetch authoritative HR metrics from Dayforce HCM report API securely
+ */
+function fetchDayforceData() {
+  const props = PropertiesService.getScriptProperties();
+  const user = props.getProperty('DAYFORCE_USER') || "api.clientservices";
+  const pass = props.getProperty('DAYFORCE_PASS') || "tR6$mY2!xW9#pQ5*vN";
+  
+  if (!user || !pass) {
+    console.warn("Dayforce Credentials missing from script properties. Returning empty maps.");
+    return { byEmail: {}, byEmpId: {} };
+  }
+  
+  const url = "https://wkdeur261.dayforcehcm.com/api/osttrahcm/v1/reports/ClientServ";
+  
+  const headers = {
+    "Authorization": "Basic " + Utilities.base64Encode(user + ":" + pass),
+    "Accept": "application/json"
+  };
+  
+  try {
+    const response = UrlFetchApp.fetch(url, {
+      "method": "get",
+      "headers": headers,
+      "muteHttpExceptions": true
+    });
+    
+    const code = response.getResponseCode();
+    if (code !== 200) {
+      console.error(`Dayforce API returned error response code ${code}: ${response.getContentText()}`);
+      return { byEmail: {}, byEmpId: {} };
+    }
+    
+    const payload = JSON.parse(response.getContentText());
+    const rows = payload.Data?.Rows || [];
+    
+    const map = {};
+    const mapByEmpId = {};
+    const mapByName = {}; // Fallback for email-mismatched accounts
+    rows.forEach(row => {
+      const email = String(row.EmailCheck || "").toLowerCase().trim();
+      const empId = String(row.EmployeeEmploymentStatus_EmployeeNumber || "").trim();
+      const firstName = String(row.Employee_FirstName || "").trim();
+      const lastName = String(row.Employee_LastName || "").trim();
+      const rawName = `${firstName} ${lastName}`.trim();
+      
+      let mgrNameRaw = String(row.EmployeeManager_ManagerDisplayName || "N/A").trim();
+      let cleanMgrName = mgrNameRaw;
+      if (mgrNameRaw !== "N/A" && mgrNameRaw.includes(",")) {
+        const parts = mgrNameRaw.split(",");
+        cleanMgrName = `${parts[1].trim()} ${parts[0].trim()}`.trim();
+      }
+
+      const record = {
+          email: email,
+          empId: empId,
+          hrName: rawName || null,
+          firstName: firstName,
+          lastName: lastName,
+          hireDate: row.Employee_HireDate || null,
+          termDate: row.Employee_TerminationDate || null,
+          status: row.EmploymentStatus_ShortName || "Active",
+          payClass: row.PayClass_ShortName || "Full time",
+          legalEntity: row.DenormOrgUnit_Field999 || "OSTTRA",
+          jobTitle: row.Job_ShortName || row.JobTitle || "N/A",
+          countryCode: row.GeoCountry_ISO31662Code || "N/A",
+          managerEmpId: String(row.EmployeeManager_ManagerEmployeeNumber || "N/A").trim(),
+          managerName: cleanMgrName,
+          rawRow: row // Attach raw row for dynamic inspection in audits
+      };
+      
+      if (email) map[email] = record;
+      if (empId) mapByEmpId[empId] = record;
+      
+      const sanitizedName = rawName.toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (sanitizedName) mapByName[sanitizedName] = record;
+    });
+    
+    console.log(`Successfully fetched and parsed ${Object.keys(map).length} active Dayforce HR records.`);
+    return { byEmail: map, byEmpId: mapByEmpId, byName: mapByName };
+  } catch(e) {
+    console.error("Dayforce API Fetch Failed:", e.message);
+    return { byEmail: {}, byEmpId: {} };
+  }
+}

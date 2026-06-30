@@ -1,0 +1,333 @@
+<div class="p-8 max-w-6xl mx-auto space-y-8 animate-in fade-in duration-700">
+  
+  <!-- Dynamic Phase 1 State Banner -->
+  <div id="phase-banner" class="hidden p-6 rounded-2xl border transition-all flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+    <div class="flex items-start md:items-center gap-4 flex-1">
+      <div id="banner-icon-container" class="w-10 h-10 rounded-xl flex items-center justify-center text-lg shrink-0">
+         <!-- Dynamic FontAwesome icon goes here -->
+      </div>
+      <div class="space-y-1 flex-1">
+        <h3 id="banner-title" class="text-xs font-black uppercase tracking-[0.2em]">---</h3>
+        <p id="banner-desc" class="text-[11px] font-medium opacity-70 leading-relaxed">---</p>
+      </div>
+    </div>
+    <div id="banner-action-area" class="shrink-0">
+      <!-- Dynamic action button loaded here -->
+    </div>
+  </div>
+
+  <!-- Header -->
+  <div class="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 border-b border-white/5 pb-4">
+    <div class="flex items-center gap-4">
+      <div class="w-10 h-10 rounded-lg bg-osttra-rubine/10 flex items-center justify-center text-osttra-rubine"><i class="fas fa-id-card"></i></div>
+      <h2 class="text-2xl font-black text-osttra-rubine uppercase tracking-widest flex items-center gap-2">My Profile</h2>
+    </div>
+  </div>
+
+  <!-- Profile Header Card -->
+  <div class="p-10 glass rounded-[3rem] border border-white/5 flex flex-col md:flex-row items-center gap-12 relative overflow-hidden">
+    <!-- Glow Backdrop Effects -->
+    <div class="absolute w-64 h-64 bg-gradient-to-tr from-osttra-rubine/15 to-osttra-violet/15 rounded-full blur-3xl -top-10 -left-10 opacity-60 z-0"></div>
+    <div class="absolute w-64 h-64 bg-gradient-to-br from-osttra-ochre/10 to-osttra-rubine/10 rounded-full blur-3xl -bottom-10 -right-10 opacity-40 z-0"></div>
+
+    <div class="relative w-40 h-40 rounded-full border border-white/5 bg-white/5 p-1 shadow-2xl shrink-0 z-10 mx-auto md:mx-0 group">
+      <!-- Glow Ring on hover -->
+      <div class="absolute inset-0 rounded-full bg-gradient-to-r from-osttra-rubine to-osttra-violet opacity-0 group-hover:opacity-20 blur-md transition-opacity duration-500"></div>
+      <div class="w-full h-full bg-osttra-dark rounded-full overflow-hidden relative z-10 border border-white/10">
+         <img id="my-photo" src="" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+      </div>
+    </div>
+    
+    <div class="text-center md:text-left space-y-6 flex-1 relative z-10 w-full min-w-0">
+      <div class="flex flex-col xl:flex-row xl:items-start justify-between gap-6">
+        
+        <!-- Left: Name & Role -->
+        <div class="flex-1 min-w-0 space-y-3">
+          <h3 id="my-name" class="text-xl font-black text-white uppercase tracking-tight leading-tight break-words">---</h3>
+          <p id="my-role" class="text-xs font-bold text-white/60 uppercase tracking-widest">---</p>
+        </div>
+        
+        <!-- Right: Badges (Only Tenure, Status is removed) -->
+        <div class="flex flex-col sm:flex-row xl:flex-col items-center md:items-start xl:items-end gap-3 shrink-0">
+          <div id="tenure-badge" class="hidden px-4 py-2 rounded-xl bg-osttra-ochre/10 border border-osttra-ochre/20 text-osttra-ochre text-[10px] font-black uppercase tracking-widest flex items-center gap-2 whitespace-nowrap w-max">
+             <i class="fas fa-award"></i> <span id="tenure-text">---</span>
+          </div>
+        </div>
+        
+      </div>
+      
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-w-4xl">
+         <div class="px-4 py-3 bg-white/5 rounded-2xl border border-white/5 flex items-center gap-4 hover:bg-white/10 transition-colors">
+            <div class="w-10 h-10 rounded-xl bg-osttra-rubine/10 flex items-center justify-center text-osttra-rubine">
+               <i class="fas fa-id-badge text-lg"></i>
+            </div>
+            <div>
+               <p class="text-[8px] font-black text-white/50 uppercase tracking-widest">Employee ID</p>
+               <p id="my-id" class="text-xs font-mono text-white/80 font-bold">---</p>
+            </div>
+         </div>
+         <div class="px-4 py-3 bg-white/5 rounded-2xl border border-white/5 flex items-center gap-4 hover:bg-white/10 transition-colors">
+            <div class="w-10 h-10 rounded-xl bg-osttra-rubine/10 flex items-center justify-center text-osttra-rubine">
+               <i class="fas fa-map-marker-alt text-lg"></i>
+            </div>
+            <div>
+               <p class="text-[8px] font-black text-white/50 uppercase tracking-widest">Cost Center Standard</p>
+               <p id="my-region" class="text-xs font-bold text-white/80 uppercase">---</p>
+            </div>
+         </div>
+         <div class="px-4 py-3 bg-white/5 rounded-2xl border border-white/5 flex items-center gap-4 hover:bg-white/10 transition-colors">
+            <div class="w-10 h-10 rounded-xl bg-osttra-rubine/10 flex items-center justify-center text-osttra-rubine">
+               <i class="fas fa-sitemap text-lg"></i>
+            </div>
+            <div class="flex-1 min-w-0">
+               <p class="text-[8px] font-black text-white/50 uppercase tracking-widest">Reports To</p>
+               <p id="my-manager" class="text-xs font-bold text-white/80 uppercase whitespace-normal leading-tight">---</p>
+            </div>
+         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Professional Identity Section -->
+  <div class="p-8 glass rounded-[2.5rem] border border-white/5 space-y-8">
+     <div class="flex items-center gap-4">
+        <div class="w-10 h-10 rounded-xl bg-osttra-rubine/10 flex items-center justify-center text-osttra-rubine">
+           <i class="fas fa-fingerprint"></i>
+        </div>
+        <h4 class="text-sm font-black uppercase tracking-widest text-white/80">Professional Identity</h4>
+     </div>
+     
+     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+        <div class="space-y-4 col-span-1">
+           <p class="text-[9px] font-black text-white/50 uppercase tracking-widest border-b border-white/5 pb-2 flex items-center gap-1.5"><i class="fas fa-id-badge text-[10px] text-osttra-rubine/60"></i> Identification</p>
+           <div class="space-y-3">
+              <div><p class="text-[8px] font-black text-white/40 uppercase flex items-center gap-1"><i class="fas fa-envelope text-[8px] opacity-45"></i> Corporate Email</p><p id="det-email" class="text-xs font-mono text-white/70">---</p></div>
+              <div><p class="text-[8px] font-black text-white/40 uppercase flex items-center gap-1"><i class="fas fa-fingerprint text-[8px] opacity-45"></i> Internal Employee ID</p><p id="det-id" class="text-xs font-mono text-white/70">---</p></div>
+              <div><p class="text-[8px] font-black text-white/40 uppercase flex items-center gap-1"><i class="fas fa-user-tag text-[8px] opacity-45"></i> HR Profile</p><p id="det-profile" class="text-xs font-bold text-white/70 uppercase">---</p></div>
+           </div>
+        </div>
+        <div class="space-y-4 col-span-1">
+           <p class="text-[9px] font-black text-white/50 uppercase tracking-widest border-b border-white/5 pb-2 flex items-center gap-1.5"><i class="fas fa-building text-[10px] text-osttra-rubine/60"></i> Organization</p>
+           <div class="space-y-3">
+              <div><p class="text-[8px] font-black text-white/40 uppercase flex items-center gap-1"><i class="fas fa-map-marker-alt text-[8px] opacity-45"></i> Cost Center</p><p id="det-cc" class="text-xs font-bold text-white/70 uppercase">---</p></div>
+              <div><p class="text-[8px] font-black text-white/40 uppercase flex items-center gap-1"><i class="fas fa-user-tie text-[8px] opacity-45"></i> Head of Function</p><p id="det-head" class="text-xs font-bold text-white/70 uppercase">---</p></div>
+           </div>
+        </div>
+        <div class="space-y-4 col-span-1">
+           <p class="text-[9px] font-black text-white/50 uppercase tracking-widest border-b border-white/5 pb-2 flex items-center gap-1.5"><i class="fas fa-sitemap text-[10px] text-osttra-rubine/60"></i> Management</p>
+           <div class="space-y-3">
+              <div><p class="text-[8px] font-black text-white/40 uppercase flex items-center gap-1"><i class="fas fa-user text-[8px] opacity-45"></i> Direct Manager</p><p id="det-mgr-name" class="text-xs font-bold text-white/70 uppercase">---</p></div>
+              <div><p class="text-[8px] font-black text-white/40 uppercase flex items-center gap-1"><i class="fas fa-at text-[8px] opacity-45"></i> Manager Email</p><p id="det-mgr-email" class="text-xs font-mono text-white/70">---</p></div>
+              <div><p class="text-[8px] font-black text-white/40 uppercase flex items-center gap-1"><i class="fas fa-id-card-alt text-[8px] opacity-45"></i> Manager ID</p><p id="det-mgr-id" class="text-xs font-mono text-white/70">---</p></div>
+           </div>
+        </div>
+        <div class="space-y-4 col-span-1">
+           <p class="text-[9px] font-black text-white/50 uppercase tracking-widest border-b border-white/5 pb-2 flex items-center gap-1.5"><i class="fas fa-user-clock text-[10px] text-osttra-rubine/60"></i> Employment (HRIS)</p>
+           <div class="space-y-3">
+              <div><p class="text-[8px] font-black text-white/40 uppercase flex items-center gap-1"><i class="fas fa-calendar-day text-[8px] opacity-45"></i> HR Hire Date</p><p id="det-hr-start" class="text-xs font-bold text-white/70 uppercase">---</p></div>
+              <div><p class="text-[8px] font-black text-white/40 uppercase flex items-center gap-1"><i class="fas fa-wallet text-[8px] opacity-45"></i> Pay Class</p><p id="det-hr-pay" class="text-xs font-bold text-white/70 uppercase">---</p></div>
+           </div>
+        </div>
+        <div class="space-y-4 col-span-1">
+           <p class="text-[9px] font-black text-white/50 uppercase tracking-widest border-b border-white/5 pb-2">Hierarchy</p>
+           <div>
+              <p class="text-[8px] font-black text-white/50 uppercase mb-3">Management Line</p>
+              <div id="det-hierarchy" class="flex flex-col gap-2.5">
+                 <!-- Populated dynamically as wrapped list of pills -->
+              </div>
+           </div>
+        </div>
+     </div>
+  </div>
+</div>
+
+<script>
+  (function() {
+    window.renderMyProfile = function(payload, gapData) {
+      var u = payload.user || {};
+      var setVal = function(id, val, fallback) {
+        var el = document.getElementById(id);
+        if (el) {
+          el.innerText = (val !== undefined && val !== null && val !== "") ? val : (fallback || "N/A");
+          el.classList.remove('animate-pulse', 'text-white/20');
+        }
+      };
+      var fullName = (u["First Name"] || "") + " " + (u["Last Name"] || "");
+      setVal("my-name", fullName.trim(), "Unknown Employee");
+      setVal("my-role", u["Profile"] || "Operational Specialist");
+      setVal("my-id", u["Employee ID"], "EMP-000");
+      setVal("my-region", String(u["Cost Center"] || "Global").toUpperCase(), "GLOBAL");
+      setVal("my-manager", u["Direct Manager Name"], "Management Line Not Set");
+      var photoEl = document.getElementById("my-photo");
+      if (photoEl) {
+        if (u["Photo URL"] && u["Photo URL"] !== "N/A") { photoEl.src = u["Photo URL"]; } 
+        else { photoEl.src = "https://ui-avatars.com/api/?name=" + encodeURIComponent(fullName || "User") + "&background=FF0061&color=fff"; }
+      }
+      setVal('det-email', u["Email Address"], "---");
+      setVal('det-id', u["Employee ID"], "---");
+      setVal('det-profile', u["Profile"], "General");
+      setVal('det-cc', u["Cost Center"], "---");
+      setVal('det-head', u["Regional Head/Head of function"], "---");
+      setVal('det-mgr-name', u["Direct Manager Name"], "N/A");
+      setVal('det-mgr-email', u["Direct Manager Email"], "n/a");
+      setVal('det-mgr-id', u["Manager ID"], "---");
+      
+      // Dynamic Hire Date Mapping
+      var hrStartStr = u["HR Start Date"] || u["Start Date"] || "";
+      if (hrStartStr && hrStartStr !== "N/A") {
+        hrStartStr = String(hrStartStr).split("T")[0]; // Remove timestamp
+      }
+      setVal('det-hr-start', hrStartStr, "N/A");
+      setVal('det-hr-pay', u["HR Pay Class"], "N/A");
+
+      // Dynamic Tenure Calculation Badge
+      var tenureBadge = document.getElementById("tenure-badge");
+      var tenureText = document.getElementById("tenure-text");
+      
+      if (hrStartStr && hrStartStr !== "N/A" && hrStartStr !== "N/A (Not in HRIS)") {
+         var startDate = new Date(hrStartStr);
+         if (!isNaN(startDate.getTime())) {
+            var now = new Date();
+            var diffTime = Math.abs(now - startDate);
+            var diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            var years = Math.floor(diffDays / 365);
+            var months = Math.floor((diffDays % 365) / 30);
+            
+            var tenureStr = "";
+            if (years > 0) {
+               tenureStr += years + (years === 1 ? " Year" : " Years");
+            }
+            if (months > 0) {
+               if (tenureStr) tenureStr += ", ";
+               tenureStr += months + (months === 1 ? " Month" : " Months");
+            }
+            if (!tenureStr) tenureStr = "New Hire";
+            
+            if (tenureText) tenureText.innerText = tenureStr;
+            if (tenureBadge) tenureBadge.classList.remove("hidden");
+         }
+      } else {
+         if (tenureBadge) tenureBadge.classList.add("hidden");
+      }
+
+      // Elegant Management Line Stepper (Horizontal/Vertical Badge trail)
+      var hContainer = document.getElementById('det-hierarchy');
+      if (hContainer) {
+        var hData = u["Management Line (Hierarchy)"] || "";
+        var steps = hData.split(">").filter(function(s) { return s.trim(); });
+        
+        hContainer.innerHTML = steps.length > 0 ? steps.map(function(s, idx) { 
+          const isMe = idx === 0;
+          return `
+            <div class="flex items-center gap-2 px-3 py-1.5 bg-white/5 border border-white/5 rounded-xl w-max hover:bg-white/10 hover:-translate-y-0.5 hover:border-white/10 transition-all duration-200 cursor-default">
+              <span class="w-1.5 h-1.5 rounded-full ${isMe ? 'bg-osttra-rubine' : 'bg-white/20'}"></span>
+              <span class="text-[10px] font-black uppercase tracking-wider ${isMe ? 'text-white font-bold' : 'text-white/40'}">${s.trim()}</span>
+            </div>
+          `;
+        }).join('') : "---";
+      }
+    };
+
+    function renderPhase1Banner(state, isSubmitted) {
+      var banner = document.getElementById("phase-banner");
+      var title = document.getElementById("banner-title");
+      var desc = document.getElementById("banner-desc");
+      var iconContainer = document.getElementById("banner-icon-container");
+      var actionArea = document.getElementById("banner-action-area");
+      var headerBtn = document.getElementById("header-btn-allocation");
+
+      if (!banner || !title || !desc || !actionArea || !iconContainer) return;
+
+      banner.classList.remove("hidden");
+      actionArea.innerHTML = "";
+
+      var stateStr = String(state || "1");
+      var completed = !!isSubmitted;
+
+      if (stateStr === "1") {
+        if (completed) {
+          // Completed: Emerald Success State
+          banner.className = "p-6 rounded-2xl border transition-all flex flex-col md:flex-row justify-between items-start md:items-center gap-6 border-emerald-500/20 bg-emerald-500/10 text-emerald-400 border-l-4 border-l-emerald-500";
+          iconContainer.className = "w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-lg shrink-0 text-emerald-400";
+          iconContainer.innerHTML = '<i class="fas fa-check-circle"></i>';
+          title.className = "text-xs font-black uppercase tracking-[0.2em] text-emerald-400";
+          title.innerText = "Monthly Allocation Window is Open.";
+          desc.className = "text-[11px] font-medium text-white/70 leading-relaxed";
+          desc.innerText = "Your operational allocations for this period are certified and locked. No further action is required.";
+          actionArea.innerHTML = "";
+          if (headerBtn) {
+            headerBtn.innerHTML = '<i class="fas fa-lock opacity-55"></i> View Past Allocation';
+            headerBtn.className = "px-6 py-3 bg-white/5 border border-white/10 text-white/60 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-white/10 hover:scale-[1.03] active:scale-95 transition-all duration-200 flex items-center gap-3";
+          }
+        } else {
+          // Action Required: Rubine Alert State
+          banner.className = "p-6 rounded-2xl border transition-all flex flex-col md:flex-row justify-between items-start md:items-center gap-6 border-osttra-rubine/20 bg-osttra-rubine/10 text-osttra-rubine border-l-4 border-l-osttra-rubine";
+          iconContainer.className = "w-10 h-10 rounded-xl bg-osttra-rubine/10 flex items-center justify-center text-lg shrink-0 text-osttra-rubine animate-pulse";
+          iconContainer.innerHTML = '<i class="fas fa-exclamation-circle animate-pulse"></i>';
+          title.className = "text-xs font-black uppercase tracking-[0.2em] text-osttra-rubine";
+          title.innerText = "Monthly Allocation Exercise is Open.";
+          desc.className = "text-[11px] font-medium text-white/70 leading-relaxed";
+          desc.innerText = "Please complete and submit your product allocations for this month to maintain compliance.";
+          actionArea.innerHTML = '<button onclick="loadPage(\'Allocation\')" class="px-5 py-2.5 bg-osttra-rubine hover:brightness-110 hover:scale-[1.03] active:scale-95 text-white text-[9px] font-black uppercase tracking-widest rounded-xl transition-all duration-200 shadow-lg shadow-osttra-rubine/20 flex items-center gap-2"><i class="fas fa-arrow-right"></i> Complete Now</button>';
+          if (headerBtn) {
+            headerBtn.innerHTML = 'Update Allocation';
+            headerBtn.className = "px-6 py-3 bg-osttra-rubine rounded-xl text-[10px] font-black uppercase tracking-widest hover:brightness-110 hover:scale-[1.03] active:scale-95 shadow-lg shadow-osttra-rubine/20 transition-all duration-200 flex items-center gap-3";
+            headerBtn.classList.remove("hidden");
+          }
+        }
+      } else if (stateStr === "2") {
+        // Closed State: Neutral Info State
+        banner.className = "p-6 rounded-2xl border transition-all flex flex-col md:flex-row justify-between items-start md:items-center gap-6 border-white/5 bg-white/5 text-white/60 border-l-4 border-l-white/20";
+        iconContainer.className = "w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-lg shrink-0 text-white/40";
+        iconContainer.innerHTML = '<i class="fas fa-lock"></i>';
+        title.className = "text-xs font-black uppercase tracking-[0.2em] text-white/60";
+        title.innerText = "No Action Required - Allocation Exercise Complete.";
+        desc.className = "text-[11px] font-medium text-white/40 leading-relaxed";
+        desc.innerText = "The allocation window is currently closed. You can review your submitted details below.";
+        if (headerBtn) {
+          headerBtn.innerHTML = '<i class="fas fa-lock opacity-55"></i> View Past Allocation';
+          headerBtn.className = "px-6 py-3 bg-white/5 border border-white/10 text-white/60 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-white/10 hover:scale-[1.03] active:scale-95 transition-all duration-200 flex items-center gap-3";
+        }
+      } else if (stateStr === "3") {
+        // Maintenance State: Ochre Alert State
+        banner.className = "p-6 rounded-2xl border transition-all flex flex-col md:flex-row justify-between items-start md:items-center gap-6 border-osttra-ochre/20 bg-osttra-ochre/10 text-osttra-ochre border-l-4 border-l-osttra-ochre animate-pulse";
+        iconContainer.className = "w-10 h-10 rounded-xl bg-osttra-ochre/10 flex items-center justify-center text-lg shrink-0 text-osttra-ochre";
+        iconContainer.innerHTML = '<i class="fas fa-tools"></i>';
+        title.className = "text-xs font-black uppercase tracking-[0.2em] text-osttra-ochre";
+        title.innerText = "App is Under Maintenance.";
+        desc.className = "text-[11px] font-medium text-white/70 leading-relaxed";
+        desc.innerText = "Some modules of the self-service portal are currently offline. Check back later.";
+        if (headerBtn) headerBtn.classList.add("hidden");
+      }
+    }
+
+    function init() {
+      const state = window.nexusState;
+      if (!state || !state.profile) {
+        var user = window.currentUser; var email = user ? user.email : null;
+        if (!email) { setTimeout(init, 150); return; }
+
+        renderPhase1Banner(user.phase1State || "1", false);
+
+        showLoading('Loading Profile...');
+        google.script.run
+          .withSuccessHandler(function(p) {
+            hideLoading();
+            if (!p || !p.user) { showNotification("Error", "User not in roster.", "warning"); return; }
+            const isSubmitted = !!p.hasSubmitted;
+            renderPhase1Banner(user.phase1State || "1", isSubmitted);
+            window.renderMyProfile(p, []);
+          })
+          .withFailureHandler(function(e) { hideLoading(); showNotification("Error", e.message, "error"); })
+          .getEmployeeProfileData(email);
+        return;
+      }
+
+      const profile = state.profile;
+      const isSubmitted = !!profile.hasSubmitted;
+      renderPhase1Banner(state.session.phase1State || "1", isSubmitted);
+      window.renderMyProfile(profile, []);
+    }
+    init();
+  })();
+</script>

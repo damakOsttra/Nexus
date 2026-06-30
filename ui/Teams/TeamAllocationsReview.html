@@ -1,0 +1,1009 @@
+<div class="p-8 max-w-7xl mx-auto space-y-8 animate-in fade-in duration-700">
+  <!-- Header -->
+  <div class="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
+    <div class="space-y-2">
+      <h2 class="text-2xl font-black text-osttra-rubine uppercase tracking-widest flex items-center gap-2">
+        <i class="fas fa-tasks text-xl"></i> Team Allocation Board
+      </h2>
+      <p id="period-header-text" class="text-white/40 text-sm font-medium tracking-wide uppercase flex items-center flex-wrap gap-2">
+        <span>Proxy Allocation & Operational Certification Dashboard</span>
+        <span id="active-period-label" class="text-osttra-rubine font-black bg-osttra-rubine/10 px-2.5 py-1 rounded-xl border border-osttra-rubine/20 text-[10px] tracking-widest uppercase hidden"></span>
+      </p>
+    </div>
+    <button onclick="loadBulkData()" class="px-6 py-4 bg-white/5 border border-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all flex items-center gap-2">
+      <i class="fas fa-sync-alt"></i> Refresh Data
+    </button>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
+    <!-- Left Sidebar: Direct Reports Roster -->
+    <div class="lg:col-span-1 flex flex-col h-full space-y-4">
+      <div class="flex justify-between items-center px-2">
+        <h4 class="text-[10px] font-black text-white/30 uppercase tracking-[0.2em]">Direct Reports</h4>
+        <label class="flex items-center gap-2 cursor-pointer">
+          <input type="checkbox" id="toggle-incomplete" onchange="toggleFilterIncomplete(this.checked)" class="accent-osttra-rubine rounded">
+          <span class="text-[8px] font-black uppercase tracking-wider text-white/40">Incomplete Only</span>
+        </label>
+      </div>
+
+      <!-- Search & Sort Controls -->
+      <div class="space-y-3 px-1">
+        <!-- Search Input -->
+        <div class="relative flex items-center">
+          <input type="text" id="roster-search" oninput="handleSearchChange(this.value)" placeholder="Search employee..." class="w-full bg-white/5 border border-white/5 focus:border-osttra-violet/40 rounded-xl py-2.5 pl-10 pr-4 text-[10px] text-white placeholder-white/30 focus:outline-none transition-all font-semibold" />
+          <i class="fas fa-search absolute left-3.5 text-white/20 text-xs"></i>
+        </div>
+        <!-- Sort Selector -->
+        <div class="flex items-center justify-between gap-2">
+          <label class="text-[8px] font-black text-white/40 uppercase tracking-widest pl-1">Sort By</label>
+          <select id="roster-sort" onchange="handleSortChange(this.value)" class="bg-[#1a1a1a]/80 border border-white/5 focus:border-osttra-violet/40 rounded-xl py-1.5 px-3 text-[9px] text-white/70 focus:outline-none transition-all font-semibold cursor-pointer">
+            <option value="alpha">Alphabetical</option>
+            <option value="pending" selected>Pending First</option>
+            <option value="submitted">Submitted First</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="glass border border-white/5 rounded-3xl p-4 max-h-[600px] overflow-y-auto no-scrollbar space-y-2" id="emp-list">
+        <!-- Skeleton Loading State -->
+        <div class="space-y-3 animate-pulse">
+           <div class="h-20 bg-white/5 border border-white/5 rounded-2xl p-4 flex flex-col justify-center gap-2">
+             <div class="h-3 bg-white/10 rounded w-2/3"></div>
+             <div class="h-2 bg-white/5 rounded w-1/2"></div>
+           </div>
+           <div class="h-20 bg-white/5 border border-white/5 rounded-2xl p-4 flex flex-col justify-center gap-2">
+             <div class="h-3 bg-white/10 rounded w-3/4"></div>
+             <div class="h-2 bg-white/5 rounded w-1/3"></div>
+           </div>
+           <div class="h-20 bg-white/5 border border-white/5 rounded-2xl p-4 flex flex-col justify-center gap-2">
+             <div class="h-3 bg-white/10 rounded w-1/2"></div>
+             <div class="h-2 bg-white/5 rounded w-2/3"></div>
+           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Workspace: Single Employee Selection -->
+    <div class="lg:col-span-3 min-h-[500px] flex flex-col" id="workspace-area">
+      <!-- Welcome Empty State -->
+      <div class="flex-1 glass rounded-[2rem] border border-white/5 p-16 flex flex-col items-center justify-center text-center gap-4">
+        <div class="w-16 h-16 rounded-2xl bg-white/5 flex items-center justify-center text-white/20 text-2xl">
+          <i class="fas fa-user-check"></i>
+        </div>
+        <div class="space-y-1">
+          <h3 class="text-md font-black uppercase tracking-wider text-white/80">Select a Direct Report</h3>
+          <p class="text-xs text-white/40 max-w-sm mx-auto leading-relaxed">
+            Choose an employee from the left roster to view their operational scope, perform proxy certifications, or audit past allocations.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Custom Confirmation Modal -->
+<div id="confirm-modal" class="hidden fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-300">
+  <div class="glass border border-white/10 w-full max-w-md rounded-3xl p-8 space-y-6 shadow-2xl scale-in-center">
+    <div class="flex items-center gap-4 text-osttra-rubine">
+      <div class="w-12 h-12 rounded-xl bg-osttra-rubine/10 flex items-center justify-center text-xl">
+        <i class="fas fa-exclamation-triangle"></i>
+      </div>
+      <div>
+        <h3 class="text-sm font-black uppercase tracking-widest">Confirm Reset Action</h3>
+      </div>
+    </div>
+    <p id="confirm-modal-msg" class="text-xs text-white/60 leading-relaxed uppercase tracking-wide"></p>
+    <div class="flex gap-4">
+      <button onclick="closeConfirmModal()" class="flex-1 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all text-white">Cancel</button>
+      <button id="confirm-modal-btn" class="flex-1 py-3 bg-osttra-rubine text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:brightness-110 shadow-lg shadow-osttra-rubine/20 transition-all">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  window.getWeekdaysInMonth = function(monthString) {
+    const parts = monthString.trim().split(" ");
+    if (parts.length < 2) return 20;
+    const months = ["january","february","march","april","may","june","july","august","september","october","november","december"];
+    const month = months.indexOf(parts[0].toLowerCase());
+    const year = parseInt(parts[1], 10);
+    if (month === -1 || isNaN(year)) return 20;
+    
+    let weekdays = 0;
+    const date = new Date(year, month, 1);
+    while (date.getMonth() === month) {
+      const day = date.getDay();
+      if (day !== 0 && day !== 6) {
+        weekdays++;
+      }
+      date.setDate(date.getDate() + 1);
+    }
+    return weekdays;
+  };
+
+  window.toggleWeekendDaysInput = function() {
+    const chk = document.getElementById('working-days-weekend-check');
+    const input = document.getElementById('working-days-weekend');
+    const container = document.getElementById('working-days-weekend-container');
+    if (chk && input) {
+      if (chk.checked) {
+        input.removeAttribute('disabled');
+        input.classList.remove('opacity-50', 'cursor-not-allowed', 'text-white/30');
+        if (container) container.classList.remove('hidden');
+      } else {
+        input.setAttribute('disabled', 'true');
+        input.value = "";
+        input.classList.add('opacity-50', 'cursor-not-allowed', 'text-white/30');
+        if (container) container.classList.add('hidden');
+      }
+      if (typeof calculateProxyTotals === 'function') calculateProxyTotals();
+    }
+  };
+
+  (function() {
+    let gridRows = []; // Raw flat rows from backend
+    let employees = []; // Grouped report objects on client
+    let activeEmp = null; // Currently selected employee object
+    let showIncompleteOnly = false;
+    let searchQuery = ""; // Roster search state
+    let sortMode = "pending"; // Roster sort state
+
+    window.handleSearchChange = function(query) {
+      searchQuery = query || "";
+      renderRoster();
+    };
+
+    window.handleSortChange = function(mode) {
+      sortMode = mode || "pending";
+      renderRoster();
+    };
+
+    window.loadBulkData = function() {
+      const listContainer = document.getElementById('emp-list');
+      listContainer.innerHTML = `
+        <!-- Skeleton Loading State -->
+        <div class="space-y-3 animate-pulse">
+           <div class="h-20 bg-white/5 border border-white/5 rounded-2xl p-4 flex flex-col justify-center gap-2">
+             <div class="h-3 bg-white/10 rounded w-2/3"></div>
+             <div class="h-2 bg-white/5 rounded w-1/2"></div>
+           </div>
+           <div class="h-20 bg-white/5 border border-white/5 rounded-2xl p-4 flex flex-col justify-center gap-2">
+             <div class="h-3 bg-white/10 rounded w-3/4"></div>
+             <div class="h-2 bg-white/5 rounded w-1/3"></div>
+           </div>
+           <div class="h-20 bg-white/5 border border-white/5 rounded-2xl p-4 flex flex-col justify-center gap-2">
+             <div class="h-3 bg-white/10 rounded w-1/2"></div>
+             <div class="h-2 bg-white/5 rounded w-2/3"></div>
+           </div>
+        </div>
+      `;
+      
+      google.script.run
+        .withSuccessHandler(res => {
+          gridRows = res.rows || [];
+          
+          const currentPeriod = res.currentPeriod || "May 2026";
+          const pLabel = document.getElementById('active-period-label');
+          if (pLabel) {
+            pLabel.innerText = "Active Cycle: " + currentPeriod;
+            pLabel.classList.remove('hidden');
+          }
+          
+          groupEmployeesData();
+          renderRoster();
+          
+          // Re-select active employee if already selected
+          if (activeEmp) {
+            const reselect = employees.find(e => e.email === activeEmp.email);
+            if (reselect) {
+              selectEmployee(reselect.email);
+            } else {
+              resetWorkspace();
+            }
+          } else {
+            resetWorkspace();
+          }
+        })
+        .withFailureHandler(err => {
+          showNotification('Fetch Failed', err.message, 'error');
+        })
+        .getManagerBulkAllocationData();
+    };
+
+    function groupEmployeesData() {
+      const map = {};
+      gridRows.forEach(row => {
+        const email = String(row.email).toLowerCase().trim();
+        if (!map[email]) {
+          map[email] = {
+            email: email,
+            name: row.name,
+            role: row.role,
+            hasReports: row.hasReports,
+            isPendingAssignment: row.isPendingAssignment,
+            rows: [],
+            totalFte: 0,
+            hasSubmitted: false
+          };
+        }
+        if (!row.isPendingAssignment) {
+          map[email].rows.push({
+            product: row.product,
+            subProduct: row.subProduct,
+            bau: parseInt(row.bau) || 0,
+            nbau: parseInt(row.nbau) || 0,
+            comment: row.comment || "",
+            skillLevel: row.skillLevel || "N/A",
+            isCurrentSubmission: !!row.isCurrentSubmission,
+            standardWeekdays: parseInt(row.standardWeekdays) || 0,
+            regularDays: parseInt(row.regularDays) || 0,
+            workedWeekend: !!row.workedWeekend,
+            weekendDays: parseFloat(row.weekendDays) || 0,
+            workingDaysComment: row.workingDaysComment || ""
+          });
+        }
+      });
+
+      // Calculate totals and submission status per employee
+      employees = Object.values(map);
+      employees.forEach(emp => {
+        emp.totalFte = emp.rows.reduce((sum, r) => sum + r.bau + r.nbau, 0);
+        // Correctly calculate hasSubmitted by checking if any of the products represent an actual current submission
+        emp.hasSubmitted = emp.rows.some(r => r.isCurrentSubmission);
+      });
+    }
+
+    function renderRoster() {
+      const listContainer = document.getElementById('emp-list');
+      
+      let displayEmps = showIncompleteOnly 
+        ? employees.filter(e => e.totalFte !== 100)
+        : employees;
+
+      // 1. Apply Search Filter
+      displayEmps = displayEmps.filter(e => {
+        const query = searchQuery.toLowerCase().trim();
+        if (!query) return true;
+        return String(e.name).toLowerCase().includes(query) || String(e.email).toLowerCase().includes(query);
+      });
+
+      // 2. Apply Sorting
+      displayEmps.sort((a, b) => {
+        if (sortMode === 'pending') {
+          // Pending (hasSubmitted = false) first, then Alphabetical
+          if (a.hasSubmitted !== b.hasSubmitted) {
+            return a.hasSubmitted ? 1 : -1;
+          }
+        } else if (sortMode === 'submitted') {
+          // Submitted (hasSubmitted = true) first, then Alphabetical
+          if (a.hasSubmitted !== b.hasSubmitted) {
+            return a.hasSubmitted ? -1 : 1;
+          }
+        }
+        // Alphabetical name sorting
+        return String(a.name).localeCompare(String(b.name));
+      });
+
+      if (displayEmps.length === 0) {
+        listContainer.innerHTML = `
+          <div class="p-8 text-center text-white/20 uppercase italic tracking-widest text-[9px] leading-relaxed">
+            ${searchQuery ? 'No matching employees found.' : (showIncompleteOnly ? 'All direct reports have fully compliant (100%) allocations!' : 'No direct reports assigned in system matrix.')}
+          </div>
+        `;
+        return;
+      }
+
+      listContainer.innerHTML = displayEmps.map(emp => {
+        const isActive = activeEmp && activeEmp.email === emp.email;
+        
+        let totalClass, totalLabel;
+        if (emp.hasSubmitted && emp.totalFte === 100) {
+          totalClass = 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20';
+          totalLabel = 'Done';
+        } else if (!emp.hasSubmitted) {
+          totalClass = 'bg-white/5 text-white/40 border border-white/10';
+          totalLabel = 'Pending';
+        } else {
+          totalClass = 'bg-osttra-ochre/10 text-osttra-ochre border border-osttra-ochre/20';
+          totalLabel = `${emp.totalFte}% Effort`;
+        }
+        
+        return `
+          <button id="roster-card-${emp.email.replace(/[@.]/g, '-')}" onclick="selectEmployee('${emp.email}')" class="w-full text-left p-4 rounded-2xl border transition-all duration-300 flex flex-col gap-2 ${isActive ? 'bg-osttra-rubine/10 border-osttra-rubine/40 shadow-lg shadow-osttra-rubine/5' : 'bg-white/5 border-white/5 hover:bg-white/[0.08] hover:border-white/10'}">
+            <div class="flex justify-between items-start gap-2 w-full">
+              <div class="space-y-0.5">
+                <p class="text-xs font-black text-white uppercase truncate max-w-[130px]">${emp.name}</p>
+                <p class="text-[8px] font-bold text-white/30 uppercase tracking-widest truncate max-w-[130px]">${emp.role}</p>
+              </div>
+              <span class="px-2 py-0.5 rounded-full text-[7px] font-black uppercase tracking-wider ${totalClass}">
+                ${totalLabel}
+              </span>
+            </div>
+            <p class="text-[8px] font-mono text-white/20 truncate w-full">${emp.email}</p>
+          </button>
+        `;
+      }).join('');
+    }
+
+    window.toggleFilterIncomplete = function(checked) {
+      showIncompleteOnly = checked;
+      renderRoster();
+    };
+
+    window.selectEmployee = function(email) {
+      activeEmp = employees.find(e => e.email === email);
+      if (!activeEmp) return;
+
+      // Re-render roster to show active card state
+      renderRoster();
+
+      const workspace = document.getElementById('workspace-area');
+      const currentPeriod = window.currentUser.currentPeriod || "May 2026";
+
+      if (activeEmp.isPendingAssignment) {
+        workspace.innerHTML = `
+          <div class="flex-1 glass rounded-[2rem] border border-white/5 p-16 flex flex-col items-center justify-center text-center gap-4">
+            <div class="w-16 h-16 rounded-2xl bg-osttra-rubine/10 flex items-center justify-center text-osttra-rubine text-2xl">
+              <i class="fas fa-exclamation-triangle"></i>
+            </div>
+            <div class="space-y-1">
+              <h3 class="text-md font-black uppercase tracking-wider text-white/80">${activeEmp.name}</h3>
+              <p class="text-xs text-osttra-rubine uppercase tracking-widest font-black text-[9px] mt-2">No product scope mapped</p>
+              <p class="text-xs text-white/40 max-w-sm mx-auto leading-relaxed mt-4">
+                This employee does not have any active products allocated in the Skill Matrix database. Please configure their product scope on the <strong>'Team Products'</strong> page first.
+              </p>
+            </div>
+          </div>
+        `;
+        return;
+      }
+
+      // Render Active Form Workspace
+      workspace.innerHTML = `
+        <div class="space-y-8 animate-in fade-in duration-500">
+          <!-- Emp Profile Header -->
+          <div class="glass p-6 rounded-3xl border border-white/5 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div class="space-y-1">
+              <div class="flex items-center gap-3">
+                <h3 class="text-xl font-black text-white uppercase">${activeEmp.name}</h3>
+                <span class="px-2 py-0.5 bg-white/5 rounded text-[8px] font-mono text-white/40">${activeEmp.email}</span>
+              </div>
+              <p class="text-[9px] font-bold text-white/40 uppercase tracking-widest">${activeEmp.role} | Reports Audit: ${activeEmp.hasReports ? 'HAS DIRECT REPORTS' : 'INDIVIDUAL CONTRIBUTOR'}</p>
+            </div>
+            <div class="flex gap-2">
+              <button id="btn-unlock" onclick="resetProxyAllocation()" class="px-4 py-2.5 bg-osttra-ochre/10 border border-osttra-ochre/20 text-osttra-ochre hover:bg-osttra-ochre/20 hover:border-osttra-ochre/40 text-[9px] font-black uppercase tracking-widest rounded-xl transition-all shadow-md flex items-center gap-2">
+                <i class="fas fa-unlock"></i> Reset/Unlock Allocation
+              </button>
+            </div>
+          </div>
+
+          <!-- Dynamic Status Banner -->
+          <div id="proxy-status-banner"></div>
+
+          <!-- Form Workspace -->
+          <div class="grid grid-cols-1 xl:grid-cols-4 gap-6">
+            <!-- Grid (Left) -->
+            <div class="xl:col-span-3 space-y-6">
+              <!-- Working Days Capacity Tracking (Progressive Disclosure) -->
+              <div class="glass rounded-2xl border border-white/5 p-6 space-y-6">
+                <div class="flex items-center gap-2 border-b border-white/5 pb-3">
+                  <i class="fas fa-calendar-alt text-osttra-ochre text-sm"></i>
+                  <h4 class="text-xs font-black uppercase tracking-[0.2em] text-osttra-ochre">Working Days & Capacity</h4>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
+
+                  <!-- LEFT HAND SIDE: Data Entering Fields -->
+                  <div class="space-y-6">
+                    <!-- 1. Include Weekend/Overtime Checkbox on Top -->
+                    <div class="pt-2">
+                      <label class="flex items-center gap-3 cursor-pointer select-none">
+                        <input type="checkbox" id="working-days-weekend-check" onchange="toggleWeekendDaysInput()" class="rounded bg-white/5 border border-white/10 shadow-inner text-osttra-rubine focus:ring-osttra-rubine focus:ring-offset-0 focus:outline-none w-4 h-4">
+                        <span class="text-[10px] font-black uppercase tracking-widest text-white/60">Include Weekend / Overtime Shift</span>
+                      </label>
+                    </div>
+
+                    <!-- 2. Total Working Days -->
+                    <div class="space-y-2">
+                      <label class="text-[10px] font-black uppercase tracking-widest text-white/40 block">Total Working Days</label>
+                      <input type="number" id="working-days-total" min="0" oninput="this.value = this.value.replace(/[^0-9.]/g, ''); calculateProxyTotals()" class="w-full bg-white/5 border border-white/10 shadow-inner rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:bg-white/10 focus:border-osttra-rubine focus:ring-1 focus:ring-osttra-rubine/50 transition-all">
+                    </div>
+
+                    <!-- 3. Additional Days (Weekend/OT) -->
+                    <div id="working-days-weekend-container" class="space-y-2">
+                      <label class="text-[10px] font-black uppercase tracking-widest text-white/40 block">Additional Days (Weekend/OT)</label>
+                      <input type="number" id="working-days-weekend" min="0" max="8" step="0.5" disabled oninput="this.value = this.value.replace(/[^0-9.]/g, ''); calculateProxyTotals()" class="w-full bg-white/5 border border-white/10 shadow-inner rounded-xl px-4 py-2.5 text-xs text-white/30 focus:outline-none focus:bg-white/10 focus:border-osttra-rubine focus:ring-1 focus:ring-osttra-rubine/50 transition-all opacity-50 cursor-not-allowed">
+                    </div>
+                  </div>
+
+                  <!-- RIGHT HAND SIDE: Instructions -->
+                  <div class="space-y-6">
+                    <!-- 1. Instructions -->
+                    <div class="p-5 bg-white/5 rounded-2xl border border-white/5 space-y-2.5">
+                      <h5 class="text-[9px] font-black uppercase tracking-widest text-osttra-ochre">Allocation Guidelines</h5>
+                      <ul class="text-[10px] text-white/60 list-disc pl-4 space-y-1.5 font-medium leading-relaxed uppercase tracking-wider">
+                        <li>Deduct any PTO, Sick Leave, or Public Holidays from your <strong class="text-white">Total Working Days</strong>.</li>
+                        <li>Standard weekdays baseline for this month is <strong id="working-days-baseline" class="text-white">--</strong> days.</li>
+                        <li>If you worked weekend shifts or overtime, check the box on the left to log extra shift ranging from 0.5 to 8.</li>
+                      </ul>
+                    </div>
+                  </div>
+
+                </div>
+
+                <!-- Underneath Both: Comments -->
+                <div class="space-y-2 pt-4 border-t border-white/5 mt-6">
+                  <label class="text-[10px] font-black uppercase tracking-widest text-white/40 block">Comments / Justifications (PTO/Overtime)</label>
+                  <textarea id="working-days-comments" placeholder="Explain any heavy PTO, sick leave, or weekend shifts..." class="w-full h-20 bg-white/5 border border-white/10 shadow-inner rounded-xl px-4 py-3 text-xs text-white focus:outline-none focus:bg-white/10 focus:border-osttra-rubine focus:ring-1 focus:ring-osttra-rubine/50 transition-all resize-none overflow-y-auto"></textarea>
+                </div>
+              </div>
+
+              <div class="glass rounded-2xl border border-white/5 overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                  <thead class="bg-white/5 text-[9px] font-black uppercase tracking-widest text-white/40 border-b border-white/5">
+                    <tr>
+                      <th class="p-5">Product Assignment</th>
+                      <th class="p-5 text-center w-20">BAU (%)</th>
+                      <th class="p-5 text-center w-20">Non-BAU (%)</th>
+                      <th class="p-5 text-center w-24">Total</th>
+                      <th class="p-5">Comments</th>
+                    </tr>
+                  </thead>
+                  <tbody id="proxy-table-body" class="divide-y divide-white/5 text-[10px] text-white/60 font-bold">
+                     <!-- Populated dynamically -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Effort Breakdown & Gauge (Right) -->
+            <div class="space-y-6 shrink-0 flex flex-col justify-between">
+              <!-- FTE circular status -->
+              <div class="p-8 glass rounded-3xl border border-white/5 space-y-6 text-center flex flex-col justify-center items-center">
+                <p class="text-[10px] font-black text-white/30 uppercase tracking-[0.3em]">Proxy Balance</p>
+                <div class="relative inline-flex items-center justify-center">
+                  <svg class="w-40 h-32 transform -rotate-90">
+                    <circle cx="80" cy="64" r="58" stroke="currentColor" stroke-width="10" fill="transparent" class="text-white/5"></circle>
+                    <circle id="proxy-fte-progress" cx="80" cy="64" r="58" stroke="currentColor" stroke-width="10" fill="transparent" stroke-dasharray="364.4" stroke-dashoffset="364.4" class="text-osttra-rubine transition-all duration-500"></circle>
+                  </svg>
+                  <div class="absolute flex flex-col items-center">
+                    <span id="proxy-fte-text" class="text-2xl font-black text-white">0%</span>
+                    <span class="text-[9px] font-black text-white/40 uppercase mt-0.5">Allocated</span>
+                  </div>
+                </div>
+                <p id="proxy-status-msg" class="text-xs font-bold text-white/40 uppercase tracking-widest">No allocation entered</p>
+              </div>
+
+              <!-- Actions Panel -->
+              <div class="p-8 glass rounded-3xl border border-white/5 space-y-6 flex-1 flex flex-col justify-between">
+                <div class="space-y-4">
+                  <h4 class="text-xs font-black uppercase tracking-widest text-white/30">Compliance Checklist</h4>
+                  <div class="space-y-3">
+                    <div id="check-products" class="flex items-center gap-3 text-xs text-white/40">
+                      <i class="fas fa-check-circle text-white/10"></i>
+                      <span>Has assigned products</span>
+                    </div>
+                    <div id="check-hours" class="flex items-center gap-3 text-xs text-white/40">
+                      <i class="fas fa-check-circle text-white/10"></i>
+                      <span>Total sum matches 100%</span>
+                    </div>
+                    <div id="check-working-days" class="flex items-center gap-3 text-xs text-white/40">
+                      <i class="fas fa-check-circle text-white/10"></i>
+                      <span>Working Days Valid</span>
+                    </div>
+                    <div id="check-comments" class="flex items-center gap-3 text-xs text-white/40">
+                      <i class="fas fa-check-circle text-white/10"></i>
+                      <span>Comments (Optional)</span>
+                    </div>
+                  </div>
+                </div>
+
+                <button id="btn-save-allocation" onclick="saveProxyAllocation()" disabled class="w-full py-5 osttra-gradient text-white rounded-2xl font-black uppercase tracking-[0.2em] text-xs hover:brightness-110 hover:scale-[1.02] active:scale-95 transition-all duration-200 shadow-xl shadow-osttra-rubine/20 disabled:opacity-25 disabled:cursor-not-allowed">
+                  Submit Allocation
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Embedded Historical Table -->
+          <div class="space-y-4 pt-6 border-t border-white/5">
+            <h4 class="text-[10px] font-black uppercase tracking-[0.2em] text-white/30 italic">Historical Allocation Audit</h4>
+            <div class="glass border border-white/5 rounded-2xl overflow-x-auto">
+              <table class="w-full text-left border-collapse">
+                <thead class="bg-white/5 text-[9px] font-black uppercase tracking-widest text-white/40 border-b border-white/5">
+                  <tr>
+                    <th class="p-4">Period</th>
+                    <th class="p-4">Product</th>
+                    <th class="p-4">Sub-Product</th>
+                    <th class="p-4 text-center w-24">BAU (%)</th>
+                    <th class="p-4 text-center w-24">Non-BAU (%)</th>
+                    <th class="p-4 text-center w-24">Total</th>
+                    <th class="p-4">Comments</th>
+                  </tr>
+                </thead>
+                <tbody id="proxy-history-body" class="divide-y divide-white/5 text-[10px] text-white/60 font-medium">
+                  <tr>
+                    <td colspan="7" class="p-8 text-center">
+                      <div class="flex flex-col items-center justify-center gap-2">
+                        <i class="fas fa-spinner animate-spin text-md text-white/20"></i>
+                        <span class="text-white/40 uppercase italic tracking-widest text-[8px]">Loading historical data...</span>
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      `;
+
+      // Render the table form
+      const formBody = document.getElementById('proxy-table-body');
+      const isLocked = activeEmp.hasSubmitted || (window.currentUser.phase1State === "2" || window.currentUser.phase1State === "3");
+
+      formBody.innerHTML = activeEmp.rows.map((row, index) => {
+        const rowTotal = row.bau + row.nbau;
+        return `
+          <tr class="hover:bg-white/[0.01] transition-colors">
+            <td class="p-5">
+              <p class="text-xs font-black text-white uppercase">${row.product}</p>
+              <p class="text-[11px] font-black text-osttra-ochre uppercase tracking-widest mt-1.5">${row.subProduct}</p>
+            </td>
+            <td class="p-5 text-center">
+              <input type="number" value="${row.bau || 0}" min="0" max="100" step="1" 
+                ${isLocked ? 'disabled' : ''} 
+                onchange="updateProxyRowValue(${index}, 'bau', this.value)" 
+                class="w-16 bg-osttra-black/50 border border-white/5 rounded-lg py-2.5 text-center text-xs font-black text-white focus:outline-none focus:border-osttra-violet focus:bg-osttra-black transition-all disabled:opacity-30 disabled:cursor-not-allowed">
+            </td>
+            <td class="p-5 text-center">
+              <div class="relative inline-block">
+                <i class="fas fa-lock absolute left-3 top-1/2 -translate-y-1/2 text-white/30 text-[9px] pointer-events-none"></i>
+                <input type="number" value="${row.nbau || 0}" min="0" max="100" step="1" 
+                  disabled readonly title="Locked for this go-live"
+                  onchange="updateProxyRowValue(${index}, 'nbau', this.value)" 
+                  class="w-20 bg-osttra-black/50 border border-white/5 rounded-lg py-2.5 text-center text-xs font-black text-white/40 focus:outline-none transition-all disabled:opacity-30 disabled:cursor-not-allowed pl-7 pr-2">
+              </div>
+            </td>
+            <td class="p-5 text-center">
+              <span id="proxy-row-fte-${index}" class="text-xs font-black text-white/80">${rowTotal}%</span>
+            </td>
+            <td class="p-5">
+              <input type="text" value="${row.comment || ''}" placeholder="Operational context..." 
+                ${isLocked ? 'disabled' : ''} 
+                onchange="updateProxyRowValue(${index}, 'comment', this.value)" 
+                class="w-full bg-transparent border-b border-white/5 focus:border-osttra-rubine py-2 text-[10px] text-white/60 placeholder-white/10 italic focus:outline-none transition-all disabled:opacity-30">
+            </td>
+          </tr>
+        `;
+      }).join('');
+
+      // Pre-populate Working Days fields from activeEmp details if exists
+      const baseline = window.getWeekdaysInMonth(currentPeriod);
+      const baselineEl = document.getElementById('working-days-baseline');
+      if (baselineEl) baselineEl.innerText = baseline;
+      const inputEl = document.getElementById('working-days-total');
+      if (inputEl) {
+        inputEl.value = baseline;
+        inputEl.max = baseline;
+      }
+
+      const firstRow = activeEmp.rows[0];
+      if (firstRow) {
+        if (firstRow.regularDays !== undefined && firstRow.regularDays > 0) {
+          if (inputEl) inputEl.value = firstRow.regularDays;
+          if (firstRow.workedWeekend) {
+            document.getElementById('working-days-weekend-check').checked = true;
+            document.getElementById('working-days-weekend-container').classList.remove('hidden');
+            document.getElementById('working-days-weekend').value = firstRow.weekendDays || 0;
+          } else {
+            document.getElementById('working-days-weekend-check').checked = false;
+            document.getElementById('working-days-weekend-container').classList.add('hidden');
+            document.getElementById('working-days-weekend').value = "";
+          }
+          document.getElementById('working-days-comments').value = firstRow.workingDaysComment || "";
+        }
+      }
+
+      renderProxyBanner();
+      calculateProxyTotals();
+      loadProxyHistoricalTable();
+    };
+
+    function renderProxyBanner() {
+      const banner = document.getElementById('proxy-status-banner');
+      if (!banner) return;
+
+      const currentPeriod = window.currentUser.currentPeriod || "May 2026";
+      let html = "";
+
+      if (window.currentUser.phase1State === "2") {
+        html = `
+          <div class="p-5 rounded-2xl border border-osttra-ochre/20 bg-osttra-ochre/10 text-osttra-ochre flex items-center gap-4 animate-in slide-in-from-top duration-500">
+            <div class="w-8 h-8 rounded-lg bg-osttra-ochre/20 flex items-center justify-center text-sm shrink-0"><i class="fas fa-lock"></i></div>
+            <div>
+              <p class="text-[10px] font-black uppercase tracking-wider text-osttra-ochre">Allocation Cycle Closed</p>
+              <p class="text-[10px] text-white/60 leading-relaxed">The global allocation window has been locked by an Administrator. Proxy submissions are closed.</p>
+            </div>
+          </div>
+        `;
+        banner.innerHTML = html;
+      } else if (window.currentUser.phase1State === "3") {
+        html = `
+          <div class="p-5 rounded-2xl border border-osttra-rubine/20 bg-osttra-rubine/10 text-osttra-rubine flex items-center gap-4 animate-in slide-in-from-top duration-500">
+            <div class="w-8 h-8 rounded-lg bg-osttra-rubine/20 flex items-center justify-center text-sm shrink-0"><i class="fas fa-tools animate-pulse"></i></div>
+            <div>
+              <p class="text-[10px] font-black uppercase tracking-wider text-osttra-rubine">System Maintenance</p>
+              <p class="text-[10px] text-white/60 leading-relaxed">This module is currently offline for scheduled database maintenance.</p>
+            </div>
+          </div>
+        `;
+        banner.innerHTML = html;
+      } else if (activeEmp.hasSubmitted) {
+        // Find who submitted it
+        // The first row's allocations data should show who wrote it, but since we flat mapped, we can query allocations inside getHistoricalAllocation later.
+        // For now, we show a clean certified notification banner.
+        html = `
+          <div class="p-5 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 text-emerald-400 flex items-center gap-4 animate-in slide-in-from-top duration-500">
+            <div class="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center text-sm shrink-0"><i class="fas fa-check-circle"></i></div>
+            <div>
+              <p class="text-[10px] font-black uppercase tracking-wider text-emerald-400">Proxy Allocation Submitted & Certified</p>
+              <p class="text-[10px] text-white/70 leading-relaxed">Operational allocation splits for ${currentPeriod} are certified and locked on behalf of this employee. If you need to make corrections, click 'Reset/Unlock Allocation'.</p>
+            </div>
+          </div>
+        `;
+        banner.innerHTML = html;
+      } else {
+        banner.innerHTML = "";
+      }
+    }
+
+    window.updateProxyRowValue = function(index, key, val) {
+      if (key === 'comment') {
+        activeEmp.rows[index].comment = val;
+      } else {
+        let num = parseFloat(val) || 0;
+        num = Math.max(0, num);
+
+        // Sum other inputs across ALL rows
+        const otherSum = activeEmp.rows.reduce((sum, r, rIdx) => {
+          if (rIdx !== index) {
+            return sum + r.bau + r.nbau;
+          } else {
+            return sum + (key === 'bau' ? 0 : r.bau) + (key === 'nbau' ? 0 : r.nbau);
+          }
+        }, 0);
+
+        num = Math.min(100 - otherSum, num);
+        activeEmp.rows[index][key] = num;
+        event.target.value = num;
+      }
+
+      // Update row fte
+      const row = activeEmp.rows[index];
+      const rowTotal = row.bau + row.nbau;
+      document.getElementById(`proxy-row-fte-${index}`).innerText = `${rowTotal}%`;
+
+      calculateProxyTotals();
+    };
+
+    window.calculateProxyTotals = function() {
+      const sumBau = activeEmp.rows.reduce((sum, r) => sum + r.bau, 0);
+      const sumNbau = activeEmp.rows.reduce((sum, r) => sum + r.nbau, 0);
+      const totalFte = sumBau + sumNbau;
+
+      // Extract working days and weekend validity checks near the top to prevent hoisting reference errors
+      const baselineElement = document.getElementById('working-days-baseline');
+      const baselineDays = baselineElement ? parseFloat(baselineElement.innerText) || 20 : 20;
+      const workingDaysTotalEl = document.getElementById('working-days-total');
+      const workingDaysTotalVal = workingDaysTotalEl ? workingDaysTotalEl.value.trim() : "";
+      const workingDaysTotal = parseFloat(workingDaysTotalVal);
+      const isRegularDaysValid = workingDaysTotalVal !== "" && !isNaN(workingDaysTotal) && workingDaysTotal >= 0 && workingDaysTotal <= baselineDays;
+
+      const weekendCheck = document.getElementById('working-days-weekend-check').checked;
+      const weekendDaysVal = document.getElementById('working-days-weekend').value.trim();
+      const weekendDays = parseFloat(weekendDaysVal);
+      const isWorkingDaysValid = weekendCheck ? (weekendDaysVal !== "" && !isNaN(weekendDays) && weekendDays > 0 && weekendDays <= 8) : true;
+
+      // Gauge
+      const progress = document.getElementById('proxy-fte-progress');
+      const text = document.getElementById('proxy-fte-text');
+      const statusMsg = document.getElementById('proxy-status-msg');
+
+      text.innerText = `${totalFte}%`;
+
+      const circum = 2 * Math.PI * 58;
+      const offset = circum - (Math.min(totalFte, 100) / 100) * circum;
+      progress.style.strokeDashoffset = offset;
+
+      const isExact = (totalFte === 100);
+      updateChecklistIcon('check-hours', isExact);
+      updateChecklistIcon('check-products', activeEmp.rows.length > 0);
+      updateChecklistIcon('check-working-days', isWorkingDaysValid && isRegularDaysValid);
+      updateChecklistIcon('check-comments', true);
+
+      if (isExact) {
+        // 100% Celebration: triggers a bounce/pop pulse on the SVG progress circle
+        progress.style.transform = "scale(1.05)";
+        progress.style.transformOrigin = "center";
+        setTimeout(() => {
+          progress.style.transform = "";
+        }, 350);
+
+        progress.className = "text-emerald-500 transition-all duration-300";
+        text.className = "text-3xl font-black text-emerald-500 transition-all duration-300";
+        statusMsg.innerText = "Operational Balance Met";
+        statusMsg.className = "text-xs font-bold text-center text-emerald-500 uppercase tracking-widest";
+      } else {
+        const isUnder = totalFte < 100;
+        progress.className = isUnder 
+          ? "text-osttra-ochre transition-all duration-300" 
+          : "text-osttra-rubine transition-all duration-300";
+        text.className = isUnder 
+          ? "text-3xl font-black text-osttra-ochre transition-all duration-300" 
+          : "text-3xl font-black text-osttra-rubine transition-all duration-300";
+        statusMsg.innerText = isUnder ? "Under Capacity" : "Over Capacity";
+        statusMsg.className = isUnder 
+          ? "text-xs font-bold text-center text-osttra-ochre uppercase tracking-widest" 
+          : "text-xs font-bold text-center text-osttra-rubine uppercase tracking-widest";
+      }
+
+      const saveBtn = document.getElementById('btn-save-allocation');
+      const isLocked = activeEmp.hasSubmitted || (window.currentUser.phase1State === "2" || window.currentUser.phase1State === "3");
+
+      if (isExact && activeEmp.rows.length > 0 && !isLocked && isWorkingDaysValid && isRegularDaysValid) {
+        saveBtn.removeAttribute('disabled');
+      } else {
+        saveBtn.setAttribute('disabled', 'true');
+      }
+
+      if (isLocked) {
+        saveBtn.innerText = activeEmp.hasSubmitted ? "Allocations Certified" : "Submissions Locked";
+        saveBtn.className = "w-full py-5 bg-white/5 border border-white/10 text-white/30 rounded-2xl font-black uppercase tracking-[0.2em] text-xs cursor-not-allowed";
+      } else if (!isRegularDaysValid) {
+        saveBtn.innerText = workingDaysTotal < 0 ? "Invalid Working Days" : "Regular Days Exceed Baseline";
+        saveBtn.className = "w-full py-5 bg-white/5 border border-osttra-rubine/30 text-osttra-rubine rounded-2xl font-black uppercase tracking-[0.2em] text-xs cursor-not-allowed transition-all";
+      } else if (!isWorkingDaysValid) {
+        if (weekendCheck && weekendDays > 8) {
+          saveBtn.innerText = "Weekend Days Exceed 8";
+          saveBtn.className = "w-full py-5 bg-white/5 border border-osttra-rubine/30 text-osttra-rubine rounded-2xl font-black uppercase tracking-[0.2em] text-xs cursor-not-allowed transition-all";
+        } else {
+          saveBtn.innerText = "Enter Weekend Days";
+          saveBtn.className = "w-full py-5 bg-white/5 border border-osttra-ochre/30 text-osttra-ochre rounded-2xl font-black uppercase tracking-[0.2em] text-xs cursor-not-allowed transition-all";
+        }
+      } else {
+        saveBtn.innerText = "Submit Allocation";
+        saveBtn.className = "w-full py-5 osttra-gradient text-white rounded-2xl font-black uppercase tracking-[0.2em] text-xs hover:brightness-110 hover:scale-[1.02] active:scale-95 transition-all duration-200 shadow-xl shadow-osttra-rubine/20 disabled:opacity-25 disabled:cursor-not-allowed";
+      }
+    };
+
+    function updateChecklistIcon(elementId, pass) {
+      const el = document.getElementById(elementId);
+      if (!el) return;
+
+      if (pass) {
+        el.className = "flex items-center gap-3 text-xs text-emerald-500 font-bold";
+        el.querySelector('i').className = "fas fa-check-circle text-emerald-500";
+      } else {
+        el.className = "flex items-center gap-3 text-xs text-white/40";
+        el.querySelector('i').className = "fas fa-check-circle text-white/10";
+      }
+    }
+
+    function loadProxyHistoricalTable() {
+      const body = document.getElementById('proxy-history-body');
+      if (!body) return;
+
+      google.script.run
+        .withSuccessHandler(allocations => {
+          // Exclude current period (May 2026) from history table
+          const currentPeriod = window.currentUser.currentPeriod || "May 2026";
+          const pastAllocations = (allocations || []).filter(a => String(a.period).trim().toLowerCase() !== currentPeriod.toLowerCase());
+
+          if (pastAllocations.length === 0) {
+            body.innerHTML = `
+              <tr>
+                <td colspan="7" class="p-8 text-center text-white/20 uppercase italic tracking-widest">
+                  No historical allocation entries on record.
+                </td>
+              </tr>
+            `;
+            return;
+          }
+
+          body.innerHTML = pastAllocations.map(row => {
+            const rowTotal = (parseFloat(row.bau) || 0) + (parseFloat(row.nbau) || 0);
+            return `
+              <tr class="hover:bg-white/[0.01] transition-colors">
+                <td class="p-4 uppercase text-emerald-500 font-black text-[10px] tracking-wider">${row.period}</td>
+                <td class="p-4 uppercase text-white font-black text-[10px]">${row.product}</td>
+                <td class="p-4 uppercase text-osttra-ochre font-bold tracking-wider">${row.subProduct}</td>
+                <td class="p-4 text-center font-bold">${row.bau}%</td>
+                <td class="p-4 text-center font-bold">${row.nbau}%</td>
+                <td class="p-4 text-center font-black text-white/80">${rowTotal}%</td>
+                <td class="p-4 text-xs text-white/60 italic">${row.comment || "N/A"}</td>
+              </tr>
+            `;
+          }).join('');
+        })
+        .withFailureHandler(err => {
+          body.innerHTML = `
+            <tr>
+              <td colspan="7" class="p-8 text-center text-osttra-rubine font-bold uppercase tracking-widest">
+                Failed to load history: ${err.message}
+              </td>
+            </tr>
+          `;
+        })
+        .getHistoricalAllocation(activeEmp.email);
+    }
+
+    window.saveProxyAllocation = function(retryCount = 0) {
+      const currentPeriod = window.currentUser.currentPeriod || "May 2026";
+      const btn = document.getElementById('btn-save-allocation');
+      
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = retryCount > 0 
+          ? `<i class="fas fa-spinner animate-spin"></i> Retrying (${retryCount}/3)...`
+          : '<i class="fas fa-spinner animate-spin"></i> Submitting allocation...';
+      }
+      
+      showLoading(retryCount > 0 
+        ? `Database busy. Retrying (${retryCount}/3)...` 
+        : `Submitting allocation splits for ${activeEmp.name}...`
+      );
+      
+      const workedWeekendCheck = document.getElementById('working-days-weekend-check').checked;
+      const workingDaysPayload = {
+        standardWeekdays: document.getElementById('working-days-baseline').innerText,
+        regularDays: document.getElementById('working-days-total').value,
+        workedWeekend: workedWeekendCheck,
+        weekendDays: workedWeekendCheck ? parseFloat(document.getElementById('working-days-weekend').value) || 0 : 0,
+        comment: document.getElementById('working-days-comments').value
+      };
+
+      const payload = activeEmp.rows.map(row => ({
+        email: activeEmp.email,
+        product: row.product,
+        subProduct: row.subProduct,
+        bau: row.bau,
+        nbau: row.nbau,
+        comment: row.comment,
+        workingDays: workingDaysPayload,
+        lastKnownTimestamp: row.submissionTimestamp || ""
+      }));
+
+      google.script.run
+        .withSuccessHandler(msg => {
+          hideLoading();
+          if (btn) {
+            btn.disabled = false;
+            btn.innerText = "Submit Allocation";
+          }
+          showNotification('Certification Saved', msg, 'success');
+          
+          // Flash roster card green on success
+          const cardId = `roster-card-${activeEmp.email.replace(/[@.]/g, '-')}`;
+          const card = document.getElementById(cardId);
+          if (card) {
+            card.classList.add('bg-emerald-500/10', 'border-emerald-500');
+            setTimeout(() => {
+              card.classList.remove('bg-emerald-500/10', 'border-emerald-500');
+            }, 2000);
+          }
+          
+          loadBulkData();
+        })
+        .withFailureHandler(err => {
+          const errMsg = err.message || "";
+          
+          if (errMsg.includes("STALE_DATA_ERROR")) {
+            hideLoading();
+            if (btn) {
+              btn.disabled = false;
+              btn.innerText = "Submit Allocation";
+            }
+            showStaleDataModal();
+            return;
+          }
+
+          if (errMsg.toLowerCase().includes("database is currently busy") && retryCount < 3) {
+            const delay = Math.pow(2, retryCount) * 1000 + Math.random() * 1000;
+            showNotification("High Traffic", `Database busy. Retrying automatically in ${Math.round(delay/1000)}s...`, "warning");
+            setTimeout(() => {
+              saveProxyAllocation(retryCount + 1);
+            }, delay);
+          } else {
+            hideLoading();
+            if (btn) {
+              btn.disabled = false;
+              btn.innerText = "Submit Allocation";
+            }
+            showNotification('Save Failed', errMsg, 'error');
+          }
+        })
+        .saveManagerBulkAllocation(JSON.parse(JSON.stringify(payload)));
+    };
+
+    function showStaleDataModal() {
+      const modalHtml = `
+        <div id="stale-data-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
+          <div class="bg-osttra-black border border-osttra-rubine/30 p-8 rounded-3xl max-w-md w-full shadow-2xl animate-in zoom-in-95 duration-200 ease-out text-center">
+            <div class="w-16 h-16 rounded-full bg-osttra-rubine/10 text-osttra-rubine flex items-center justify-center text-2xl mx-auto mb-4 animate-bounce">
+              <i class="fas fa-exclamation-triangle"></i>
+            </div>
+            <h3 class="text-xl font-black text-white uppercase tracking-wider mb-2">Stale Data Warning</h3>
+            <p class="text-xs text-white/60 mb-8 leading-relaxed uppercase tracking-wider">
+              This employee's allocation splits have been updated by another session or by the employee themselves since you loaded this page. 
+              Please reload the dashboard to view the latest data.
+            </p>
+            <button onclick="loadBulkData(); document.getElementById('stale-data-modal').remove();" class="w-full py-4 osttra-gradient rounded-xl text-xs font-black uppercase text-white hover:brightness-110 hover:scale-[1.03] active:scale-95 transition-all duration-200">
+              Refresh Data
+            </button>
+          </div>
+        </div>
+      `;
+      document.body.insertAdjacentHTML('beforeend', modalHtml);
+    }
+
+    window.resetProxyAllocation = function() {
+      const currentPeriod = window.currentUser.currentPeriod || "May 2026";
+      
+      showConfirmModal(
+        `Are you sure you want to RESET and UNLOCK the allocation splits for ${activeEmp.name}?\n\nThis will purge all May 2026 split entries for this employee, clearing their cache and unlocking their personal tab so they can certify it themselves.`,
+        () => {
+          showLoading(`Resetting and unlocking ${activeEmp.name}'s allocation splits...`);
+          google.script.run
+            .withSuccessHandler(msg => {
+              hideLoading();
+              showNotification('Allocation Unlocked', msg, 'success');
+              loadBulkData();
+            })
+            .withFailureHandler(err => {
+              hideLoading();
+              showNotification('Unlock Failed', err.message, 'error');
+            })
+            .deleteEmployeeAllocation(activeEmp.email, currentPeriod);
+        }
+      );
+    };
+
+    window.closeConfirmModal = function() {
+      document.getElementById('confirm-modal').classList.add('hidden');
+    };
+
+    window.executeConfirmModal = function() {
+      document.getElementById('confirm-modal').classList.add('hidden');
+      if (confirmCallback) confirmCallback();
+    };
+
+    let confirmCallback = null;
+    window.showConfirmModal = function(message, onConfirm) {
+      document.getElementById('confirm-modal-msg').innerText = message;
+      document.getElementById('confirm-modal').classList.remove('hidden');
+      confirmCallback = onConfirm;
+      document.getElementById('confirm-modal-btn').onclick = executeConfirmModal;
+    };
+
+    function resetWorkspace() {
+      activeEmp = null;
+      const workspace = document.getElementById('workspace-area');
+      workspace.innerHTML = `
+        <div class="flex-1 glass rounded-[2rem] border border-white/5 p-16 flex flex-col items-center justify-center text-center gap-4">
+          <div class="w-16 h-16 rounded-2xl bg-white/5 flex items-center justify-center text-white/20 text-2xl">
+            <i class="fas fa-user-check"></i>
+          </div>
+          <div class="space-y-1">
+            <h3 class="text-md font-black uppercase tracking-wider text-white/80">Select a Direct Report</h3>
+            <p class="text-xs text-white/40 max-w-sm mx-auto leading-relaxed">
+              Choose an employee from the left roster to view their operational scope, perform proxy certifications, or audit past allocations.
+            </p>
+          </div>
+        </div>
+      `;
+    }
+
+    // Load data on page init
+    loadBulkData();
+  })();
+</script>

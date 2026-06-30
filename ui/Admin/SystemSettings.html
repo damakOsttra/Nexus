@@ -1,0 +1,432 @@
+<div class="p-8 min-h-full space-y-12 animate-in fade-in duration-700">
+  <!-- Header -->
+  <div class="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 pb-6 border-b border-white/5 mb-8">
+    <div class="space-y-2">
+      <h2 class="text-2xl font-black text-osttra-rubine uppercase tracking-widest flex items-center gap-2">
+        <i class="fas fa-cogs text-xl"></i> Admin Control Center
+      </h2>
+      <p class="text-gray-400 text-sm mt-1">Global system configuration and master data management.</p>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    <!-- Phase 1 Master Switch Card (Functional Setting) -->
+    <div class="bg-[#1a1a1a]/30 border border-white/5 p-6 rounded-2xl border-l-4 border-osttra-rubine flex flex-col justify-between">
+      <div>
+        <h3 class="text-lg font-bold text-white mb-3 uppercase tracking-widest flex items-center gap-2">
+          <i class="fas fa-toggle-on text-osttra-rubine text-xl animate-pulse"></i> Phase 1 Toggle
+        </h3>
+        <p class="text-[11px] text-gray-500 mb-6 leading-relaxed">Control global accessibility and banner displays of self-certification & allocation modules.</p>
+      </div>
+      <div class="grid grid-cols-3 gap-2">
+        <button onclick="setPhase1State('1')" id="btn-state-1" class="px-3 py-2 text-[10px] font-bold uppercase tracking-widest rounded-xl transition-all border border-emerald-500/20 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20">
+          🟢 Active
+        </button>
+        <button onclick="setPhase1State('2')" id="btn-state-2" class="px-3 py-2 text-[10px] font-bold uppercase tracking-widest rounded-xl transition-all border border-osttra-ochre/20 bg-osttra-ochre/10 text-osttra-ochre hover:bg-osttra-ochre/20">
+          🟡 Locked
+        </button>
+        <button onclick="setPhase1State('3')" id="btn-state-3" class="px-3 py-2 text-[10px] font-bold uppercase tracking-widest rounded-xl transition-all border border-osttra-rubine/20 bg-osttra-rubine/10 text-osttra-rubine hover:bg-osttra-rubine/20">
+          🔴 Maint.
+        </button>
+      </div>
+    </div>
+
+    <!-- Finance Export Card (Functional Setting) -->
+    <div onclick="downloadFinanceCSV()" class="bg-[#1a1a1a]/30 border border-white/5 p-6 rounded-2xl hover:border-emerald-500/50 hover:bg-[#1a1a1a]/40 transition-all cursor-pointer group border-l-4 border-emerald-500 flex flex-col justify-between">
+      <div>
+        <div class="w-12 h-12 bg-emerald-500/10 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+          <i class="fas fa-file-csv text-emerald-500 text-2xl"></i>
+        </div>
+        <h3 class="text-lg font-bold text-white mb-2 uppercase tracking-widest">Finance Export</h3>
+        <p class="text-xs text-gray-500 leading-relaxed">Download April 2026 allocation data mapped to Finance classification (Run/Change).</p>
+      </div>
+      <div class="mt-4 pt-4 border-t border-white/5 text-[9px] font-black uppercase text-white/40 tracking-widest">
+        Format: Granular CSV
+      </div>
+    </div>
+
+    <!-- Run Data Audit Card (Technical Setting) -->
+    <div onclick="openAuditModal()" class="bg-[#1a1a1a]/30 border border-white/5 p-6 rounded-2xl hover:border-osttra-violet/50 hover:bg-[#1a1a1a]/40 transition-all cursor-pointer group border-l-4 border-osttra-violet flex flex-col justify-between">
+      <div>
+        <div class="w-12 h-12 bg-osttra-violet/10 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+          <i class="fas fa-shield-alt text-osttra-violet text-2xl"></i>
+        </div>
+        <h3 class="text-lg font-bold text-white mb-2 uppercase tracking-widest">Workspace Audit</h3>
+        <p class="text-xs text-gray-500 leading-relaxed">Scan, inspect, and reconcile Google Directory accounts against live Dayforce HRIS report data.</p>
+      </div>
+      <div class="mt-4 pt-4 border-t border-white/5 text-[9px] font-black uppercase text-white/40 tracking-widest">
+        Scope: Anup's Org Only
+      </div>
+    </div>
+
+
+
+    <!-- Identity Simulation Card (Admin Feature) -->
+    <div class="bg-[#1a1a1a]/30 border border-white/5 p-6 rounded-2xl border-l-4 border-[#FF0061] flex flex-col justify-between">
+      <div>
+        <h3 class="text-lg font-bold text-white mb-3 uppercase tracking-widest flex items-center gap-2">
+          <i class="fas fa-user-secret text-[#FF0061] text-xl"></i> Identity Simulation
+        </h3>
+        <p class="text-[11px] text-gray-500 mb-6 leading-relaxed">Impersonate any employee to verify their allocation and permissions.</p>
+      </div>
+      <div class="space-y-3">
+        <input type="email" id="custom-simulate-email" placeholder="Enter employee email" class="w-full bg-white/5 border border-white/10 rounded-[14px] px-4 py-2.5 text-[10px] text-white placeholder-white/30 focus:outline-none focus:border-[#FF0061]/50 transition-all">
+        <div class="grid grid-cols-2 gap-2">
+          <button onclick="simulateCustomUser()" class="px-3 py-2 bg-white/5 hover:bg-[#FF0061]/20 text-[#FF0061] text-[9px] font-black uppercase tracking-widest rounded-xl transition-all border border-[#FF0061]/20">
+            Simulate
+          </button>
+          <button onclick="resetSimulation()" class="px-3 py-2 bg-white/5 hover:bg-white/10 text-white/50 text-[9px] font-black uppercase tracking-widest rounded-xl transition-all border border-white/10">
+            Clear
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- System Diagnostic Info -->
+  <div class="mt-12 p-8 glass rounded-3xl border border-white/5 space-y-6">
+    <h4 class="text-xs font-black text-osttra-rubine uppercase tracking-[0.3em] flex items-center gap-3 italic">
+      <span class="w-2 h-2 rounded-full bg-osttra-rubine animate-pulse"></span>
+      System Node Health
+    </h4>
+    <div id="debug-info" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div class="h-10 skeleton w-full"></div>
+      <div class="h-10 skeleton w-full"></div>
+      <div class="h-10 skeleton w-full"></div>
+    </div>
+  </div>
+
+  <!-- Workspace Mismatch Audit Modal (New) -->
+  <div id="audit-modal" class="hidden fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+    <div class="glass border border-white/10 w-full max-w-5xl rounded-[2rem] overflow-hidden flex flex-col max-h-[85vh] shadow-2xl animate-in zoom-in duration-300">
+      
+      <!-- Modal Header -->
+      <div class="px-8 py-6 border-b border-white/5 bg-[#1a1a1a]/80 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div class="space-y-1">
+          <h3 class="text-xl font-black uppercase text-white tracking-tight italic">📊 Workspace Mismatch <span class="text-osttra-rubine">Audit</span></h3>
+          <p class="text-[10px] text-white/40 uppercase tracking-widest font-semibold">Account existence discrepancies (Anup's Org vs Dayforce)</p>
+        </div>
+        <!-- Controls -->
+        <div class="flex flex-wrap gap-2">
+          <button onclick="closeAuditModal()" class="w-8 h-8 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center text-white/50 hover:text-white transition-all">
+            <i class="fas fa-times text-xs"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Modal Body (Table Container) -->
+      <div class="flex-1 overflow-y-auto p-8 bg-[#151515]/90 min-h-[300px]">
+        <div id="audit-loading" class="hidden flex flex-col items-center justify-center py-12 gap-4">
+          <i class="fas fa-circle-notch animate-spin text-3xl text-osttra-rubine"></i>
+          <p class="text-[9px] font-black uppercase tracking-widest text-white/30">Analyzing Directory Logs...</p>
+        </div>
+
+        <div id="audit-table-wrapper" class="overflow-x-auto rounded-xl border border-white/5 bg-black/40">
+          <table class="w-full text-left border-collapse text-xs">
+            <thead>
+              <tr class="bg-white/5 text-[9px] font-black uppercase tracking-widest text-white/40 border-b border-white/5">
+                <th class="p-4">Timestamp</th>
+                <th class="p-4">Employee</th>
+                <th class="p-4">Discrepancy</th>
+                <th class="p-4">Google Roster</th>
+                <th class="p-4">Dayforce Report</th>
+                <th class="p-4 text-right">Action Status</th>
+              </tr>
+            </thead>
+            <tbody id="audit-tbody" class="divide-y divide-white/5 text-white/70">
+              <!-- Insert rows dynamically -->
+            </tbody>
+          </table>
+        </div>
+        
+        <!-- Empty State -->
+        <div id="audit-empty" class="hidden flex flex-col items-center justify-center py-12 text-center gap-4">
+          <div class="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center text-white/20 text-lg">
+            <i class="fas fa-check-circle"></i>
+          </div>
+          <div class="space-y-1">
+            <h4 class="text-xs font-black uppercase text-white">No Mismatches Found</h4>
+            <p class="text-[10px] text-white/40 max-w-sm">Dayforce and Google directory accounts are currently in perfect sync!</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  /**
+   * Triggers the Finance CSV download
+   */
+  function downloadFinanceCSV() {
+    showLoading('Generating Finance Export...');
+    
+    google.script.run
+      .withSuccessHandler(data => {
+        hideLoading();
+        if (!data || data.length === 0) {
+          showNotification("Export Failed", "No data found for the current period.", "error");
+          return;
+        }
+
+        const csvContent = data.map(row => 
+          row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(",")
+        ).join("\n");
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement("a");
+        const url = URL.createObjectURL(blob);
+        
+        link.setAttribute("href", url);
+        link.setAttribute("download", `OSTTRA_Nexus_Finance_Export_${new Date().toISOString().split('T')[0]}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        showNotification("Success", "Finance export generated successfully.");
+      })
+      .withFailureHandler(err => {
+        hideLoading();
+        showNotification("Export Error", err.message, "error");
+      })
+      .getFinanceExportData();
+  }
+
+  /**
+   * Triggers the historical data seeding
+   */
+  function seedHistoricalData() {
+    showLoading('Seeding Historical Data...');
+    google.script.run
+      .withSuccessHandler(msg => {
+        hideLoading();
+        showNotification("Success", msg);
+      })
+      .withFailureHandler(err => {
+        hideLoading();
+        showNotification("Seeding Error", err.message, "error");
+      })
+      .bootstrapHistoricalData();
+  }
+
+  /**
+   * Triggers the Dayforce vs Google Workspace data audit
+   */
+  function runDataAudit() {
+    showLoading('Running Data Audit...');
+    google.script.run
+      .withSuccessHandler(msg => {
+        hideLoading();
+        showNotification("Success", msg);
+      })
+      .withFailureHandler(err => {
+        hideLoading();
+        showNotification("Audit Error", err.message, "error");
+      })
+      .auditDayforceVsGoogle();
+  }
+
+
+
+  /**
+   * Loads system configuration toggle states
+   */
+  function loadConfig() {
+    google.script.run
+      .withSuccessHandler(config => {
+        const state = config["PHASE_1_STATE"] || "1";
+        document.querySelectorAll("[id^='btn-state-']").forEach(btn => {
+          btn.classList.add("opacity-40");
+          btn.classList.remove("shadow-[0_0_15px_rgba(139,92,246,0.3)]", "scale-105", "opacity-100", "font-black");
+        });
+        
+        const activeBtn = document.getElementById(`btn-state-${state}`);
+        if (activeBtn) {
+          activeBtn.classList.remove("opacity-40");
+          activeBtn.classList.add("opacity-100", "scale-105", "shadow-[0_0_15px_rgba(139,92,246,0.3)]", "font-black");
+        }
+      })
+      .withFailureHandler(err => {
+        showNotification("Failed to Load Config", err.message, "error");
+      })
+      .getSystemConfig();
+  }
+
+  /**
+   * Updates global Phase 1 toggle state
+   */
+  function setPhase1State(state) {
+    showLoading('Updating System Config...');
+    google.script.run
+      .withSuccessHandler(() => {
+        hideLoading();
+        showNotification("Success", "System configuration updated successfully. Syncing application shell...", "success");
+        setTimeout(handleReload, 1000);
+      })
+      .withFailureHandler(err => {
+        hideLoading();
+        showNotification("Error", err.message, "error");
+      })
+      .updateSystemConfig("PHASE_1_STATE", state);
+  }
+
+  // ==========================================
+  // WORKSPACE AUDIT MODAL AND COMPLIANCE CONTROLS
+  // ==========================================
+
+  var auditData = [];
+
+  window.openAuditModal = function() {
+    document.getElementById('audit-modal').classList.remove('hidden');
+    loadAuditDiscrepancies(); // Simply load the existing discrepancies from the spreadsheet
+  };
+
+  window.closeAuditModal = function() {
+    document.getElementById('audit-modal').classList.add('hidden');
+  };
+
+  function loadAuditDiscrepancies() {
+    document.getElementById('audit-loading').classList.remove('hidden');
+    document.getElementById('audit-table-wrapper').classList.add('hidden');
+    document.getElementById('audit-empty').classList.add('hidden');
+
+    google.script.run
+      .withSuccessHandler(data => {
+        document.getElementById('audit-loading').classList.add('hidden'); // ALWAYS hide loader first
+        auditData = data || [];
+        renderAuditTable();
+      })
+      .withFailureHandler(err => {
+        document.getElementById('audit-loading').classList.add('hidden');
+        showNotification("Audit Error", "Failed to load audit results: " + err.message, "error");
+      })
+      .getAuditDiscrepancies();
+  }
+
+  function renderAuditTable() {
+    const tbody = document.getElementById('audit-tbody');
+    tbody.innerHTML = "";
+
+    if (auditData.length === 0) {
+      document.getElementById('audit-table-wrapper').classList.add('hidden');
+      document.getElementById('audit-empty').classList.remove('hidden');
+      return;
+    }
+
+    document.getElementById('audit-empty').classList.add('hidden');
+    document.getElementById('audit-table-wrapper').classList.remove('hidden');
+
+    auditData.forEach(r => {
+      // Alphanumeric-only key matching helper to perfectly align keys between sheet and browser, bypassing any spacing quirks
+      const getVal = (obj, keyName) => {
+        const targetClean = keyName.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const k = Object.keys(obj).find(x => x.toLowerCase().replace(/[^a-z0-9]/g, '') === targetClean) || keyName;
+        return obj[k];
+      };
+
+      const email = getVal(r, "Employee Email");
+      const name = getVal(r, "Employee Name");
+      const field = getVal(r, "Discrepancy Field") || "Account Mismatch";
+      const gVal = getVal(r, "Google Value") || "None";
+      const dfVal = getVal(r, "Dayforce Value") || "None";
+      const ts = getVal(r, "Timestamp") ? new Date(getVal(r, "Timestamp")).toLocaleDateString() : "N/A";
+      const actionStatus = getVal(r, "Action Status") || "Pending";
+
+      const dropdown = `
+        <select onchange="updateDiscrepancyStatus('${email}', this.value)" class="bg-[#1a1a1a]/50 border border-white/10 rounded-lg px-2 py-1 text-[10px] text-white focus:outline-none focus:border-osttra-rubine/50 cursor-pointer">
+          <option value="Pending" ${actionStatus === 'Pending' ? 'selected' : ''}>Pending</option>
+          <option value="Discrepancy" ${actionStatus === 'Discrepancy' ? 'selected' : ''}>Discrepancy</option>
+          <option value="Ignore" ${actionStatus === 'Ignore' ? 'selected' : ''}>Ignore</option>
+        </select>
+      `;
+
+      const rowHtml = `
+        <tr class="hover:bg-white/5 transition-colors">
+          <td class="p-4 text-[10px] font-mono text-white/40">${ts}</td>
+          <td class="p-4 font-bold uppercase tracking-tight text-white">${name}<br><span class="text-[9px] font-mono font-medium text-white/40 uppercase tracking-widest lowercase">${email}</span></td>
+          <td class="p-4"><span class="px-2 py-0.5 rounded-md bg-osttra-rubine/10 border border-osttra-rubine/20 text-osttra-rubine text-[8px] font-black uppercase tracking-widest">${field}</span></td>
+          <td class="p-4 font-medium">${gVal}</td>
+          <td class="p-4 font-medium">${dfVal}</td>
+          <td class="p-4 text-right">${dropdown}</td>
+        </tr>
+      `;
+      tbody.insertAdjacentHTML('beforeend', rowHtml);
+    });
+  }
+
+  /**
+   * Triggers background spreadsheet write to update Action Status of a discrepancy.
+   */
+  window.updateDiscrepancyStatus = function(email, status) {
+    showLoading('Updating discrepancy status...');
+    google.script.run
+      .withSuccessHandler(() => {
+        hideLoading();
+        showNotification("Success", `Status for ${email} updated to ${status}.`, "success");
+        // Update local memory state so re-renders of the modal match instantly
+        const row = auditData.find(r => {
+          const emailClean = (r["Employee Email"] || r.employeeemail || "").toLowerCase().trim();
+          return emailClean === email.toLowerCase().trim();
+        });
+        if (row) {
+          // Identify whatever key variant is in the object and update it
+          const statusKey = Object.keys(row).find(k => k.toLowerCase().replace(/[^a-z0-9]/g, '') === 'actionstatus') || 'Action Status';
+          row[statusKey] = status;
+        }
+      })
+      .withFailureHandler(err => {
+        hideLoading();
+        showNotification("Failed to Update Status", err.message, "error");
+        loadAuditDiscrepancies(); // Rollback visually
+      })
+      .updateAuditStatus(email, status);
+  };
+
+  // Run diagnostics on load
+  (function runDiagnostics() {
+    loadConfig(); // Load Phase 1 Toggle state on page load
+    google.script.run
+      .withSuccessHandler(health => {
+        const debug = document.getElementById('debug-info');
+        if (!debug) return;
+        
+        if (!health || health.status === 'offline') {
+          debug.innerHTML = `
+            <div class="p-6 bg-red-500/10 border border-red-500/20 rounded-2xl col-span-full flex items-center gap-4 text-red-500">
+              <i class="fas fa-exclamation-circle text-2xl animate-bounce"></i>
+              <div>
+                <h4 class="text-xs font-black uppercase tracking-wider">Database Offline</h4>
+                <p class="text-[10px] opacity-80">${health ? health.error : 'Master Spreadsheet is inaccessible or ID is invalid.'}</p>
+              </div>
+            </div>`;
+          return;
+        }
+
+        debug.innerHTML = health.sheets.map(s => {
+          const statusBadge = s.connected 
+            ? '<span class="px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-[8px] font-black text-emerald-500 uppercase tracking-widest">Connected</span>' 
+            : '<span class="px-2 py-0.5 rounded-md bg-red-500/10 border border-red-500/20 text-[8px] font-black text-red-500 uppercase tracking-widest">Missing</span>';
+          
+          return `
+          <div class="p-4 bg-[#222222]/30 border border-white/5 rounded-2xl flex items-center justify-between gap-4">
+            <div class="space-y-0.5 min-w-0">
+              <p class="text-[10px] font-bold text-white uppercase tracking-wider truncate">${s.name}</p>
+              <p class="text-[8px] font-mono text-white/30 truncate">${s.key}</p>
+            </div>
+            ${statusBadge}
+          </div>`;
+        }).join('');
+      })
+      .withFailureHandler(err => {
+        const debug = document.getElementById('debug-info');
+        if (debug) {
+          debug.innerHTML = `
+            <div class="p-4 bg-red-500/10 rounded-xl border border-red-500/20 col-span-full text-xs text-red-500">
+              Diagnostic failure: ${err.message}
+            </div>`;
+        }
+      })
+      .getDatabaseHealth();
+  })();
+</script>

@@ -1,0 +1,295 @@
+<div class="p-8 space-y-8 max-w-7xl mx-auto animate-in fade-in duration-300">
+  <!-- Header -->
+  <div class="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 pb-6 border-b border-white/5">
+    <div class="space-y-2">
+      <h2 class="text-2xl font-black text-osttra-rubine uppercase tracking-widest flex items-center gap-2">
+        <i class="fas fa-chart-line text-xl"></i> Nexus Adoption
+      </h2>
+      <p class="text-gray-400 text-sm mt-1">Real-time usage patterns, self-service rates, and administrative activities.</p>
+    </div>
+    
+    <!-- Refresh Button -->
+    <button onclick="refreshTelemetryData()" class="px-5 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-[10px] font-black uppercase tracking-widest text-white hover:scale-105 active:scale-95 transition-all flex items-center gap-2 cursor-pointer">
+      <i class="fas fa-sync-alt"></i> Refresh Dashboard
+    </button>
+  </div>
+
+  <!-- Loading State Loader -->
+  <div id="telemetry-loading" class="flex flex-col items-center justify-center py-24 space-y-4">
+    <i class="fas fa-circle-notch animate-spin text-3xl text-osttra-rubine"></i>
+    <p class="text-[10px] font-bold uppercase tracking-wider text-white/40 animate-pulse">Compiling Telemetry Logs...</p>
+  </div>
+
+  <!-- Dashboard Content (Initially Hidden) -->
+  <div id="telemetry-dashboard" class="hidden space-y-8">
+    
+    <!-- Row 1: KPI Highlight Cards -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      
+      <!-- Card 1: Active Users (30D) -->
+      <div class="p-6 bg-[#222222] border border-white/5 rounded-2xl relative overflow-hidden group hover:border-[#FF0061]/20 transition-all duration-300">
+        <div class="absolute -right-6 -bottom-6 w-24 h-24 bg-[#FF0061]/5 rounded-full blur-xl group-hover:bg-[#FF0061]/10 transition-colors"></div>
+        <div class="flex items-center justify-between">
+          <span class="text-[10px] font-black uppercase tracking-wider text-white/50">Active Users (30D)</span>
+          <div class="w-8 h-8 rounded-xl bg-[#FF0061]/10 flex items-center justify-center text-[#FF0061]">
+            <i class="fas fa-users text-xs"></i>
+          </div>
+        </div>
+        <div class="mt-4 space-y-1">
+          <p id="kpi-mau" class="text-3xl font-black tracking-tight text-white">0</p>
+          <p class="text-[10px] text-white/30 font-medium">Distinct users active</p>
+        </div>
+      </div>
+
+      <!-- Card 2: Self-Serve Submissions -->
+      <div class="p-6 bg-[#222222] border border-white/5 rounded-2xl relative overflow-hidden group hover:border-emerald-500/20 transition-all duration-300">
+        <div class="absolute -right-6 -bottom-6 w-24 h-24 bg-emerald-500/5 rounded-full blur-xl group-hover:bg-emerald-500/10 transition-colors"></div>
+        <div class="flex items-center justify-between">
+          <span class="text-[10px] font-black uppercase tracking-wider text-white/50">Self-Serve Submits</span>
+          <div class="w-8 h-8 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-500">
+            <i class="fas fa-check-circle text-xs"></i>
+          </div>
+        </div>
+        <div class="mt-4 space-y-1">
+          <p id="kpi-self-serve" class="text-3xl font-black tracking-tight text-white">0</p>
+          <p class="text-[10px] text-white/30 font-medium">Completed by employees</p>
+        </div>
+      </div>
+
+      <!-- Card 3: Manager Proxies -->
+      <div class="p-6 bg-[#222222] border border-white/5 rounded-2xl relative overflow-hidden group hover:border-osttra-ochre/20 transition-all duration-300">
+        <div class="absolute -right-6 -bottom-6 w-24 h-24 bg-osttra-ochre/5 rounded-full blur-xl group-hover:bg-osttra-ochre/10 transition-colors"></div>
+        <div class="flex items-center justify-between">
+          <span class="text-[10px] font-black uppercase tracking-wider text-white/50">Manager Overrides</span>
+          <div class="w-8 h-8 rounded-xl bg-osttra-ochre/10 flex items-center justify-center text-osttra-ochre">
+            <i class="fas fa-user-shield text-xs"></i>
+          </div>
+        </div>
+        <div class="mt-4 space-y-1">
+          <p id="kpi-proxies" class="text-3xl font-black tracking-tight text-white">0</p>
+          <p class="text-[10px] text-white/30 font-medium">Proxy actions executed</p>
+        </div>
+      </div>
+
+      <!-- Card 4: Friction / Timecard Resets -->
+      <div class="p-6 bg-[#222222] border border-white/5 rounded-2xl relative overflow-hidden group hover:border-osttra-violet/20 transition-all duration-300">
+        <div class="absolute -right-6 -bottom-6 w-24 h-24 bg-osttra-violet/5 rounded-full blur-xl group-hover:bg-osttra-violet/10 transition-colors"></div>
+        <div class="flex items-center justify-between">
+          <span class="text-[10px] font-black uppercase tracking-wider text-white/50">Timecard Resets</span>
+          <div class="w-8 h-8 rounded-xl bg-osttra-violet/10 flex items-center justify-center text-osttra-violet">
+            <i class="fas fa-unlock text-xs"></i>
+          </div>
+        </div>
+        <div class="mt-4 space-y-1">
+          <p id="kpi-resets" class="text-3xl font-black tracking-tight text-white">0</p>
+          <p class="text-[10px] text-white/30 font-medium">Unlocked by manager</p>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Row 2: Grid for Chart & Event Breakdown -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      
+      <!-- Chart: DAU Trend (Line Graph) -->
+      <div class="p-6 bg-[#222222] border border-white/5 rounded-3xl lg:col-span-2 space-y-6">
+        <div class="flex justify-between items-center">
+          <div class="space-y-0.5">
+            <h3 class="text-sm font-black uppercase tracking-wider text-white">Daily Active Users Trend</h3>
+            <p class="text-[10px] text-white/40">Unique logins / telemetry events over last 30 days</p>
+          </div>
+          <span class="px-2.5 py-1 rounded-full bg-[#FF0061]/10 text-[#FF0061] text-[9px] font-black uppercase tracking-wider">30D Roll</span>
+        </div>
+        <div class="relative h-[280px]">
+          <canvas id="adoptionDauChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Event Counts Breakdown (Sidebar) -->
+      <div class="p-6 bg-[#222222] border border-white/5 rounded-3xl flex flex-col justify-between">
+        <div class="space-y-6 h-full">
+          <div class="space-y-0.5">
+            <h3 class="text-sm font-black uppercase tracking-wider text-white">Governance & Audit Counters</h3>
+            <p class="text-[10px] text-white/40">Operational actions logged during period</p>
+          </div>
+          
+          <div id="governance-counters" class="space-y-3 overflow-y-auto max-h-[220px] pr-2">
+            <!-- Populated dynamically -->
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Row 3: Admin Activity Terminal (Real-time Live Feed) -->
+    <div class="p-6 bg-[#222222] border border-white/5 rounded-3xl space-y-6">
+      <div class="flex justify-between items-center border-b border-white/5 pb-4">
+        <div class="space-y-0.5">
+          <h3 class="text-sm font-black uppercase tracking-wider text-white">Live Administrator & Roster Feed</h3>
+          <p class="text-[10px] text-white/40">Most recent platform-wide actions and system transactions</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span class="text-[9px] font-black uppercase tracking-widest text-emerald-500">Telemetry Live</span>
+        </div>
+      </div>
+      
+      <!-- Terminal Window -->
+      <div class="bg-[#1a1a1a] rounded-2xl p-6 font-mono border border-white/5 shadow-inner">
+        <div id="adoption-terminal" class="space-y-3.5 max-h-[300px] overflow-y-auto text-xs leading-relaxed pr-2">
+          <!-- Live events will load here -->
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Page Execution Scripts -->
+<script>
+  (function() {
+    let chartInstance = null;
+
+    window.refreshTelemetryData = function() {
+      document.getElementById('telemetry-loading').classList.remove('hidden');
+      document.getElementById('telemetry-dashboard').classList.add('hidden');
+      
+      google.script.run
+        .withSuccessHandler(function(telemetry) {
+          document.getElementById('telemetry-loading').classList.add('hidden');
+          document.getElementById('telemetry-dashboard').classList.remove('hidden');
+          
+          // 1. Render KPIs
+          document.getElementById('kpi-mau').innerText = telemetry.activeUserCount30D || 0;
+          document.getElementById('kpi-self-serve').innerText = telemetry.eventCounts.ALLOCATION_SUBMITTED || 0;
+          document.getElementById('kpi-proxies').innerText = telemetry.eventCounts.MANAGER_PROXY_SUBMITTED || 0;
+          document.getElementById('kpi-resets').innerText = telemetry.eventCounts.ALLOCATION_UNLOCKED || 0;
+          
+          // 2. Render Sidebar Governance Counters
+          const govContainer = document.getElementById('governance-counters');
+          const govEvents = [
+            { label: 'Database Backups', key: 'DB_BACKUP_EXECUTED', icon: 'fa-hdd', color: 'text-osttra-rubine' },
+            { label: 'Roster Audits Run', key: 'DAYFORCE_AUDIT_RUN', icon: 'fa-users-cog', color: 'text-osttra-ochre' },
+            { label: 'Skill Ratings Set', key: 'SKILL_ASSIGNED', icon: 'fa-user-tag', color: 'text-emerald-500' },
+            { label: 'System States Changed', key: 'SYSTEM_STATE_CHANGED', icon: 'fa-cog', color: 'text-osttra-violet' },
+            { label: 'Bulk Emails Sent', key: 'BULK_EMAILS_SENT', icon: 'fa-envelope', color: 'text-blue-400' },
+            { label: 'Analytics Hub Uploads', key: 'REPORT_PUBLISHED', icon: 'fa-file-upload', color: 'text-pink-400' }
+          ];
+          
+          govContainer.innerHTML = govEvents.map(event => `
+            <div class="flex justify-between items-center py-2.5 px-4 bg-white/5 border border-white/5 rounded-xl hover:border-white/10 transition-colors">
+              <div class="flex items-center gap-3">
+                <i class="fas ${event.icon} text-xs ${event.color}"></i>
+                <span class="text-xs font-bold text-white/80">${event.label}</span>
+              </div>
+              <span class="text-xs font-black text-white font-mono bg-white/5 px-2.5 py-1 rounded-lg">${telemetry.eventCounts[event.key] || 0}</span>
+            </div>
+          `).join('');
+          
+          // 3. Render Chart.js
+          renderDauChart(telemetry.chartData);
+          
+          // 4. Render Live Activity Terminal
+          renderTerminalFeed(telemetry.recentLogs);
+        })
+        .withFailureHandler(function(err) {
+          document.getElementById('telemetry-loading').innerHTML = `
+            <div class="p-8 text-center text-red-500 flex flex-col items-center gap-4">
+              <i class="fas fa-exclamation-triangle text-3xl"></i>
+              <h3 class="text-sm font-black uppercase tracking-wider">Failed to load Telemetry</h3>
+              <p class="text-xs opacity-60">${err.message}</p>
+            </div>
+          `;
+        })
+        .getSystemTelemetry();
+    }
+
+    function renderDauChart(chartData) {
+      const ctx = document.getElementById('adoptionDauChart').getContext('2d');
+      
+      if (chartInstance) {
+        chartInstance.destroy();
+      }
+      
+      // Fallback labels/data if empty
+      const labels = chartData.labels.length > 0 ? chartData.labels : ["No Data"];
+      const values = chartData.values.length > 0 ? chartData.values : [0];
+
+      chartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Daily Active Users (Telemetry Hits)',
+            data: values,
+            borderColor: '#FF0061', // OSTTRA Rubine
+            borderWidth: 2,
+            pointBackgroundColor: '#FF0061',
+            pointBorderColor: '#1a1a1a',
+            pointHoverRadius: 6,
+            backgroundColor: 'rgba(255, 0, 97, 0.05)',
+            fill: true,
+            tension: 0.3
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false }
+          },
+          scales: {
+            x: {
+              grid: { color: 'rgba(255, 255, 255, 0.02)' },
+              ticks: { color: 'rgba(255, 255, 255, 0.3)', font: { size: 9, family: 'monospace' } }
+            },
+            y: {
+              grid: { color: 'rgba(255, 255, 255, 0.02)' },
+              ticks: { color: 'rgba(255, 255, 255, 0.3)', font: { size: 9, family: 'monospace' }, stepSize: 1 },
+              min: 0
+            }
+          }
+        }
+      });
+    }
+
+    function renderTerminalFeed(logs) {
+      const terminal = document.getElementById('adoption-terminal');
+      
+      if (!logs || logs.length === 0) {
+        terminal.innerHTML = `<div class="text-white/30 text-center py-12 italic">No telemetry logs found in current cycle.</div>`;
+        return;
+      }
+      
+      const actionClasses = {
+        DB_BACKUP_EXECUTED: 'bg-[#FF0061]/10 text-[#FF0061] border-[#FF0061]/20',
+        SYSTEM_STATE_CHANGED: 'bg-[#FE952D]/10 text-[#FE952D] border-[#FE952D]/20',
+        ALLOCATION_SUBMITTED: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20',
+        MANAGER_PROXY_SUBMITTED: 'bg-osttra-ochre/10 text-osttra-ochre border-osttra-ochre/20',
+        ALLOCATION_UNLOCKED: 'bg-osttra-violet/10 text-osttra-violet border-osttra-violet/20',
+        DAYFORCE_AUDIT_RUN: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+        BULK_EMAILS_SENT: 'bg-[#555555]/10 text-white/50 border-[#555555]/20'
+      };
+
+      terminal.innerHTML = logs.map(log => {
+        const pillClass = actionClasses[log.action] || 'bg-white/5 text-white/60 border-white/10';
+        const detailStr = log.details ? `<span class="text-white/30">::</span> <span class="text-[#FE952D] opacity-80 font-bold">${log.details}</span>` : '';
+        return `
+          <div class="flex items-start gap-3 py-1 border-b border-white/[0.02] hover:bg-white/[0.01] rounded px-2 transition-colors">
+            <span class="text-[10px] text-white/30 shrink-0 select-none font-mono py-0.5">[${log.timestamp}]</span>
+            <span class="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 border rounded shrink-0 ${pillClass}">${log.action}</span>
+            <div class="flex-1 whitespace-normal">
+              <span class="font-bold text-white/70">${log.actor}</span>
+              <span class="text-white/40">acted on</span>
+              <span class="font-semibold text-white/80">${log.target}</span>
+              ${detailStr}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // Self-boot on page mount
+    refreshTelemetryData();
+  })();
+</script>

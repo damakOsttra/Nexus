@@ -1,0 +1,358 @@
+<div class="p-8 min-h-full space-y-12 animate-in fade-in duration-700">
+  <!-- Header -->
+  <div class="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 pb-6 border-b border-white/5">
+    <div class="space-y-2">
+      <h2 class="text-2xl font-black text-osttra-rubine uppercase tracking-widest flex items-center gap-2">
+        <i class="fas fa-hdd text-xl"></i> Database Backups & Snapshots
+      </h2>
+      <p class="text-gray-400 text-sm mt-1">Manage compliance snapshot backups, roll forward cycles, and archive system states securely.</p>
+    </div>
+  </div>
+
+  <!-- Action Control Cards -->
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+    <!-- Close Cycle Card -->
+    <div class="bg-[#1a1a1a]/30 border border-white/5 p-6 rounded-2xl border-l-4 border-emerald-500 flex flex-col justify-between group hover:border-emerald-500/30 transition-all duration-300">
+      <div>
+        <div class="w-12 h-12 bg-emerald-500/10 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+          <i class="fas fa-calendar-check text-emerald-500 text-2xl"></i>
+        </div>
+        <h3 class="text-lg font-bold text-white mb-2 uppercase tracking-widest">Close Cycle & Backup</h3>
+        <p class="text-xs text-gray-500 leading-relaxed">Conclude the current active allocation month. Generates a full Excel snapshot in the archive directory.</p>
+      </div>
+      <button onclick="triggerCloseCycle()" class="mt-6 px-4 py-3 bg-emerald-500 hover:bg-emerald-600 text-black text-[10px] font-black uppercase tracking-widest rounded-xl transition-all shadow-lg flex items-center justify-center gap-2">
+        <i class="fas fa-lock"></i> Close Cycle
+      </button>
+    </div>
+
+    <!-- Ad-Hoc Backup Card -->
+    <div class="bg-[#1a1a1a]/30 border border-white/5 p-6 rounded-2xl border-l-4 border-osttra-ochre flex flex-col justify-between group hover:border-osttra-ochre/30 transition-all duration-300">
+      <div>
+        <div class="w-12 h-12 bg-osttra-ochre/10 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+          <i class="fas fa-file-excel text-osttra-ochre text-2xl"></i>
+        </div>
+        <h3 class="text-lg font-bold text-white mb-2 uppercase tracking-widest">Ad-Hoc Backup</h3>
+        <p class="text-xs text-gray-500 leading-relaxed">Instantly export a full, unalterable point-in-time Excel archive of the spreadsheet database without rolling the cycle.</p>
+      </div>
+      <button onclick="triggerAdHocBackup()" class="mt-6 px-4 py-3 bg-osttra-ochre hover:bg-osttra-ochre/90 text-black text-[10px] font-black uppercase tracking-widest rounded-xl transition-all shadow-lg flex items-center justify-center gap-2">
+        <i class="fas fa-cloud-upload-alt"></i> Trigger Ad-Hoc
+      </button>
+    </div>
+
+    <!-- Year-End Purge Card -->
+    <div class="bg-[#1a1a1a]/30 border border-white/5 p-6 rounded-2xl border-l-4 border-osttra-rubine flex flex-col justify-between group hover:border-osttra-rubine/30 transition-all duration-300">
+      <div>
+        <div class="w-12 h-12 bg-[#FF0061]/10 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+          <i class="fas fa-trash-alt text-osttra-rubine text-2xl"></i>
+        </div>
+        <h3 class="text-lg font-bold text-white mb-2 uppercase tracking-widest">Year-End Purge</h3>
+        <p class="text-xs text-gray-500 leading-relaxed text-red-400">DANGER: Backs up the entire sheet, resets employee summaries to 0%, and clears historical allocations.</p>
+      </div>
+      <button onclick="triggerYearEndPurge()" class="mt-6 px-4 py-3 bg-[#FF0061] hover:bg-[#D00050] text-white text-[10px] font-black uppercase tracking-widest rounded-xl transition-all shadow-lg flex items-center justify-center gap-2">
+        <i class="fas fa-exclamation-triangle"></i> Run Year-End Purge
+      </button>
+    </div>
+  </div>
+
+  <!-- Summary Stats -->
+  <div class="grid grid-cols-1 sm:grid-cols-3 gap-6">
+    <div class="p-6 bg-[#222222]/20 border border-white/5 rounded-2xl flex flex-col justify-between group hover:border-white/10 transition-all duration-300">
+      <div class="flex justify-between items-start">
+        <p class="text-[10px] font-black uppercase text-white/40 tracking-widest">Total Snapshots</p>
+        <i class="fas fa-archive text-white/10 text-base"></i>
+      </div>
+      <p id="stat-total-snapshots" class="text-3xl font-black text-white mt-4">0</p>
+    </div>
+    <div class="p-6 bg-[#222222]/20 border border-white/5 rounded-2xl flex flex-col justify-between group hover:border-white/10 transition-all duration-300">
+      <div class="flex justify-between items-start">
+        <p class="text-[10px] font-black uppercase text-white/40 tracking-widest">Last Backup Date</p>
+        <i class="fas fa-history text-white/10 text-base"></i>
+      </div>
+      <p id="stat-last-backup" class="text-base font-bold text-white mt-4">No backups recorded</p>
+    </div>
+    <div class="p-6 bg-[#222222]/20 border border-white/5 rounded-2xl flex flex-col justify-between group hover:border-white/10 transition-all duration-300">
+      <div class="flex justify-between items-start">
+        <p class="text-[10px] font-black uppercase text-white/40 tracking-widest">Primary Vault</p>
+        <i class="fab fa-google-drive text-white/10 text-base"></i>
+      </div>
+      <p class="text-lg font-black text-white mt-4 uppercase tracking-widest">Google Drive</p>
+    </div>
+  </div>
+
+  <!-- Snapshot Logs Table Section -->
+  <div class="p-6 bg-white/5 rounded-2xl border border-white/5 space-y-6">
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div>
+        <h3 class="text-lg font-bold text-white uppercase tracking-widest italic">📜 Snapshot Logs</h3>
+        <p class="text-xs text-gray-500 mt-1">Audit log of system snapshot outputs stored inside Drive.</p>
+      </div>
+      <!-- Table Search -->
+      <div class="relative w-full sm:w-72">
+        <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-white/30 text-xs"></i>
+        <input type="text" id="snapshot-search" onkeyup="filterSnapshotsTable()" placeholder="Search snapshots..." class="w-full bg-[#1a1a1a]/50 border border-white/5 rounded-xl pl-10 pr-4 py-2.5 text-xs text-white focus:outline-none focus:border-osttra-rubine/40 transition-all placeholder-white/20">
+      </div>
+    </div>
+
+    <!-- Table -->
+    <div class="overflow-x-auto rounded-xl border border-white/5 bg-black/40">
+      <table class="w-full text-left border-collapse text-xs">
+        <thead>
+          <tr class="bg-white/5 text-[9px] font-black uppercase tracking-widest text-white/40 border-b border-white/5">
+            <th class="p-4">Timestamp</th>
+            <th class="p-4">Trigger Type</th>
+            <th class="p-4">Compliance Period</th>
+            <th class="p-4">Triggered By</th>
+            <th class="p-4">Drive Destination</th>
+            <th class="p-4 text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="snapshot-tbody" class="divide-y divide-white/5 text-white/70">
+          <tr>
+            <td colspan="6" class="p-8 text-center text-white/30 text-[10px] uppercase tracking-widest">
+              <i class="fas fa-circle-notch animate-spin text-base text-osttra-rubine mb-2"></i><br>
+              Fetching snapshots from database...
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Empty State -->
+    <div id="snapshot-empty" class="hidden flex flex-col items-center justify-center py-12 text-center gap-4">
+      <div class="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center text-white/20 text-lg">
+        <i class="fas fa-folder-open"></i>
+      </div>
+      <div class="space-y-1">
+        <h4 class="text-xs font-black uppercase text-white">No Snapshots Logged</h4>
+        <p class="text-[10px] text-white/40 max-w-sm">No spreadsheet backup records found. Trigger an ad-hoc snapshot to begin.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  var snapshotLogs = [];
+
+  /**
+   * Initialize and Load snapshots on component boot
+   */
+  (function init() {
+    loadSnapshotLogs();
+  })();
+
+  /**
+   * Server Request: Load snapshot logs
+   */
+  function loadSnapshotLogs() {
+    google.script.run
+      .withSuccessHandler(data => {
+        snapshotLogs = data || [];
+        renderSnapshotLogs();
+        updateStats();
+      })
+      .withFailureHandler(err => {
+        showNotification("Failed to Load Logs", err.message, "error");
+        document.getElementById('snapshot-tbody').innerHTML = `
+          <tr>
+            <td colspan="6" class="p-8 text-center text-red-500 text-[10px] uppercase tracking-widest font-bold">
+              <i class="fas fa-exclamation-triangle text-base mb-2"></i><br>
+              ${err.message}
+            </td>
+          </tr>
+        `;
+      })
+      .getSnapshotLogs();
+  }
+
+  /**
+   * Render logs to the UI table
+   */
+  function renderSnapshotLogs() {
+    const tbody = document.getElementById('snapshot-tbody');
+    const emptyState = document.getElementById('snapshot-empty');
+    tbody.innerHTML = "";
+
+    if (snapshotLogs.length === 0) {
+      tbody.closest('.overflow-x-auto').classList.add('hidden');
+      emptyState.classList.remove('hidden');
+      return;
+    }
+
+    tbody.closest('.overflow-x-auto').classList.remove('hidden');
+    emptyState.classList.add('hidden');
+
+    snapshotLogs.forEach(log => {
+      const ts = log["Timestamp"] || "N/A";
+      const trigger = log["Trigger Type"] || "Manual";
+      const period = log["Month/Year"] || "N/A";
+      const user = log["Triggered By"] || "System";
+      const link = log["Drive Link"] || "#";
+
+      let triggerBadge = '';
+      if (trigger === "Close Cycle") {
+        triggerBadge = '<span class="px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[8px] font-black uppercase tracking-widest">Close Cycle</span>';
+      } else if (trigger === "Purge") {
+        triggerBadge = '<span class="px-2 py-0.5 rounded bg-osttra-rubine/10 border border-osttra-rubine/20 text-osttra-rubine text-[8px] font-black uppercase tracking-widest">Purge</span>';
+      } else {
+        triggerBadge = '<span class="px-2 py-0.5 rounded bg-osttra-ochre/10 border border-osttra-ochre/20 text-osttra-ochre text-[8px] font-black uppercase tracking-widest">Ad-Hoc</span>';
+      }
+
+      const row = `
+        <tr class="hover:bg-white/5 transition-colors">
+          <td class="p-4 font-mono text-white/50 text-[10px]">${ts}</td>
+          <td class="p-4">${triggerBadge}</td>
+          <td class="p-4 font-bold text-white uppercase tracking-tight">${period}</td>
+          <td class="p-4 text-white/60">${user}</td>
+          <td class="p-4">
+            <a href="${link}" target="_blank" class="text-osttra-rubine hover:underline font-bold inline-flex items-center gap-1">
+              View XLSX in Drive <i class="fas fa-external-link-alt text-[8px]"></i>
+            </a>
+          </td>
+          <td class="p-4 text-right">
+            <button onclick="confirmDeleteSnapshot('${ts}')" class="w-8 h-8 rounded-xl bg-white/5 hover:bg-osttra-rubine/20 hover:text-osttra-rubine border border-white/5 hover:border-osttra-rubine/20 flex items-center justify-center transition-all cursor-pointer inline-flex">
+              <i class="fas fa-trash-alt text-[10px]"></i>
+            </button>
+          </td>
+        </tr>
+      `;
+      tbody.insertAdjacentHTML('beforeend', row);
+    });
+  }
+
+  /**
+   * Update Summary Stats
+   */
+  function updateStats() {
+    document.getElementById('stat-total-snapshots').innerText = snapshotLogs.length;
+    if (snapshotLogs.length > 0) {
+      document.getElementById('stat-last-backup').innerText = snapshotLogs[0]["Timestamp"];
+    } else {
+      document.getElementById('stat-last-backup').innerText = "No backups recorded";
+    }
+  }
+
+  /**
+   * Filter Snapshot table locally
+   */
+  function filterSnapshotsTable() {
+    const input = document.getElementById('snapshot-search').value.toLowerCase();
+    const rows = document.querySelectorAll('#snapshot-tbody tr');
+
+    rows.forEach(row => {
+      const text = row.innerText.toLowerCase();
+      if (text.includes(input)) {
+        row.classList.remove('hidden');
+      } else {
+        row.classList.add('hidden');
+      }
+    });
+  }
+
+  /**
+   * Action: Close Cycle
+   */
+  function triggerCloseCycle() {
+    if (!confirm("Are you sure you want to CLOSE the active month cycle?\nThis will compile a complete database backup and snapshot in Drive and notify all admins.")) {
+      return;
+    }
+
+    showLoading('Archiving System and Closing Cycle...');
+    google.script.run
+      .withSuccessHandler(res => {
+        hideLoading();
+        if (res.success) {
+          showNotification("Cycle Closed", "The compliance cycle snapshot has been generated and saved securely in Drive.", "success");
+          loadSnapshotLogs();
+        } else {
+          showNotification("Action Failed", res.error, "error");
+        }
+      })
+      .withFailureHandler(err => {
+        hideLoading();
+        showNotification("Action Error", err.message, "error");
+      })
+      .executeCloseCycleBackup();
+  }
+
+  /**
+   * Action: Ad-Hoc Backup
+   */
+  function triggerAdHocBackup() {
+    showLoading('Generating Full Ad-Hoc Backup...');
+    google.script.run
+      .withSuccessHandler(res => {
+        hideLoading();
+        if (res.success) {
+          showNotification("Backup Created", "Full spreadsheet .xlsx backup created successfully in Drive.", "success");
+          loadSnapshotLogs();
+        } else {
+          showNotification("Backup Failed", res.error, "error");
+        }
+      })
+      .withFailureHandler(err => {
+        hideLoading();
+        showNotification("Backup Error", err.message, "error");
+      })
+      .executeAdHocBackup();
+  }
+
+  /**
+   * Action: Year-End Purge (DANGER ZONE)
+   */
+  function triggerYearEndPurge() {
+    const doubleCheck = confirm(
+      "🔥 DANGER: YEAR-END COLD PURGE & RESET ACTIVE 🔥\n\n" +
+      "This action will perform the following destructive tasks:\n" +
+      "1. Force a complete XLSX backup snapshot of the system.\n" +
+      "2. Clear all active employee allocation historical data (headers remain).\n" +
+      "3. Reset all master roster employee allocation percentages (BAU, Non-BAU, Management) back to 0%.\n" +
+      "4. Wipe all active operational config caches.\n\n" +
+      "This action cannot be undone. Are you absolutely certain you wish to proceed?"
+    );
+
+    if (!doubleCheck) return;
+
+    const codeVerify = prompt("Please type 'CONFIRM RESET' to authorize this database purge:");
+    if (codeVerify !== "CONFIRM RESET") {
+      alert("Purge authorization aborted. Incorrect confirmation text.");
+      return;
+    }
+
+    showLoading('Executing Year-End Purge & Reset...');
+    google.script.run
+      .withSuccessHandler(msg => {
+        hideLoading();
+        showNotification("System Purged", msg, "success");
+        loadSnapshotLogs();
+      })
+      .withFailureHandler(err => {
+        hideLoading();
+        showNotification("Purge Failed", err.message, "error");
+      })
+      .executeYearEndPurge();
+  }
+
+  /**
+   * Action: Delete snapshot record from tracking logs
+   */
+  function confirmDeleteSnapshot(timestamp) {
+    if (!confirm(`Are you sure you want to remove the tracking log entry for snapshot at: ${timestamp}?\n\n(This will delete the database log reference, but will not delete the Excel file inside your Google Drive)`)) {
+      return;
+    }
+
+    showLoading('Deleting snapshot log entry...');
+    google.script.run
+      .withSuccessHandler(res => {
+        hideLoading();
+        if (res.success) {
+          showNotification("Log Removed", "Tracking log reference removed successfully.", "success");
+          loadSnapshotLogs();
+        }
+      })
+      .withFailureHandler(err => {
+        hideLoading();
+        showNotification("Error Deleting Log", err.message, "error");
+      })
+      .deleteSnapshotLog(timestamp);
+  }
+</script>

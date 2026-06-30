@@ -1,0 +1,1008 @@
+<div class="p-8 max-w-7xl mx-auto space-y-12 animate-in fade-in duration-700">
+  
+  <!-- Header & Tabs (About.html styling) -->
+  <div class="space-y-6">
+    <div class="flex items-end justify-between border-b border-white/5 pb-6">
+      <div class="space-y-2">
+        <h2 class="text-2xl font-black text-osttra-rubine uppercase tracking-widest flex items-center gap-2">
+          <i class="fas fa-chart-bar text-xl"></i> Analytical Intelligence
+        </h2>
+        <p class="text-white/40 text-sm font-medium tracking-wide uppercase">Unified operational directory, interactive metrics & Looker links.</p>
+      </div>
+      <div class="px-3 py-1 bg-osttra-rubine/10 border border-osttra-rubine/20 rounded text-[9px] font-black tracking-widest text-osttra-rubine uppercase">
+          Production Dashboard
+      </div>
+    </div>
+
+    <!-- Tabs Navigation (About.html menu style) -->
+    <div class="flex gap-6 text-[11px] font-black tracking-[0.2em] uppercase overflow-x-auto no-scrollbar border-b border-white/10">
+        <button onclick="showAnalyticsTab('looker')" id="tab-looker" class="py-3 px-2 border-b-2 border-osttra-rubine text-white transition-all whitespace-nowrap">Report Directory</button>
+        <button onclick="showAnalyticsTab('headcount')" id="tab-headcount" class="py-3 px-2 border-b-2 border-transparent text-white/40 hover:text-white transition-all whitespace-nowrap">Global Headcount</button>
+    </div>
+  </div>
+
+  <!-- Simplified 4-Filter Global Sticky Cross-Filtering Toolbar (Except for Looker Tab) -->
+  <div id="filter-toolbar" class="p-6 bg-[#222222]/20 rounded-3xl border border-white/5 space-y-4 hidden animate-in fade-in duration-300">
+    <p class="text-[9px] font-black text-osttra-rubine uppercase tracking-widest border-b border-white/5 pb-2 flex items-center gap-1.5"><i class="fas fa-filter text-[10px]"></i> Dashboard Global Cross-Filters</p>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      
+      <!-- Employee Name Fuzzy Search -->
+      <div class="space-y-1">
+        <label class="text-[9px] font-black text-white/40 uppercase tracking-widest">Employee Search</label>
+        <div class="relative">
+          <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-white/30 text-xs"></i>
+          <input type="text" id="filt-name" onkeyup="if(event.key === 'Enter') triggerFilterChange()" placeholder="Press Enter to search..." class="w-full bg-[#1a1a1a]/50 border border-white/5 rounded-xl pl-9 pr-4 py-2.5 text-xs text-white focus:outline-none focus:border-osttra-rubine/40 placeholder-white/15">
+        </div>
+      </div>
+
+      <!-- Cost Center (Region) -->
+      <div class="space-y-1">
+        <label class="text-[9px] font-black text-white/40 uppercase tracking-widest">Cost Center (Region)</label>
+        <select id="filt-region" class="w-full bg-[#1a1a1a]/50 border border-white/5 rounded-xl px-4 py-2.5 text-xs text-white/70 focus:outline-none focus:border-osttra-rubine/40 transition-all cursor-pointer">
+          <option value="All">All Regions</option>
+        </select>
+      </div>
+
+      <!-- Regional Head / Function Head -->
+      <div class="space-y-1">
+        <label class="text-[9px] font-black text-white/40 uppercase tracking-widest">Head of Function</label>
+        <select id="filt-head" class="w-full bg-[#1a1a1a]/50 border border-white/5 rounded-xl px-4 py-2.5 text-xs text-white/70 focus:outline-none focus:border-osttra-rubine/40 transition-all cursor-pointer">
+          <option value="All">All Functional Heads</option>
+        </select>
+      </div>
+
+      <!-- Direct Manager -->
+      <div class="space-y-1" id="filter-manager-container">
+        <label class="text-[9px] font-black text-white/40 uppercase tracking-widest">Direct Manager</label>
+        <select id="filt-manager" class="w-full bg-[#1a1a1a]/50 border border-white/5 rounded-xl px-4 py-2.5 text-xs text-white/70 focus:outline-none focus:border-osttra-rubine/40 transition-all cursor-pointer">
+          <option value="All">All Direct Managers</option>
+        </select>
+      </div>
+
+      <!-- Action Buttons (Apply & Reset Filters) -->
+      <div class="flex items-end gap-3 h-full pb-0.5 md:col-span-4">
+        <button onclick="triggerFilterChange()" class="flex-1 bg-osttra-rubine hover:bg-osttra-rubine/80 text-white font-black uppercase text-[10px] tracking-widest py-3 px-4 rounded-xl transition-all flex items-center justify-center gap-1.5 shadow-[0_0_12px_rgba(255,0,97,0.2)]">
+          <i class="fas fa-filter"></i> Apply
+        </button>
+        <button onclick="resetFilters()" class="flex-1 bg-white/5 hover:bg-white/10 text-white/80 font-black uppercase text-[10px] tracking-widest py-3 px-4 rounded-xl border border-white/5 transition-all flex items-center justify-center gap-1.5">
+          <i class="fas fa-sync-alt"></i> Reset
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Main Content Space -->
+  <div class="pt-4">
+    
+    <!-- Tab 1: Looker Directory -->
+    <section id="content-looker" class="analytics-tab-content space-y-8 animate-in fade-in duration-500">
+      <div class="flex justify-between items-center border-b border-white/5 pb-4">
+        <h3 class="text-xs font-black uppercase tracking-[0.2em] text-white/30 italic">Looker Report Directories</h3>
+        <div class="relative w-64">
+          <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-white/30 text-xs"></i>
+          <input type="text" id="search-looker" onkeyup="filterLooker()" placeholder="Search Looker links..." class="w-full bg-[#1a1a1a]/50 border border-white/5 rounded-xl pl-9 pr-4 py-2 text-xs text-white focus:outline-none placeholder-white/20">
+        </div>
+      </div>
+      <div id="looker-loading" class="flex flex-col items-center justify-center py-16 gap-4">
+        <i class="fas fa-circle-notch animate-spin text-3xl text-osttra-rubine"></i>
+        <p class="text-[10px] font-black uppercase tracking-widest text-white/30">Loading Dashboard Registry...</p>
+      </div>
+      <div id="looker-grid" class="hidden space-y-12"></div>
+      <div id="looker-empty" class="hidden p-16 text-center border border-white/5 rounded-3xl flex flex-col items-center justify-center gap-4">
+        <i class="fas fa-folder-open text-white/10 text-4xl"></i>
+        <p class="text-xs font-black uppercase text-white">No Looker Dashboards Found</p>
+      </div>
+    </section>
+
+    <!-- Tab 2: Global Headcount Overview -->
+    <section id="content-headcount" class="analytics-tab-content hidden space-y-8 animate-in fade-in duration-500 relative">
+      
+      <!-- Localized Inline Loader for Headcount Tab -->
+      <div id="headcount-inline-loader" class="hidden absolute inset-0 z-50 bg-[#141414]/80 backdrop-blur-sm rounded-[2rem] flex flex-col items-center justify-center gap-4 transition-all">
+        <i class="fas fa-circle-notch animate-spin text-4xl text-osttra-rubine"></i>
+        <p class="text-[10px] font-black uppercase tracking-widest text-white/50 animate-pulse">Refreshing Headcount Data...</p>
+      </div>
+
+      <!-- Organization Chart Full-Screen Modal Overlay -->
+      <div id="orgchart-modal" class="hidden fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-300">
+        <div class="glass border border-white/10 w-full max-w-[95vw] h-[95vh] rounded-[2rem] overflow-hidden flex flex-col shadow-2xl animate-in zoom-in duration-300">
+          <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center p-6 border-b border-white/10 bg-[#1a1a1a] gap-4">
+            <div class="space-y-1">
+              <h2 class="text-xl font-black text-white uppercase tracking-widest flex items-center gap-2"><i class="fas fa-sitemap text-osttra-rubine"></i> Organization Chart</h2>
+              <p class="text-[10px] text-white/40 uppercase tracking-wider">Interactive reporting structure</p>
+            </div>
+            <div class="flex items-center gap-4 self-stretch sm:self-auto justify-between sm:justify-end">
+              <!-- Custom Search Bar for Org Chart inside modal -->
+              <div class="relative w-64">
+                <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-white/30 text-xs"></i>
+                <input type="text" id="search-orgchart" onkeyup="searchOrgChart()" placeholder="Search people..." class="w-full bg-[#222222] border border-white/10 rounded-xl pl-9 pr-4 py-2.5 text-xs text-white focus:outline-none focus:border-osttra-rubine/50 placeholder-white/20">
+              </div>
+              <button onclick="closeOrgChartModal()" class="w-10 h-10 rounded-full bg-white/5 hover:bg-osttra-rubine hover:text-white transition-all flex items-center justify-center text-white/50 border border-white/5">
+                <i class="fas fa-times"></i>
+              </button>
+            </div>
+          </div>
+          <div class="flex-1 relative overflow-hidden">
+            <!-- Modal Loader -->
+            <div id="orgchart-modal-loader" class="absolute inset-0 z-50 bg-[#121212] flex flex-col items-center justify-center gap-4 transition-all">
+              <i class="fas fa-circle-notch animate-spin text-4xl text-osttra-rubine"></i>
+              <p class="text-[10px] font-black uppercase tracking-widest text-white/50 animate-pulse">Building Interactive Org Chart...</p>
+            </div>
+            <!-- Toolbar Controls -->
+            <div class="absolute right-6 top-6 z-10 flex flex-col gap-2 bg-[#1a1a1a]/80 border border-white/5 p-2 rounded-xl backdrop-blur-md">
+              <button onclick="orgChartExpandAll()" class="p-2 text-white/60 hover:text-white transition-colors hover:bg-white/5 rounded" title="Expand All"><i class="fas fa-expand-arrows-alt text-xs"></i></button>
+              <button onclick="orgChartCollapseAll()" class="p-2 text-white/60 hover:text-white transition-colors hover:bg-white/5 rounded" title="Collapse All"><i class="fas fa-compress-arrows-alt text-xs"></i></button>
+              <button onclick="orgChartFit()" class="p-2 text-white/60 hover:text-white transition-colors hover:bg-white/5 rounded" title="Fit to Screen"><i class="fas fa-crosshairs text-xs"></i></button>
+            </div>
+            <!-- D3 Org Chart Canvas -->
+            <div id="orgchart-canvas" class="w-full h-full bg-[#121212]"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex justify-between items-center pb-4 border-b border-white/5">
+        <div class="space-y-1">
+          <h4 class="text-xs font-black uppercase tracking-[0.2em] text-white/30 italic">Roster Intelligence</h4>
+          <p class="text-[10px] text-white/40 uppercase font-medium">Headcount metrics & interactive roster charts</p>
+        </div>
+        <button onclick="openOrgChartModal()" class="px-5 py-2.5 bg-osttra-rubine hover:bg-osttra-rubine/80 text-white text-[10px] font-black uppercase tracking-widest rounded-xl transition-all shadow-[0_0_15px_rgba(255,0,97,0.3)] flex items-center gap-2">
+          <i class="fas fa-sitemap"></i> Organization Chart
+        </button>
+      </div>
+
+      <div id="headcount-charts-grid" class="space-y-8 transition-all duration-300 pt-4">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div class="p-6 bg-[#222222]/30 border border-white/5 rounded-2xl">
+            <p class="text-[9px] font-black uppercase text-white/40 tracking-widest">Total Active Headcount</p>
+            <p id="hc-total" class="text-4xl font-black text-white mt-2">0</p>
+          </div>
+          <div class="p-6 bg-[#222222]/30 border border-white/5 rounded-2xl">
+            <p class="text-[9px] font-black uppercase text-osttra-ochre tracking-widest">Total Geographies (Cost Centers)</p>
+            <p id="hc-regions" class="text-4xl font-black text-white mt-2">0</p>
+          </div>
+          <div class="p-6 bg-[#222222]/30 border border-white/5 rounded-2xl">
+            <p class="text-[9px] font-black uppercase text-osttra-violet tracking-widest">Total Direct Managers</p>
+            <p id="hc-managers" class="text-4xl font-black text-white mt-2">0</p>
+          </div>
+        </div>
+        
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <div class="p-8 bg-[#222222]/20 border border-white/5 rounded-[2rem] space-y-6" style="filter: drop-shadow(0 0 10px rgba(255,0,97,0.08));">
+            <h4 class="text-xs font-black uppercase tracking-widest text-white/30"><i class="fas fa-globe mr-2 text-osttra-rubine"></i>Percentage in Region (Cost Center) Distribution</h4>
+            <div class="relative h-64 flex items-center justify-center">
+              <canvas id="chart-hc-region"></canvas>
+            </div>
+          </div>
+          <div class="p-8 bg-[#222222]/20 border border-white/5 rounded-[2rem] space-y-6" style="filter: drop-shadow(0 0 10px rgba(145,37,191,0.08));">
+            <h4 class="text-xs font-black uppercase tracking-widest text-white/30"><i class="fas fa-user-tie mr-2 text-osttra-violet"></i>Functional Head Distribution</h4>
+            <div class="relative h-64 flex items-center justify-center">
+              <canvas id="chart-hc-head"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- Third Row: Direct Manager Bar Chart -->
+        <div class="grid grid-cols-1 gap-8">
+          <div class="p-8 bg-[#222222]/20 border border-white/5 rounded-[2rem] space-y-6" style="filter: drop-shadow(0 0 12px rgba(254,149,45,0.08));">
+            <h4 class="text-xs font-black uppercase tracking-widest text-white/30"><i class="fas fa-users-cog mr-2 text-osttra-ochre"></i>Direct Manager Headcount Distribution</h4>
+            <div class="relative h-80 flex items-center justify-center">
+              <canvas id="chart-hc-manager"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- Fourth Row: Employee Table -->
+        <div class="p-8 bg-[#222222]/20 border border-white/5 rounded-[2rem] space-y-6" style="filter: drop-shadow(0 0 10px rgba(255,0,97,0.02));">
+          <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-4 border-b border-white/5">
+            <div class="space-y-1">
+              <h4 class="text-xs font-black uppercase tracking-widest text-white/30"><i class="fas fa-list mr-2 text-osttra-rubine"></i>Filtered Employees</h4>
+              <p class="text-[10px] text-white/40 uppercase">Directory of active roster employees matching selected filters</p>
+            </div>
+            <span id="hc-table-count" class="px-3 py-1 bg-white/5 border border-white/10 rounded-xl text-[9px] font-black uppercase text-white/60">0 Employees</span>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr class="bg-white/5 text-[9px] font-black uppercase tracking-widest text-white/40 border-b border-white/5">
+                  <th class="p-4 rounded-tl-xl">Name</th>
+                  <th class="p-4">Email</th>
+                  <th class="p-4">Role / Profile</th>
+                  <th class="p-4">Region (Cost Center)</th>
+                  <th class="p-4">Head of Function</th>
+                  <th class="p-4 rounded-tr-xl">Direct Manager</th>
+                </tr>
+              </thead>
+              <tbody id="hc-table-tbody" class="divide-y divide-white/5">
+                <!-- Populated Dynamically -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<!-- Load Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-chart-treemap@3.1.0/dist/chartjs-chart-treemap.min.js"></script>
+<!-- Load D3 and Org Chart CDNs -->
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/d3-flextree@2.1.2/build/d3-flextree.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/d3-org-chart@3"></script>
+
+<script>
+  (function() {
+    let rawLookerReports = [];
+    let charts = {}; // To manage and destroy Chart instances
+    let orgChartInstance = null;
+
+    window.showAnalyticsTab = function(tabName) {
+      // Hide all contents
+      document.querySelectorAll('.analytics-tab-content').forEach(el => el.classList.add('hidden'));
+      document.querySelectorAll('[id^="tab-"]').forEach(el => {
+        el.classList.remove('border-osttra-rubine');
+        el.classList.add('border-transparent', 'text-white/40');
+      });
+
+      // Show targeted content
+      const sec = document.getElementById(`content-${tabName}`);
+      if (sec) sec.classList.remove('hidden');
+
+      const btn = document.getElementById(`tab-${tabName}`);
+      if (btn) {
+        btn.classList.add('border-osttra-rubine');
+        btn.classList.remove('border-transparent', 'text-white/40');
+      }
+
+      // Hide or show the global filters toolbar based on the active tab
+      const filterBar = document.getElementById('filter-toolbar');
+      if (tabName === 'looker') {
+        filterBar.classList.add('hidden');
+      } else {
+        filterBar.classList.remove('hidden');
+        loadTabSpecificData(tabName);
+      }
+    };
+
+    /**
+     * Reusable Helper: Resets/Destroys active Chart instances
+     */
+    function destroyChart(name) {
+      if (charts[name]) {
+        charts[name].destroy();
+        delete charts[name];
+      }
+    }
+
+    /**
+     * Gather selected filter state to pass to backend API (4 Filters only here)
+     */
+    function getFilterState(forcedTab) {
+      const getVal = (id, def) => { const el = document.getElementById(id); return el ? el.value : def; };
+      
+      return {
+        region: getVal('filt-region', 'All'),
+        period: 'All',
+        product: 'All',
+        subProduct: 'All',
+        regionalHead: getVal('filt-head', 'All'),
+        manager: getVal('filt-manager', 'All'),
+        employeeName: getVal('filt-name', '')
+      };
+    }
+
+    window.triggerFilterChange = function() {
+      const activeTab = document.querySelector('.analytics-tab-content:not(.hidden)').id.replace('content-', '');
+      loadTabSpecificData(activeTab);
+    };
+
+    window.resetFilters = function() {
+      document.getElementById('filt-name').value = "";
+      document.getElementById('filt-region').value = "All";
+      document.getElementById('filt-head').value = "All";
+      document.getElementById('filt-manager').value = "All";
+      
+      triggerFilterChange();
+    };
+
+    /**
+     * Tab-Specific Data Loader
+     */
+    function loadTabSpecificData(tabName) {
+      const filters = getFilterState(tabName);
+
+      if (tabName === 'headcount') {
+        const loader = document.getElementById('headcount-inline-loader');
+        const grid = document.getElementById('headcount-charts-grid');
+        if (loader) loader.classList.remove('hidden');
+        if (grid) grid.classList.add('opacity-40');
+
+        console.log("[AnalyticsHub] Calling getGlobalHeadcountData with filters:", JSON.stringify(filters));
+
+        google.script.run
+          .withSuccessHandler(data => {
+            if (loader) loader.classList.add('hidden');
+            if (grid) grid.classList.remove('opacity-40');
+            renderHeadcountTab(data);
+          })
+          .withFailureHandler(err => {
+            if (loader) loader.classList.add('hidden');
+            if (grid) grid.classList.remove('opacity-40');
+            showNotification('Headcount Fetch Failed', err.message, 'error');
+          })
+          .getGlobalHeadcountData(filters);
+      }
+    }
+
+    /* =========================================================================
+       ORG CHART MODAL CONTROLLERS
+       ========================================================================= */
+    window.openOrgChartModal = function() {
+      const modal = document.getElementById('orgchart-modal');
+      const loader = document.getElementById('orgchart-modal-loader');
+      if (modal) modal.classList.remove('hidden');
+      if (loader) loader.classList.remove('hidden');
+
+      google.script.run
+        .withSuccessHandler(data => {
+          if (loader) loader.classList.add('hidden');
+          renderOrgChartCanvas(data);
+        })
+        .withFailureHandler(err => {
+          if (loader) loader.classList.add('hidden');
+          showNotification('Org Chart Fetch Failed', err.message, 'error');
+        })
+        .getGlobalHeadcountData({
+          region: 'All',
+          period: 'All',
+          product: 'All',
+          subProduct: 'All',
+          regionalHead: 'All',
+          manager: 'All',
+          employeeName: ''
+        });
+    };
+
+    window.closeOrgChartModal = function() {
+      const modal = document.getElementById('orgchart-modal');
+      if (modal) modal.classList.add('hidden');
+    };
+
+    /* =========================================================================
+       TAB 1: LOOKER DIRECTORY
+       ========================================================================= */
+    function loadLookerDirectory() {
+      document.getElementById('looker-loading').classList.remove('hidden');
+      document.getElementById('looker-grid').classList.add('hidden');
+      document.getElementById('looker-empty').classList.add('hidden');
+
+      google.script.run
+        .withSuccessHandler(data => {
+          document.getElementById('looker-loading').classList.add('hidden');
+          if (!data || data.length === 0) {
+            document.getElementById('looker-empty').classList.remove('hidden');
+            return;
+          }
+          rawLookerReports = data;
+          renderLookerCards(data);
+        })
+        .withFailureHandler(err => {
+          document.getElementById('looker-loading').classList.add('hidden');
+          showNotification('Looker Fetch Failed', err.message, 'error');
+        })
+        .getReportLinks();
+    }
+
+    function renderLookerCards(reports) {
+      const container = document.getElementById('looker-grid');
+      container.innerHTML = "";
+      if (reports.length === 0) {
+        container.classList.add('hidden');
+        document.getElementById('looker-empty').classList.remove('hidden');
+        return;
+      }
+      document.getElementById('looker-empty').classList.add('hidden');
+      container.classList.remove('hidden');
+
+      const categories = [
+        { name: "CS BMA Reports", icon: "fas fa-file-contract text-[#FF0061]" },
+        { name: "Employee Analytics", icon: "fas fa-users-cog text-[#9125BF]" },
+        { name: "Operational Excellence Reports", icon: "fas fa-chart-line text-emerald-400" },
+        { name: "Team Analytics", icon: "fas fa-people-carry text-osttra-ochre" },
+        { name: "Admin Analytics", icon: "fas fa-user-shield text-[#0061FF]" },
+        { name: "Personalized Report", icon: "fas fa-user-tag text-osttra-violet" }
+      ];
+
+      let html = "";
+      let renderedAny = false;
+
+      categories.forEach(cat => {
+        const catReports = reports.filter(r => String(r.Category || "").toLowerCase().trim() === cat.name.toLowerCase().trim());
+        
+        if (catReports.length > 0) {
+          renderedAny = true;
+          html += `
+            <div class="space-y-6">
+              <div class="flex items-center gap-3 pb-3 border-b border-white/5">
+                <i class="${cat.icon} text-lg shrink-0"></i>
+                <h3 class="text-sm font-black uppercase tracking-widest text-white">${cat.name}</h3>
+                <span class="px-2.5 py-0.5 rounded-full bg-white/5 border border-white/10 text-[9px] font-black text-white/50 uppercase">${catReports.length} ${catReports.length === 1 ? 'Report' : 'Reports'}</span>
+              </div>
+              <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                ${catReports.map(r => `
+                  <div class="p-6 bg-[#222222]/30 border border-white/5 rounded-3xl hover:border-osttra-rubine/45 hover:bg-[#222222]/50 transition-all flex flex-col justify-between group">
+                    <div class="space-y-4">
+                      <div class="flex justify-between items-center">
+                        <span class="text-[7px] font-black px-2 py-0.5 rounded bg-white/5 text-white/40 uppercase tracking-widest border border-white/10">${r.Category || 'Looker'}</span>
+                        <span class="text-[9px] font-mono font-bold text-white/20">${r["Report ID"]}</span>
+                      </div>
+                      <div class="space-y-1">
+                        <h4 class="text-sm font-black text-white uppercase tracking-tight group-hover:text-osttra-rubine transition-colors line-clamp-1">${r["Report Name"]}</h4>
+                        <p class="text-xs text-white/40 leading-relaxed font-medium line-clamp-3">${r["Description"] || 'No description.'}</p>
+                      </div>
+                    </div>
+                    <div class="mt-6 pt-4 border-t border-white/5 space-y-4">
+                      <div class="flex justify-between text-[9px] font-bold text-white/40 uppercase tracking-widest">
+                        <span>By: <span class="text-white/60">${r["Created By"] || 'Admin'}</span></span>
+                        <span>Freshness: <span class="text-white/60">${r["Data Freshness"] || 'Daily'}</span></span>
+                      </div>
+                      <a href="${r["Link URL"]}" target="_blank" class="block w-full text-center py-3 bg-white/5 hover:bg-osttra-rubine rounded-xl text-white text-[9px] font-black uppercase tracking-widest transition-all">
+                        <i class="fas fa-external-link-alt mr-1.5"></i> Launch looker Dashboard
+                      </a>
+                    </div>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          `;
+        }
+      });
+
+      const standardNames = categories.map(c => c.name.toLowerCase().trim());
+      const otherReports = reports.filter(r => !standardNames.includes(String(r.Category || "").toLowerCase().trim()));
+      if (otherReports.length > 0) {
+        renderedAny = true;
+        html += `
+          <div class="space-y-6">
+            <div class="flex items-center gap-3 pb-3 border-b border-white/5">
+              <i class="fas fa-folder-open text-white/30 text-lg shrink-0"></i>
+              <h3 class="text-sm font-black uppercase tracking-widest text-white/50">Other Report Directories</h3>
+              <span class="px-2.5 py-0.5 rounded-full bg-white/5 border border-white/10 text-[9px] font-black text-white/50 uppercase">${otherReports.length}</span>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              ${otherReports.map(r => `
+                <div class="p-6 bg-[#222222]/30 border border-white/5 rounded-3xl hover:border-osttra-rubine/45 hover:bg-[#222222]/50 transition-all flex flex-col justify-between group">
+                  <div class="space-y-4">
+                    <div class="flex justify-between items-center">
+                      <span class="text-[7px] font-black px-2 py-0.5 rounded bg-white/5 text-white/40 uppercase tracking-widest border border-white/10">${r.Category || 'Looker'}</span>
+                      <span class="text-[9px] font-mono font-bold text-white/20">${r["Report ID"]}</span>
+                    </div>
+                    <div class="space-y-1">
+                      <h4 class="text-sm font-black text-white uppercase tracking-tight group-hover:text-osttra-rubine transition-colors line-clamp-1">${r["Report Name"]}</h4>
+                      <p class="text-xs text-white/40 leading-relaxed font-medium line-clamp-3">${r["Description"] || 'No description.'}</p>
+                    </div>
+                  </div>
+                  <div class="mt-6 pt-4 border-t border-white/5 space-y-4">
+                    <div class="flex justify-between text-[9px] font-bold text-white/40 uppercase tracking-widest">
+                      <span>By: <span class="text-white/60">${r["Created By"] || 'Admin'}</span></span>
+                      <span>Freshness: <span class="text-white/60">${r["Data Freshness"] || 'Daily'}</span></span>
+                    </div>
+                    <a href="${r["Link URL"]}" target="_blank" class="block w-full text-center py-3 bg-white/5 hover:bg-osttra-rubine rounded-xl text-white text-[9px] font-black uppercase tracking-widest transition-all">
+                      <i class="fas fa-external-link-alt mr-1.5"></i> Launch looker Dashboard
+                    </a>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        `;
+      }
+
+      if (!renderedAny) {
+        container.classList.add('hidden');
+        document.getElementById('looker-empty').classList.remove('hidden');
+      } else {
+        container.innerHTML = html;
+      }
+    }
+
+    window.filterLooker = function() {
+      const search = document.getElementById('search-looker').value.toLowerCase().trim();
+      const filtered = rawLookerReports.filter(r => 
+        String(r["Report Name"] || "").toLowerCase().includes(search) ||
+        String(r["Description"] || "").toLowerCase().includes(search)
+      );
+      renderLookerCards(filtered);
+    };
+
+    /* =========================================================================
+       TAB 2: GLOBAL HEADCOUNT
+       ========================================================================= */
+    function renderHeadcountTab(data) {
+      try {
+        let payload = data;
+        if (typeof data === 'string') {
+          payload = JSON.parse(data);
+        }
+        _unsafeRenderHeadcountTab(payload);
+      } catch (e) {
+        console.error("Headcount Render Failure:", e);
+        showNotification("Dashboard Render Error", "An error occurred while compiling the headcount charts: " + e.message, "error");
+      }
+    }
+
+    function _unsafeRenderHeadcountTab(data) {
+      if (!data) data = {};
+
+      document.getElementById('hc-total').innerText = data.totalHeadcount !== undefined ? data.totalHeadcount : 0;
+      document.getElementById('hc-regions').innerText = data.costCentersCount !== undefined ? data.costCentersCount : 0;
+      document.getElementById('hc-managers').innerText = data.managerDistribution && data.managerDistribution.labels ? data.managerDistribution.labels.length : 0;
+
+      const tbody = document.getElementById('hc-table-tbody');
+      const tableCount = document.getElementById('hc-table-count');
+      if (tbody && tableCount) {
+        tbody.innerHTML = "";
+        const employees = data.employees || [];
+        tableCount.innerText = `${employees.length} ${employees.length === 1 ? 'Employee' : 'Employees'}`;
+
+        if (employees.length === 0) {
+          tbody.innerHTML = `
+            <tr>
+              <td colspan="6" class="p-8 text-center text-white/20 font-black uppercase tracking-widest text-xs">
+                <i class="fas fa-user-slash mr-2 text-lg"></i>No employees match selected criteria
+              </td>
+            </tr>
+          `;
+        } else {
+          tbody.innerHTML = employees.map(e => `
+            <tr class="hover:bg-white/[0.02] transition-colors border-b border-white/5">
+              <td class="p-4 font-bold text-white uppercase tracking-tight">${e.name}</td>
+              <td class="p-4 font-mono text-white/60">${e.email}</td>
+              <td class="p-4 text-white/50">${e.role}</td>
+              <td class="p-4 text-white/50">${e.costCenter}</td>
+              <td class="p-4 text-white/50">${e.headOfFunction}</td>
+              <td class="p-4 font-bold text-osttra-rubine/80 uppercase tracking-tight">${e.directManager}</td>
+            </tr>
+          `).join('');
+        }
+      }
+
+      const tooltipStyle = {
+        backgroundColor: '#1c1c1c',
+        titleFont: { size: 10, family: 'monospace', weight: 'bold' },
+        bodyFont: { size: 10, family: 'monospace' },
+        borderColor: 'rgba(255, 0, 97, 0.2)',
+        borderWidth: 1,
+        padding: 10,
+        cornerRadius: 8,
+        displayColors: true,
+        boxPadding: 4
+      };
+
+      try {
+        destroyChart('hc-region');
+        const ctxReg = document.getElementById('chart-hc-region').getContext('2d');
+        charts['hc-region'] = new Chart(ctxReg, {
+          type: 'pie',
+          data: {
+            labels: (data.ccDistribution && data.ccDistribution.labels) ? data.ccDistribution.labels : [],
+            datasets: [{
+              data: (data.ccDistribution && data.ccDistribution.values) ? data.ccDistribution.values : [],
+              backgroundColor: ['#FF0061', '#9125BF', '#FE952D', '#00E1D9', '#0061FF', '#22D3EE', '#10B981'],
+              borderWidth: 0,
+              hoverOffset: 15
+            }]
+          },
+          plugins: [ChartDataLabels],
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            onClick: (evt, activeElements) => {
+              if (activeElements && activeElements.length > 0) {
+                const activeElement = activeElements[0];
+                const label = charts['hc-region'].data.labels[activeElement.index];
+                const select = document.getElementById('filt-region');
+                if (select) {
+                  if (select.value === label) {
+                    select.value = 'All';
+                  } else {
+                    select.value = label;
+                  }
+                  triggerFilterChange();
+                }
+              }
+            },
+            plugins: {
+              legend: { 
+                display: true, 
+                position: 'right', 
+                labels: { 
+                  usePointStyle: true,
+                  pointStyle: 'circle',
+                  color: 'rgba(255,255,255,0.6)', 
+                  font: { size: 9, family: 'monospace' } 
+                } 
+              },
+              datalabels: {
+                color: '#fff',
+                font: { family: 'monospace', weight: 'bold', size: 10 },
+                formatter: (value, ctx) => {
+                  let sum = 0;
+                  let dataArr = ctx.chart.data.datasets[0].data;
+                  dataArr.map(d => { sum += d; });
+                  let pct = sum > 0 ? Math.round((value / sum) * 100) + '%' : '0%';
+                  return value > 0 ? pct : '';
+                }
+              },
+              tooltip: {
+                ...tooltipStyle,
+                callbacks: {
+                  label: function(context) {
+                    let label = context.label || '';
+                    if (label) label += ': ';
+                    const dataset = context.chart.data.datasets[context.datasetIndex];
+                    const total = dataset.data.reduce((sum, val) => sum + val, 0);
+                    const value = context.raw !== undefined ? context.raw : context.parsed;
+                    const percentage = total > 0 ? Math.round((value / total) * 100) + '%' : '0%';
+                    return label + value + ' (' + percentage + ')';
+                  }
+                }
+              }
+            }
+          }
+        });
+      } catch (err) {}
+
+      try {
+        destroyChart('hc-head');
+        const ctxHead = document.getElementById('chart-hc-head').getContext('2d');
+        charts['hc-head'] = new Chart(ctxHead, {
+          type: 'doughnut',
+          data: {
+            labels: (data.headBreakdown && data.headBreakdown.labels) ? data.headBreakdown.labels : [],
+            datasets: [{
+              data: (data.headBreakdown && data.headBreakdown.values) ? data.headBreakdown.values : [],
+              backgroundColor: ['#FE952D', '#FF0061', '#9125BF', '#00E1D9', '#0061FF', '#10B981', '#FCD34D'],
+              borderWidth: 0,
+              hoverOffset: 15
+            }]
+          },
+          plugins: [ChartDataLabels],
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            onClick: (evt, activeElements) => {
+              if (activeElements && activeElements.length > 0) {
+                const activeElement = activeElements[0];
+                const label = charts['hc-head'].data.labels[activeElement.index];
+                const select = document.getElementById('filt-head');
+                if (select) {
+                  let foundValue = 'All';
+                  for (let i = 0; i < select.options.length; i++) {
+                    if (select.options[i].text.toLowerCase() === label.toLowerCase() || select.options[i].value.toLowerCase() === label.toLowerCase()) {
+                      foundValue = select.options[i].value;
+                      break;
+                    }
+                  }
+                  if (select.value === foundValue) {
+                    select.value = 'All';
+                  } else {
+                    select.value = foundValue;
+                  }
+                  triggerFilterChange();
+                }
+              }
+            },
+            plugins: {
+              legend: {
+                display: true,
+                position: 'right',
+                labels: {
+                  usePointStyle: true,
+                  pointStyle: 'circle',
+                  color: 'rgba(255,255,255,0.6)',
+                  font: { size: 9, family: 'monospace' }
+                }
+              },
+              datalabels: {
+                color: '#fff',
+                font: { family: 'monospace', weight: 'bold', size: 10 },
+                formatter: (value, ctx) => {
+                  let sum = 0;
+                  let dataArr = ctx.chart.data.datasets[0].data;
+                  dataArr.map(d => { sum += d; });
+                  let pct = sum > 0 ? Math.round((value / sum) * 100) + '%' : '0%';
+                  return value > 0 ? pct : '';
+                }
+              },
+              tooltip: tooltipStyle
+            }
+          }
+        });
+      } catch (err) {}
+
+      try {
+        destroyChart('hc-manager');
+        const ctxMgr = document.getElementById('chart-hc-manager').getContext('2d');
+        charts['hc-manager'] = new Chart(ctxMgr, {
+          type: 'bar',
+          data: {
+            labels: (data.managerDistribution && data.managerDistribution.labels) ? data.managerDistribution.labels : [],
+            datasets: [{
+              label: 'Headcount',
+              data: (data.managerDistribution && data.managerDistribution.values) ? data.managerDistribution.values : [],
+              backgroundColor: '#FE952D',
+              borderRadius: 6,
+              borderWidth: 0
+            }]
+          },
+          plugins: [ChartDataLabels],
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            onClick: (evt, activeElements) => {
+              if (activeElements && activeElements.length > 0) {
+                const activeElement = activeElements[0];
+                const label = charts['hc-manager'].data.labels[activeElement.index];
+                const select = document.getElementById('filt-manager');
+                if (select) {
+                  let foundValue = 'All';
+                  for (let i = 0; i < select.options.length; i++) {
+                    if (select.options[i].text.toLowerCase() === label.toLowerCase() || select.options[i].value.toLowerCase() === label.toLowerCase()) {
+                      foundValue = select.options[i].value;
+                      break;
+                    }
+                  }
+                  if (select.value === foundValue) {
+                    select.value = 'All';
+                  } else {
+                    select.value = foundValue;
+                  }
+                  triggerFilterChange();
+                }
+              }
+            },
+            scales: {
+              x: { grid: { display: false }, ticks: { color: 'rgba(255,255,255,0.4)', font: { size: 9 } } },
+              y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: 'rgba(255,255,255,0.4)', font: { size: 9 } } }
+            },
+            plugins: {
+              legend: { display: false },
+              datalabels: {
+                color: '#fff',
+                anchor: 'end',
+                align: 'top',
+                font: { family: 'monospace', weight: 'bold', size: 10 }
+              },
+              tooltip: tooltipStyle
+            }
+          }
+        });
+      } catch (err) {}
+    }
+
+    /* =========================================================================
+       TAB 6: INTERACTIVE ORG CHART
+       ========================================================================= */
+    function hashCode(str) {
+      let hash = 0;
+      for (let i = 0; i < str.length; i++) {
+        hash = str.charCodeAt(i) + ((hash << 5) - hash);
+      }
+      return hash;
+    }
+
+    function renderOrgChartCanvas(data) {
+      const container = document.getElementById('orgchart-canvas');
+      if (!container) return;
+
+      const employees = data.employees || [];
+      if (employees.length === 0) {
+        container.innerHTML = `<div class="flex items-center justify-center h-full text-white/40 uppercase tracking-widest text-xs font-black">No roster employees found.</div>`;
+        return;
+      }
+
+      const nameToEmailMap = {};
+      employees.forEach(e => {
+        const cleanName = e.name.toLowerCase().trim();
+        nameToEmailMap[cleanName] = e.email;
+        
+        const parts = e.name.split(' ');
+        if (parts.length > 1) {
+          const lastName = parts[parts.length - 1];
+          const firstNames = parts.slice(0, -1).join(' ');
+          const invertedName = `${lastName}, ${firstNames}`.toLowerCase().trim();
+          nameToEmailMap[invertedName] = e.email;
+        }
+      });
+
+      const formattedData = employees.map(e => {
+        let parentId = e.directManagerEmail ? e.directManagerEmail.toLowerCase().trim() : "";
+        if (!parentId) {
+          const mgrNameClean = e.directManager ? e.directManager.toLowerCase().trim() : "";
+          parentId = (mgrNameClean && nameToEmailMap[mgrNameClean]) ? nameToEmailMap[mgrNameClean] : "";
+          
+          if (!parentId && mgrNameClean.includes(',')) {
+            const parts = mgrNameClean.split(',').map(s => s.trim());
+            if (parts.length === 2) {
+              const invertedMgr = `${parts[1]} ${parts[0]}`;
+              parentId = nameToEmailMap[invertedMgr] || "";
+            }
+          }
+
+          if (!parentId && mgrNameClean && mgrNameClean !== "n/a" && mgrNameClean !== "unknown") {
+            const mgrTokens = mgrNameClean.replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(t => t.length > 1);
+            if (mgrTokens.length > 0) {
+              const potentialMatches = employees.filter(emp => {
+                const empNameClean = emp.name.toLowerCase().replace(/[^a-z0-9\s]/g, ' ');
+                return mgrTokens.every(tok => empNameClean.includes(tok));
+              });
+              if (potentialMatches.length === 1) {
+                parentId = potentialMatches[0].email;
+              }
+            }
+          }
+        }
+        
+        return {
+          id: e.email,
+          parentId: parentId,
+          name: e.name,
+          role: e.role,
+          costCenter: e.costCenter,
+          headOfFunction: e.headOfFunction,
+          managerName: e.directManager
+        };
+      });
+
+      const validIds = new Set(formattedData.map(d => d.id));
+      const orphans = [];
+      formattedData.forEach(d => {
+        if (!d.parentId || !validIds.has(d.parentId)) {
+          d.parentId = "";
+          orphans.push(d);
+        }
+      });
+
+      const topLeaderEmail = validIds.has("john.stewart@osttra.com") ? "john.stewart@osttra.com" : "anup.hariharan@osttra.com";
+      const hasTopLeader = validIds.has(topLeaderEmail);
+      const trueOrphans = orphans.filter(d => d.id !== topLeaderEmail);
+
+      if (trueOrphans.length > 0) {
+        const unmappedId = "unmapped-orphan-node@osttra.com";
+        formattedData.push({
+          id: unmappedId,
+          parentId: hasTopLeader ? topLeaderEmail : "",
+          name: "Unmapped / Missing Manager",
+          role: "Data Discrepancy",
+          costCenter: "Global",
+          headOfFunction: "N/A",
+          managerName: hasTopLeader ? (topLeaderEmail === "john.stewart@osttra.com" ? "John Stewart" : "Anup Hariharan") : ""
+        });
+        
+        trueOrphans.forEach(d => {
+          d.parentId = unmappedId;
+        });
+      }
+
+      const finalRoots = formattedData.filter(d => d.parentId === "");
+      if (finalRoots.length > 1) {
+        const virtualRootId = "virtual-root@osttra.com";
+        formattedData.push({
+          id: virtualRootId,
+          parentId: "",
+          name: "OSTTRA Executive Board",
+          role: "Operations Hub",
+          costCenter: "Global",
+          headOfFunction: "N/A",
+          managerName: ""
+        });
+        finalRoots.forEach(d => {
+          d.parentId = virtualRootId;
+        });
+      }
+
+      if (!orgChartInstance) {
+        orgChartInstance = new d3.OrgChart()
+          .container('#orgchart-canvas')
+          .layout('left')
+          .nodeHeight(d => 110)
+          .nodeWidth(d => 250)
+          .childrenMargin(d => 50)
+          .compactMarginBetween(d => 25)
+          .compact(false)
+          .initialZoom(0.85)
+          .nodeContent(function(d, i, arr, state) {
+            const emp = d.data;
+            const initials = emp.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+            const colors = ['#FF0061', '#9125BF', '#FE952D', '#00E1D9', '#0061FF', '#10B981'];
+            const colorCode = colors[Math.abs(hashCode(emp.name)) % colors.length];
+
+            return `
+              <div class="p-4 bg-[#222222]/95 border border-white/10 rounded-2xl flex items-center gap-3 shadow-[0_0_15px_rgba(0,0,0,0.5)]" style="width: 250px; height: 110px;">
+                <div class="w-12 h-12 rounded-xl flex items-center justify-center font-black uppercase text-sm text-white shrink-0" style="background: ${colorCode};">
+                  ${initials}
+                </div>
+                <div class="flex-1 min-w-0 space-y-0.5">
+                  <p class="text-white text-xs font-black uppercase tracking-tight truncate">${emp.name}</p>
+                  <p class="text-white/40 text-[9px] font-bold uppercase tracking-wider truncate">${emp.role}</p>
+                  <p class="text-osttra-rubine/70 text-[9px] font-bold uppercase tracking-widest mt-1.5 truncate">${emp.costCenter}</p>
+                </div>
+              </div>
+            `;
+          });
+      }
+
+      orgChartInstance
+        .data(formattedData)
+        .render()
+        .collapseAll();
+    }
+
+    window.searchOrgChart = function() {
+      const search = document.getElementById('search-orgchart').value.toLowerCase().trim();
+      if (!orgChartInstance) return;
+      if (!search) {
+        orgChartInstance.clearHighlighting();
+        return;
+      }
+      const matchedNode = orgChartInstance.data().find(d => 
+        d.name.toLowerCase().includes(search) || 
+        d.role.toLowerCase().includes(search)
+      );
+      if (matchedNode) {
+        orgChartInstance.setCentered(matchedNode.id).setHighlighted(matchedNode.id).render();
+      }
+    };
+
+    window.orgChartExpandAll = function() {
+      if (orgChartInstance) orgChartInstance.expandAll().render();
+    };
+
+    window.orgChartCollapseAll = function() {
+      if (orgChartInstance) orgChartInstance.collapseAll().render();
+    };
+
+    window.orgChartFit = function() {
+      if (orgChartInstance) orgChartInstance.fit();
+    };
+
+    /**
+     * Seeds the Cross-Filter Dropdowns initially with metadata fetched from Sheet (4 Filters)
+     */
+    function loadMetadataFilters() {
+      google.script.run
+        .withSuccessHandler(meta => {
+          const regSel = document.getElementById('filt-region');
+          regSel.innerHTML = "";
+          meta.regions.forEach(r => regSel.innerHTML += `<option value="${r}">${r === 'All' ? 'All Regions' : r}</option>`);
+
+          const headSel = document.getElementById('filt-head');
+          headSel.innerHTML = "";
+          meta.heads.forEach(h => headSel.innerHTML += `<option value="${h}">${h === 'All' ? 'All Functional Heads' : h}</option>`);
+
+          const mgrSel = document.getElementById('filt-manager');
+          if (mgrSel) {
+            mgrSel.innerHTML = "";
+            const sortedManagers = [...meta.managers].sort((a, b) => {
+              if (a === 'All') return -1;
+              if (b === 'All') return 1;
+              return a.localeCompare(b);
+            });
+            sortedManagers.forEach(m => mgrSel.innerHTML += `<option value="${m}">${m === 'All' ? 'All Direct Managers' : m}</option>`);
+          }
+        })
+        .withFailureHandler(err => {
+          showNotification('Filters Init Failed', err.message, 'error');
+        })
+        .getFilterMetadata();
+    }
+
+    loadLookerDirectory();
+    loadMetadataFilters();
+  })();
+</script>

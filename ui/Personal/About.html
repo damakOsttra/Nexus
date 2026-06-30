@@ -1,0 +1,399 @@
+<div class="p-8 max-w-7xl mx-auto space-y-12 animate-in fade-in duration-700">
+  <!-- Header & Tabs -->
+  <div class="space-y-6">
+    <div class="flex items-end justify-between">
+      <div class="space-y-2">
+        <h2 class="text-2xl font-black text-osttra-rubine uppercase tracking-widest flex items-center gap-2">
+          <i class="fas fa-info-circle text-xl"></i> About Nexus
+        </h2>
+        <p class="text-white/40 text-sm font-medium tracking-wide uppercase">Project Charter & Application Explainer</p>
+      </div>
+      <div class="px-3 py-1 bg-osttra-rubine/10 border border-osttra-rubine/20 rounded text-[9px] font-black tracking-widest text-osttra-rubine uppercase">
+          v1.8.0 - PRODUCTION READY
+      </div>
+    </div>
+
+    <!-- Tabs Navigation -->
+    <div class="flex gap-6 text-[10px] font-black tracking-[0.2em] uppercase overflow-x-auto no-scrollbar border-b border-white/10">
+        <button onclick="showAboutTab('overview')" id="about-tab-overview" class="py-3 px-2 border-b-2 border-osttra-rubine text-white transition-colors whitespace-nowrap">Overview (Charter)</button>
+        <button onclick="showAboutTab('ecosystem')" id="about-tab-ecosystem" class="py-3 px-2 border-b-2 border-transparent text-white/40 hover:text-white transition-colors whitespace-nowrap">3-Tier Ecosystem</button>
+        <button onclick="showAboutTab('raci')" id="about-tab-raci" class="py-3 px-2 border-b-2 border-transparent text-white/40 hover:text-white transition-colors whitespace-nowrap">RACI & Governance</button>
+    </div>
+  </div>
+
+  <div class="pt-4">
+    <!-- SECTION 1: OVERVIEW (PROJECT CHARTER) -->
+    <section id="content-overview" class="about-tab-content space-y-12">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+            <div class="space-y-8">
+                <h1 class="text-6xl font-black tracking-tighter leading-none uppercase">
+                    Defining the <br>
+                    <span class="text-transparent bg-clip-text bg-gradient-to-r from-osttra-ochre via-osttra-rubine to-osttra-violet italic">Operational Truth</span> <br>
+                    of Client Services
+                </h1>
+                <p class="text-xl text-white/60 font-light leading-relaxed">
+                    The Nexus App is a unified enterprise directory and dynamic resource capacity tracker. It centralizes OSTTRA's headcount database, professional skill matrix, and product-specific effort allocations into a single, secure reporting system.
+                </p>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="p-6 glass rounded-2xl border-l-4 border-osttra-rubine">
+                        <h4 class="text-xs font-black uppercase tracking-widest text-osttra-rubine mb-2">The Vision</h4>
+                        <p class="text-sm text-white/70">Establish a single source of truth for global capacity, eliminating messy and fragmented team spreadsheets.</p>
+                    </div>
+                    <div class="p-6 glass rounded-2xl border-l-4 border-osttra-ochre">
+                        <h4 class="text-xs font-black uppercase tracking-widest text-osttra-ochre mb-2">Business Value</h4>
+                        <p class="text-sm text-white/70">Empowers managers to run heatmaps and capacity forecasts while enabling precise run-rate mapping for Finance.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-gradient-to-br from-osttra-ochre via-osttra-rubine to-osttra-violet p-px rounded-[2rem] shadow-2xl">
+                <div class="bg-[#222222] rounded-[2rem] p-8 space-y-8">
+                    <h3 class="text-[10px] font-black uppercase tracking-[0.2em] text-white/40 italic">Project Governance</h3>
+                    <div class="space-y-4">
+                        <div class="flex justify-between items-center border-b border-white/5 pb-2">
+                            <span class="text-xs font-bold text-white">Anup HariHaran</span>
+                            <span class="text-[9px] font-black uppercase text-osttra-ochre tracking-widest">Client Services Head</span>
+                        </div>
+                        <div class="flex justify-between items-center border-b border-white/5 pb-2">
+                            <span class="text-xs font-bold text-white">Suneet Dhar</span>
+                            <span class="text-[9px] font-black uppercase text-osttra-ochre tracking-widest">Operational Excellence Head</span>
+                        </div>
+                        <div class="flex justify-between items-center border-b border-white/5 pb-2 pt-2">
+                            <span class="text-xs font-bold text-white">Richard Crossley</span>
+                            <span class="text-[9px] font-black uppercase text-osttra-rubine tracking-widest">Product Owner</span>
+                        </div>
+                        <div class="p-3 bg-white/5 rounded-xl border border-white/5 space-y-2">
+                            <p class="text-[8px] font-black uppercase tracking-[0.2em] text-white/40">Signing off PARTY</p>
+                            <div class="flex justify-between items-center">
+                                <span class="text-xs font-bold text-white">Jane Hill</span>
+                                <span class="text-[8px] font-bold text-white/60 uppercase">BMA</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-xs font-bold text-white">Scott</span>
+                                <span class="text-[8px] font-bold text-white/60 uppercase">US Regional Head</span>
+                            </div>
+                        </div>
+                        <div class="pt-4 mt-4 border-t border-white/5">
+                            <div class="bg-gradient-to-br from-osttra-ochre via-osttra-rubine to-osttra-violet p-px rounded-xl">
+                                <div class="bg-[#222222] rounded-xl p-4 space-y-2">
+                                    <p class="text-[8px] font-black uppercase tracking-[0.2em] text-osttra-rubine">Core Execution Lead</p>
+                                    <p class="text-lg font-black tracking-tight uppercase text-white">Damak Varshney</p>
+                                    <div class="flex flex-wrap gap-2 pt-1">
+                                        <span class="px-2 py-0.5 bg-white/5 rounded text-[7px] font-bold uppercase tracking-widest text-white/60">Architect</span>
+                                        <span class="px-2 py-0.5 bg-white/5 rounded text-[7px] font-bold uppercase tracking-widest text-white/60">Developer</span>
+                                        <span class="px-2 py-0.5 bg-white/5 rounded text-[7px] font-bold uppercase tracking-widest text-white/60">Product Mgr</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- SECTION 2: 3-TIER ECOSYSTEM (ROLE EXPLAINER) -->
+    <section id="content-ecosystem" class="about-tab-content hidden space-y-12">
+        <div class="space-y-4">
+            <h2 class="text-xl font-black tracking-tight uppercase text-white">Role-Based <span class="text-osttra-rubine">Ecosystem Guide</span></h2>
+            <p class="text-white/60 max-w-3xl">Nexus secures data isolation and divides operational workflows through three explicit permission tiers, backed by corporate single sign-on (SSO).</p>
+        </div>
+
+        <!-- Tier 1 -->
+        <div class="glass p-8 rounded-3xl border-t-4 border-osttra-rubine/40 space-y-6">
+            <div class="flex items-center gap-4 border-b border-white/5 pb-4">
+                <div class="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-white"><i class="fas fa-user text-osttra-rubine"></i></div>
+                <h3 class="text-xl font-black uppercase tracking-tight text-white">Tier 1: Individual Employee</h3>
+            </div>
+            <p class="text-xs text-white/50">Core self-reporting interface for individual representatives.</p>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="p-6 bg-white/5 rounded-2xl border border-white/5 hover:border-osttra-rubine/30 transition-all space-y-3">
+                    <h4 class="text-sm font-bold uppercase text-white"><i class="fas fa-id-card mr-2 text-osttra-rubine"></i> 1. View My Profile</h4>
+                    <p class="text-xs text-white/60">Verify your personal demographic details, active reporting manager, and your full Skill Matrix Proficiencies as synced from the master AllEmployee directory.</p>
+                </div>
+                <div class="p-6 bg-white/5 rounded-2xl border border-white/5 hover:border-osttra-rubine/30 transition-all space-y-3">
+                    <h4 class="text-sm font-bold uppercase text-white"><i class="fas fa-clock mr-2 text-osttra-rubine"></i> 2. Certify Monthly Allocation</h4>
+                    <p class="text-xs text-white/60">Input monthly capacity splits across your assigned products in the <strong>BAU</strong> column (Non-BAU is currently locked at 0%). Management effort is now logged under the dedicated "Mgmt" Product/Sub-Product row in the BAU column.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tier 2 -->
+        <div class="glass p-8 rounded-3xl border-t-4 border-osttra-ochre space-y-6">
+            <div class="flex items-center gap-4 border-b border-white/5 pb-4">
+                <div class="w-10 h-10 rounded-xl bg-osttra-ochre/10 flex items-center justify-center text-osttra-ochre"><i class="fas fa-users-cog"></i></div>
+                <h3 class="text-xl font-black uppercase tracking-tight text-white">Tier 2: Direct Manager</h3>
+            </div>
+            <p class="text-xs text-white/50">Team administration tool for resource planning and professional matrix tracking.</p>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="p-6 bg-white/5 rounded-2xl border border-white/5 hover:border-osttra-ochre/30 transition-all space-y-3">
+                    <h4 class="text-sm font-bold uppercase text-white"><i class="fas fa-sliders-h mr-2 text-osttra-ochre"></i> 1. Manage Scope & Skills</h4>
+                    <p class="text-xs text-white/60">Assign active operational products to direct reports, and manage their categorical skill proficiency ratings (SME, Intermediate, Beginner) directly via the Assign Skills panel.</p>
+                </div>
+                <div class="p-6 bg-white/5 rounded-2xl border border-white/5 hover:border-osttra-ochre/30 transition-all space-y-3">
+                    <h4 class="text-sm font-bold uppercase text-white"><i class="fas fa-clipboard-check mr-2 text-osttra-ochre"></i> 2. Oversee & Proxy Allocations</h4>
+                    <p class="text-xs text-white/60">Audit team capacity submissions in a centralized tri-state grid. Managers can execute <strong>Proxy Entries</strong> for team members who are OOO, and can <strong>Unlock/Reset</strong> mistaken entries instantly.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tier 3 -->
+        <div class="glass p-8 rounded-3xl border-t-4 border-osttra-violet space-y-6">
+            <div class="flex items-center gap-4 border-b border-white/5 pb-4">
+                <div class="w-10 h-10 rounded-xl bg-osttra-violet/10 flex items-center justify-center text-osttra-violet"><i class="fas fa-shield-alt"></i></div>
+                <h3 class="text-xl font-black uppercase tracking-tight text-white">Tier 3: Platform Administrator</h3>
+            </div>
+            <p class="text-xs text-white/50">System security, database integrity governance, and control panel metrics.</p>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div class="p-6 bg-white/5 rounded-2xl border border-white/5 hover:border-osttra-violet/30 transition-all space-y-3">
+                    <h4 class="text-xs font-black uppercase tracking-wider text-white">Monitoring Center</h4>
+                    <p class="text-[11px] text-white/50">Identify and flag missing allocations or uncertified allocations directly in the UI.</p>
+                </div>
+                <div class="p-6 bg-white/5 rounded-2xl border border-white/5 hover:border-osttra-violet/30 transition-all space-y-3">
+                    <h4 class="text-xs font-black uppercase tracking-wider text-white">Drive Backups</h4>
+                    <p class="text-[11px] text-white/50">Force system snapshots as Excel spreadsheets saved securely into Drive folders.</p>
+                </div>
+                <div class="p-6 bg-white/5 rounded-2xl border border-white/5 hover:border-osttra-violet/30 transition-all space-y-3">
+                    <h4 class="text-xs font-black uppercase tracking-wider text-white">App State Toggle</h4>
+                    <p class="text-[11px] text-white/50">Switch between Active, Locked, and Maintenance modes globally via Settings.</p>
+                </div>
+                <div class="p-6 bg-white/5 rounded-2xl border border-white/5 hover:border-osttra-violet/30 transition-all space-y-3">
+                    <h4 class="text-xs font-black uppercase tracking-wider text-white">User Simulation</h4>
+                    <p class="text-[11px] text-white/50">Log in as any employee securely to debug permission issues in real-time.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Decoupled Analytical Strategy -->
+        <div class="glass p-8 rounded-3xl border-t-4 border-emerald-500 space-y-4">
+            <h3 class="text-lg font-black uppercase tracking-tight text-white flex items-center gap-2">
+                <i class="fas fa-chart-line text-emerald-500"></i> Smart Links Analytical Overlay
+            </h3>
+            <p class="text-xs text-white/60 leading-relaxed">
+                To guarantee optimal system speed, Nexus decouples transaction editing from data reporting. Editing and configuration happen on this lightweight Apps Script shell, while team analytics are served via external **Analytics Dashboards**.
+            </p>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 pt-2">
+                <div class="p-4 bg-white/5 rounded-xl border border-white/5 text-center">
+                    <span class="text-[10px] font-black uppercase tracking-widest text-emerald-400">Report Directory</span>
+                    <p class="text-[11px] text-white/50 mt-1">Centralized links to all external Looker Studio reports.</p>
+                </div>
+                <div class="p-4 bg-white/5 rounded-xl border border-white/5 text-center">
+                    <span class="text-[10px] font-black uppercase tracking-widest text-emerald-400">Global Headcount</span>
+                    <p class="text-[11px] text-white/50 mt-1">Visualize staff density by Cost Center, Role, and Region.</p>
+                </div>
+                <div class="p-4 bg-white/5 rounded-xl border border-white/5 text-center">
+                    <span class="text-[10px] font-black uppercase tracking-widest text-emerald-400">Cost of Delivery</span>
+                    <p class="text-[11px] text-white/50 mt-1">Financial run-rate models splitting BAU vs Change effort.</p>
+                </div>
+                <div class="p-4 bg-white/5 rounded-xl border border-white/5 text-center">
+                    <span class="text-[10px] font-black uppercase tracking-widest text-emerald-400">CS Heatmap</span>
+                    <p class="text-[11px] text-white/50 mt-1">Multi-axis matrices identifying single points of failure.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- SECTION 3: RACI & GOVERNANCE MATRIX -->
+    <section id="content-raci" class="about-tab-content hidden space-y-12 animate-in fade-in duration-500">
+        <div class="space-y-4">
+            <h2 class="text-2xl font-black tracking-tight uppercase text-white">Platform <span class="text-osttra-rubine">RACI & Governance Matrix</span></h2>
+            <p class="text-base text-white/60 max-w-3xl">Comprehensive governance matrix and role boundaries defining responsibilities across the 3-tier ecosystem.</p>
+        </div>
+
+        <!-- Legend -->
+        <div class="p-4 bg-white/5 border border-white/5 rounded-2xl flex flex-wrap gap-6 text-xs font-black uppercase tracking-wider text-white/60">
+            <span class="flex items-center gap-2"><span class="px-2 py-0.5 rounded bg-osttra-rubine/20 text-osttra-rubine font-black">Responsible</span> Executes the task.</span>
+            <span class="flex items-center gap-2"><span class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-500 font-black">Accountable</span> Owns the final outcome.</span>
+            <span class="flex items-center gap-2"><span class="px-2 py-0.5 rounded bg-osttra-ochre/20 text-osttra-ochre font-black">Consulted</span> Provides input.</span>
+            <span class="flex items-center gap-2"><span class="px-2 py-0.5 rounded bg-white/10 text-white/60 font-black">Informed</span> Receives visibility/output.</span>
+        </div>
+
+        <!-- I. High-Level RACI Matrix -->
+        <div class="glass p-8 rounded-3xl border border-white/5 space-y-6">
+            <h3 class="text-lg font-black uppercase tracking-tight text-white border-b border-white/5 pb-4"><i class="fas fa-table mr-2 text-white/40"></i> I. High-Level RACI Matrix</h3>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="text-xs font-black uppercase tracking-widest text-white/40 border-b border-white/10">
+                            <th class="py-5 px-4 w-1/3">Operational Workflow</th>
+                            <th class="py-5 px-4 text-center">Employee (Tier 1)</th>
+                            <th class="py-5 px-4 text-center">Manager (Tier 2)</th>
+                            <th class="py-5 px-4 text-center">Admin (Tier 3)</th>
+                        </tr>
+                    </thead>
+                    <tbody class="text-sm font-medium text-white/80 divide-y divide-white/5">
+                        <tr class="hover:bg-white/[0.02] transition-colors">
+                            <td class="py-5 px-4 font-bold text-white uppercase tracking-wider text-xs">Verify Personal Profile Data</td>
+                            <td class="py-5 px-4 text-center"><span class="px-3 py-1.5 rounded-md bg-osttra-rubine/10 border border-osttra-rubine/20 text-osttra-rubine font-black text-[10px] uppercase tracking-wider">Responsible / Accountable</span></td>
+                            <td class="py-5 px-4 text-center"><span class="px-3 py-1.5 rounded-md bg-white/5 border border-white/5 text-white/40 font-black text-[10px] uppercase tracking-wider">Informed</span></td>
+                            <td class="py-5 px-4 text-center"><span class="px-3 py-1.5 rounded-md bg-white/5 border border-white/5 text-white/40 font-black text-[10px] uppercase tracking-wider">Informed</span></td>
+                        </tr>
+                        <tr class="hover:bg-white/[0.02] transition-colors">
+                            <td class="py-5 px-4 font-bold text-white uppercase tracking-wider text-xs">Certify Monthly Allocations</td>
+                            <td class="py-5 px-4 text-center"><span class="px-3 py-1.5 rounded-md bg-osttra-ochre/10 border border-osttra-ochre/20 text-osttra-ochre font-black text-[10px] uppercase tracking-wider">Responsible</span></td>
+                            <td class="py-5 px-4 text-center"><span class="px-3 py-1.5 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 font-black text-[10px] uppercase tracking-wider">Accountable</span></td>
+                            <td class="py-5 px-4 text-center"><span class="px-3 py-1.5 rounded-md bg-white/5 border border-white/5 text-white/40 font-black text-[10px] uppercase tracking-wider">Informed</span></td>
+                        </tr>
+                        <tr class="hover:bg-white/[0.02] transition-colors">
+                            <td class="py-5 px-4 font-bold text-white uppercase tracking-wider text-xs">Assign Products & Skill Levels</td>
+                            <td class="py-5 px-4 text-center"><span class="px-3 py-1.5 rounded-md bg-white/5 border border-white/5 text-white/40 font-black text-[10px] uppercase tracking-wider">Informed</span></td>
+                            <td class="py-5 px-4 text-center"><span class="px-3 py-1.5 rounded-md bg-osttra-rubine/10 border border-osttra-rubine/20 text-osttra-rubine font-black text-[10px] uppercase tracking-wider">Responsible / Accountable</span></td>
+                            <td class="py-5 px-4 text-center"><span class="px-3 py-1.5 rounded-md bg-white/5 border border-white/5 text-white/40 font-black text-[10px] uppercase tracking-wider">Informed</span></td>
+                        </tr>
+                        <tr class="hover:bg-white/[0.02] transition-colors">
+                            <td class="py-5 px-4 font-bold text-white uppercase tracking-wider text-xs">Execute OOO Proxy Entries & Unlocks</td>
+                            <td class="py-5 px-4 text-center"><span class="px-3 py-1.5 rounded-md bg-white/5 border border-white/5 text-white/40 font-black text-[10px] uppercase tracking-wider">Informed</span></td>
+                            <td class="py-5 px-4 text-center"><span class="px-3 py-1.5 rounded-md bg-osttra-rubine/10 border border-osttra-rubine/20 text-osttra-rubine font-black text-[10px] uppercase tracking-wider">Responsible / Accountable</span></td>
+                            <td class="py-5 px-4 text-center"><span class="px-3 py-1.5 rounded-md bg-white/5 border border-white/5 text-white/40 font-black text-[10px] uppercase tracking-wider">Informed</span></td>
+                        </tr>
+                        <tr class="hover:bg-white/[0.02] transition-colors">
+                            <td class="py-5 px-4 font-bold text-white uppercase tracking-wider text-xs">Monitor FTE Compliance & Dispatch Reminders</td>
+                            <td class="py-5 px-4 text-center"><span class="px-3 py-1.5 rounded-md bg-white/5 border border-white/5 text-white/40 font-black text-[10px] uppercase tracking-wider">Informed</span></td>
+                            <td class="py-5 px-4 text-center"><span class="px-3 py-1.5 rounded-md bg-white/5 border border-white/5 text-white/40 font-black text-[10px] uppercase tracking-wider">Informed</span></td>
+                            <td class="py-5 px-4 text-center"><span class="px-3 py-1.5 rounded-md bg-osttra-rubine/10 border border-osttra-rubine/20 text-osttra-rubine font-black text-[10px] uppercase tracking-wider">Responsible / Accountable</span></td>
+                        </tr>
+                        <tr class="hover:bg-white/[0.02] transition-colors">
+                            <td class="py-5 px-4 font-bold text-white uppercase tracking-wider text-xs">System Governance, Backups & App State</td>
+                            <td class="py-5 px-4 text-center"><span class="text-white/20">-</span></td>
+                            <td class="py-5 px-4 text-center"><span class="text-white/20">-</span></td>
+                            <td class="py-5 px-4 text-center"><span class="px-3 py-1.5 rounded-md bg-osttra-rubine/10 border border-osttra-rubine/20 text-osttra-rubine font-black text-[10px] uppercase tracking-wider">Responsible / Accountable</span></td>
+                        </tr>
+                        <tr class="hover:bg-white/[0.02] transition-colors">
+                            <td class="py-5 px-4 font-bold text-white uppercase tracking-wider text-xs">Strategic Analytics Access</td>
+                            <td class="py-5 px-4 text-center"><span class="px-3 py-1.5 rounded-md bg-white/5 border border-white/5 text-white/40 font-black text-[10px] uppercase tracking-wider text-white/30">Restricted</span></td>
+                            <td class="py-5 px-4 text-center"><span class="px-3 py-1.5 rounded-md bg-osttra-ochre/10 border border-osttra-ochre/20 text-osttra-ochre font-black text-[10px] uppercase tracking-wider">Responsible</span></td>
+                            <td class="py-5 px-4 text-center"><span class="px-3 py-1.5 rounded-md bg-osttra-rubine/10 border border-osttra-rubine/20 text-osttra-rubine font-black text-[10px] uppercase tracking-wider">Responsible / Accountable</span></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- II. Tier 1: Employee Boundaries -->
+        <div class="glass p-8 rounded-3xl border border-white/5 space-y-6">
+            <h3 class="text-lg font-black uppercase tracking-tight text-white border-b border-white/5 pb-4 flex items-center gap-2">
+                <i class="fas fa-user text-osttra-rubine"></i> II. Tier 1: Employee (All CS) Boundaries
+            </h3>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <!-- Responsible / Accountable -->
+                <div class="p-6 bg-white/[0.02] border border-white/5 rounded-2xl space-y-4">
+                    <h4 class="text-xs font-black uppercase tracking-widest text-white/50 border-b border-white/5 pb-2">Responsible (R) / Accountable (A)</h4>
+                    <ul class="list-disc list-inside text-sm text-white/80 space-y-2 pl-2">
+                        <li><strong>Profile Verification:</strong> Verify demographic data, active manager, and mapped products against Dayforce via the Home Profile. Report discrepancies to HR/Support.</li>
+                        <li><strong>Allocation Submission:</strong> Log total standard working days and weekend shifts.</li>
+                        <li><strong>FTE Compliance:</strong> Split monthly effort across assigned products ensuring the total equals exactly 100% (1.0 FTE) before certifying.</li>
+                    </ul>
+                </div>
+                <!-- Informed / Can Do -->
+                <div class="p-6 bg-white/[0.02] border border-white/5 rounded-2xl space-y-4">
+                    <h4 class="text-xs font-black uppercase tracking-widest text-white/50 border-b border-white/5 pb-2">Informed (I) / Can Do</h4>
+                    <ul class="list-disc list-inside text-sm text-white/80 space-y-2 pl-2">
+                        <li>View active Skill Matrix Proficiencies assigned by managers.</li>
+                        <li>Access the Analytics Hub to view the global Org Chart and Looker Report Directory.</li>
+                        <li>Self-edit or update allocations only while the global submission window remains open.</li>
+                    </ul>
+                </div>
+                <!-- Restricted -->
+                <div class="p-6 bg-white/[0.02] border border-white/5 rounded-2xl space-y-4">
+                    <h4 class="text-xs font-black uppercase tracking-widest text-osttra-rubine border-b border-white/5 pb-2">Restricted (Cannot Do)</h4>
+                    <ul class="list-disc list-inside text-sm text-white/80 space-y-2 pl-2">
+                        <li>Add, remove, or modify personal products, sub-products, or skill ratings.</li>
+                        <li>Manually change master HR profile data within the UI.</li>
+                        <li>View Executive Analytics (Team skill levels, Cost of Delivery, Capacity Heatmaps).</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- III. Tier 2: Manager / Lead Boundaries -->
+        <div class="glass p-8 rounded-3xl border border-white/5 space-y-6">
+            <h3 class="text-lg font-black uppercase tracking-tight text-white border-b border-white/5 pb-4 flex items-center gap-2">
+                <i class="fas fa-users-cog text-osttra-ochre"></i> III. Tier 2: Manager / Lead Boundaries
+            </h3>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <!-- Responsible / Accountable -->
+                <div class="p-6 bg-white/[0.02] border border-white/5 rounded-2xl space-y-4">
+                    <h4 class="text-xs font-black uppercase tracking-widest text-white/50 border-b border-white/5 pb-2">Responsible (R) / Accountable (A)</h4>
+                    <ul class="list-disc list-inside text-sm text-white/80 space-y-2 pl-2">
+                        <li><strong>Team Governance:</strong> Ensure 100% of direct reports complete allocation certification by the monthly deadline.</li>
+                        <li><strong>Scope & Skills Mapping:</strong> Assign active products and rate L1-L5 skill proficiencies for team members via the Assign Skills/Products panels.</li>
+                        <li><strong>Auditing & Overrides:</strong> Review the centralized tri-state grid (Team Allocations) to track Green (Done) vs. Orange (Incomplete) statuses.</li>
+                        <li><strong>Fixing Gaps:</strong> Execute "Proxy Entries" for Out-Of-Office (OOO) reports and trigger "Reset/Unlock" to drop mistaken entries.</li>
+                        <li><strong>Strategic Analytics:</strong> Utilize the Analytics Hub to analyze team Cost of Delivery (Run vs. Change effort) and identify single points of failure via Skills/Allocation Heatmaps.</li>
+                    </ul>
+                </div>
+                <!-- Informed / Can Do -->
+                <div class="p-6 bg-white/[0.02] border border-white/5 rounded-2xl space-y-4">
+                    <h4 class="text-xs font-black uppercase tracking-widest text-white/50 border-b border-white/5 pb-2">Informed (I) / Can Do</h4>
+                    <ul class="list-disc list-inside text-sm text-white/80 space-y-2 pl-2">
+                        <li>Receive CC notifications when Admins dispatch bulk reminder emails to uncertified team members.</li>
+                    </ul>
+                </div>
+                <!-- Restricted -->
+                <div class="p-6 bg-white/[0.02] border border-white/5 rounded-2xl space-y-4">
+                    <h4 class="text-xs font-black uppercase tracking-widest text-osttra-rubine border-b border-white/5 pb-2">Restricted (Cannot Do)</h4>
+                    <ul class="list-disc list-inside text-sm text-white/80 space-y-2 pl-2">
+                        <li>Dispatch automated bulk reminder emails directly to the team.</li>
+                        <li>Edit global application lock states after the 1st-week submission window closes.</li>
+                        <li>Modify the master employee HR roster.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- IV. Tier 3: Platform Admin Boundaries -->
+        <div class="glass p-8 rounded-3xl border border-white/5 space-y-6">
+            <h3 class="text-lg font-black uppercase tracking-tight text-white border-b border-white/5 pb-4 flex items-center gap-2">
+                <i class="fas fa-shield-alt text-osttra-violet"></i> IV. Tier 3: Platform Admin Boundaries
+            </h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <!-- Responsible / Accountable -->
+                <div class="p-6 bg-white/[0.02] border border-white/5 rounded-2xl space-y-4">
+                    <h4 class="text-xs font-black uppercase tracking-widest text-white/50 border-b border-white/5 pb-2">Responsible (R) / Accountable (A)</h4>
+                    <ul class="list-disc list-inside text-sm text-white/80 space-y-2 pl-2">
+                        <li><strong>Compliance Monitoring:</strong> Scan global allocation certifications (Monitoring Center) to flag missing entries and verify strict FTE limits.</li>
+                        <li><strong>Enforcement:</strong> Select pending/uncertified users and dispatch system-wide bulk reminder emails.</li>
+                        <li><strong>System Integrity & Backups:</strong> Manually trigger ad-hoc system snapshots, save .xlsx archives to Drive, and lock-in historical month cycles.</li>
+                        <li><strong>Application State Control:</strong> Toggle the platform between Active, Locked, and Maintenance modes (System Settings).</li>
+                        <li><strong>Troubleshooting:</strong> Utilize Identity Simulation to securely log in as any user to debug permission access.</li>
+                        <li><strong>Dashboard Governance:</strong> Manage the visible Looker Studio links within the Report Hub Admin.</li>
+                        <li><strong>Platform Telemetry:</strong> Monitor Monthly Active Users (MAU), load speeds, and adoption metrics via the Nexus Adoption panel.</li>
+                    </ul>
+                </div>
+                <!-- Restricted -->
+                <div class="p-6 bg-white/[0.02] border border-white/5 rounded-2xl space-y-4">
+                    <h4 class="text-xs font-black uppercase tracking-widest text-osttra-rubine border-b border-white/5 pb-2">Restricted (Cannot Do)</h4>
+                    <ul class="list-disc list-inside text-sm text-white/80 space-y-2 pl-2">
+                        <li>Modify any transactional ledger allocations without keeping strict event logs.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+  </div>
+</div>
+
+<script>
+    function showAboutTab(tabId) {
+        // Hide all tabs
+        document.querySelectorAll('.about-tab-content').forEach(function(el) { el.classList.add('hidden'); });
+        
+        // Remove active styling from all buttons
+        document.querySelectorAll('button[id^="about-tab-"]').forEach(function(el) { 
+            el.classList.remove('border-osttra-rubine', 'text-white');
+            el.classList.add('border-transparent', 'text-white/40');
+        });
+        
+        // Show target tab
+        var targetSection = document.getElementById('content-' + tabId);
+        if (targetSection) {
+            targetSection.classList.remove('hidden');
+        }
+        
+        // Add active styling to target button
+        var activeBtn = document.getElementById('about-tab-' + tabId);
+        if (activeBtn) {
+            activeBtn.classList.add('border-osttra-rubine', 'text-white');
+            activeBtn.classList.remove('border-transparent', 'text-white/40');
+        }
+    }
+</script>
