@@ -242,13 +242,14 @@
     if (month === -1 || isNaN(year)) return 20;
     
     let weekdays = 0;
-    const date = new Date(year, month, 1);
-    while (date.getMonth() === month) {
-      const day = date.getDay();
+    // Force UTC to bypass local timezone DST edge cases that cause day-skipping
+    const date = new Date(Date.UTC(year, month, 1));
+    while (date.getUTCMonth() === month) {
+      const day = date.getUTCDay();
       if (day !== 0 && day !== 6) {
         weekdays++;
       }
-      date.setDate(date.getDate() + 1);
+      date.setUTCDate(date.getUTCDate() + 1);
     }
     return weekdays;
   }
@@ -556,7 +557,7 @@
     const body = document.getElementById('historical-table-body');
     if (!body) return;
 
-    // Calculate previous month dynamically based on currentPeriod (e.g. "May 2026" -> "April 2026")
+    // Calculate previous month dynamically based on currentPeriod (e.g. "July 2024" -> "June 2024")
     const currentPeriod = window.currentUser.currentPeriod || "Unknown Period";
     const parts = currentPeriod.split(" ");
     const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];

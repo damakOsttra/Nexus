@@ -2,6 +2,21 @@
  * OSTTRA Corporate Master Data Export - Filtered for Anup Hariharan's Org
  * New Columns: Regional Head/Head of function & Leads
  */
+
+/**
+ * Global Utility: Normalizes names to resolve typos and discrepancies in Google/Dayforce.
+ */
+function normalizeName(name) {
+  if (!name) return "N/A";
+  const lower = name.toLowerCase().trim();
+  if (lower === "" || lower === "unknown" || lower === "n/a" || lower === "na") return "N/A";
+  if (lower.includes("nicholas") && lower.includes("allcock")) return "Nicholas Allcock";
+  if (lower.includes("anup") && lower.includes("hariharan")) return "Anup Hariharan";
+  if (lower.includes("sanghmitra") && lower.includes("khanna")) return "Sanghmitra Khanna";
+  if (lower.includes("john") && lower.includes("stewart")) return "John Stewart";
+  return name.trim();
+}
+
 function exportAnupOrgMasterData() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   
@@ -114,7 +129,7 @@ function exportAnupOrgMasterData() {
       }
 
       // Build Hierarchy utilizing Dayforce recursion, falling back to Google Directory if needed
-      const chain = [{ email: email.toLowerCase().trim(), name: person.name }];
+      const chain = [{ email: email.toLowerCase().trim(), name: normalizeName(person.name) }];
       let currMngrEmail = managerEmailAddr;
       const visited = new Set([email.toLowerCase().trim()]);
 
@@ -175,11 +190,14 @@ function exportAnupOrgMasterData() {
       // --- 4. FIND REGIONAL HEAD (Functional Head) ---
       let regionalHead = "N/A";
       
-      // Traverse up the chain to find the lowest Functional Head matching the 6 emails
-      for (let i = 0; i < chain.length; i++) {
-        if (allowedHeadsLower.indexOf(chain[i].email) !== -1) {
-          regionalHead = chain[i].name;
-          break; 
+      const topLevelExclusions = ["anup.hariharan@osttra.com", "sanghmitra.khanna@osttra.com", "john.stewart@osttra.com"];
+      if (topLevelExclusions.indexOf(email.toLowerCase().trim()) === -1) {
+        // Traverse up the chain to find the lowest Functional Head matching the 6 emails
+        for (let i = 0; i < chain.length; i++) {
+          if (allowedHeadsLower.indexOf(chain[i].email) !== -1) {
+            regionalHead = normalizeName(chain[i].name);
+            break; 
+          }
         }
       }
 
@@ -224,13 +242,13 @@ function exportAnupOrgMasterData() {
           person.empId, 
           person.firstName, 
           person.lastName, 
-          person.name, // Google Chat Full Name (Directory Display Name)
-          hrName,
+          normalizeName(person.name), // Google Chat Full Name (Directory Display Name)
+          normalizeName(hrName),
           email, 
           person.photoUrl,
           costCenterValue, 
           regionalHead,    
-          managerName,     
+          normalizeName(managerName),     
           managerEmailAddr,
           managerEmpId,
           managementLine, 

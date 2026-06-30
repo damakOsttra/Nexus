@@ -28,7 +28,8 @@ const CONFIG = {
   // Ignored / Excluded Emails from compliance & monitoring tracking
   IGNORED_EMAILS: [
     "john.stewart@osttra.com",
-    "misuzu.fujiwara@osttra.com"
+    "misuzu.fujiwara@osttra.com",
+    "sanghmitra.khanna@osttra.com"
   ],
 
   // BigQuery Configuration

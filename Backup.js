@@ -45,11 +45,12 @@ function triggerSnapshotAndNotify(triggerType) {
   const parentFolder = DriveApp.getFolderById(CONFIG.DRIVE_BACKUP_FOLDER_ID);
   const nexusFolder = getOrCreateDriveFolder("Nexus Application Data", parentFolder);
   
-  const currentYear = new Date().getFullYear().toString();
-  const yearFolder = getOrCreateDriveFolder(currentYear, nexusFolder);
+  const activePeriod = getActivePeriod(); // Align backup folders with actual active period
+  const periodParts = activePeriod.split(" ");
+  const currentMonthName = periodParts[0];
+  const currentYear = periodParts[1];
   
-  const monthsLong = ["January","February","March","April","May","June","July","August","September","October","November","December"];
-  const currentMonthName = monthsLong[new Date().getMonth()];
+  const yearFolder = getOrCreateDriveFolder(currentYear, nexusFolder);
   const monthFolder = getOrCreateDriveFolder(currentMonthName, yearFolder);
   
   // 3. Assemble File Name
@@ -145,8 +146,7 @@ function logSnapshotEvent(triggerType, fileUrl) {
   }
   
   const timestamp = Utilities.formatDate(new Date(), ss.getSpreadsheetTimeZone(), "yyyy-MM-dd HH:mm:ss");
-  const monthsLong = ["January","February","March","April","May","June","July","August","September","October","November","December"];
-  const period = monthsLong[new Date().getMonth()] + " " + new Date().getFullYear();
+  const period = getActivePeriod(); // Align snapshot log month with actual active period
   const user = Session.getActiveUser().getEmail() || "System Automator";
   
   sheet.appendRow([timestamp, triggerType, period, user, fileUrl]);

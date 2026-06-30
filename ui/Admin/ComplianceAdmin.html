@@ -589,6 +589,7 @@ Nexus Administration</textarea>
     const monthsList = ["January","February","March","April","May","June","July","August","September","October","November","December"];
     for (let i = 0; i < 6; i++) {
       const today = new Date();
+      today.setDate(1);
       today.setMonth(today.getMonth() - 1 - i);
       const m = monthsList[today.getMonth()];
       const y = today.getFullYear();

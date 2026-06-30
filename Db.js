@@ -4,6 +4,27 @@
  */
 
 /**
+ * Global Utility: Normalizes Functional Head names to resolve HR data discrepancies
+ */
+function normalizeHeadName(rawName) {
+  const name = String(rawName || "N/A").trim();
+  const lower = name.toLowerCase();
+  
+  if (lower === "" || lower === "unknown" || lower === "n/a" || lower === "na") return "N/A";
+  
+  if (lower.includes("nicholas") && lower.includes("allcock")) return "Nicholas Allcock";
+  if (lower.includes("suneet") && lower.includes("dhar")) return "Suneet Dhar";
+  if (lower.includes("karan") && lower.includes("singal")) return "Karan Singal";
+  if (lower.includes("jerry") && lower.includes("lin")) return "Jerry Lin";
+  if (lower.includes("jane") && lower.includes("hill")) return "Jane Hill";
+  if (lower.includes("scott") && lower.includes("bolnick")) return "Scott Bolnick";
+  if (lower.includes("anup") && lower.includes("hariharan")) return "Anup Hariharan";
+  
+  // Title Case Fallback for other names
+  return name.replace(/\w\S*/g, (txt) => txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase());
+}
+
+/**
  * Global Utility: Force date objects to explicit strings before writing back to prevent Google Sheets format-loss.
  */
 function createSafeRowForDatabase(row, tz, periodIdxAlloc) {
@@ -98,6 +119,12 @@ function clearCachedData(key) {
  */
 function clearSheetCache(sheetName) {
   clearCachedData("SHEET_" + sheetName);
+  if (sheetName === CONFIG.SHEETS.EMPLOYEES) {
+    try {
+      CacheService.getScriptCache().remove("filter_metadata_v6");
+      console.log("[CACHE] Busted filter metadata cache.");
+    } catch(e) {}
+  }
 }
 
 /**
@@ -474,7 +501,7 @@ function applyGlobalFilters(data, filters, bypassProductFilters) {
       }
     }
     if (filters.regionalHead && filters.regionalHead !== 'All') {
-      const rowHead = String(row["Regional Head/Head of function"] || "");
+      const rowHead = normalizeHeadName(row["Regional Head/Head of function"]);
       if (rowHead !== filters.regionalHead) match = false;
     }
     if (filters.employeeName && filters.employeeName.trim() !== '') {
@@ -522,7 +549,7 @@ function enrichEmployeesWithProducts(data) {
  */
 function getFilterMetadata() {
   validateTier(1);
-  const cacheKey = "filter_metadata_v4";
+  const cacheKey = "filter_metadata_v6";
   const cache = CacheService.getScriptCache();
   const cached = cache.get(cacheKey);
   if (cached) {
@@ -562,9 +589,9 @@ function getFilterMetadata() {
       }
     }
     if (emp["Regional Head/Head of function"]) {
-      const head = String(emp["Regional Head/Head of function"]).trim();
+      const head = normalizeHeadName(emp["Regional Head/Head of function"]);
       const key = head.toLowerCase();
-      if (head && head !== "N/A" && head !== "Unknown") {
+      if (head && head !== "N/A" && head !== "Unknown" && head !== "Anup Hariharan") {
         if (!headsMap.has(key)) headsMap.set(key, head);
       }
     }
@@ -619,7 +646,7 @@ function getGlobalHeadcountData(filters) {
       historicalAlloc
         .filter(row => {
           const rawP = row["Month and Year"] !== undefined ? row["Month and Year"] : row["Period"];
-          const rowPeriod = (rawP instanceof Date) ? Utilities.formatDate(rawP, tz, "MMMM yyyy") : String(rawP || "");
+          const rowPeriod = (rawP instanceof Date) ? Utilities.formatDate(rawP, "GMT", "MMMM yyyy") : String(rawP || "");
           return rowPeriod.toLowerCase().trim() === filters.period.toLowerCase().trim();
         })
         .map(row => String(row["Email Address"] || row["Email"] || row["Corporate Email"] || row["Primary Email"] || "").toLowerCase().trim())
@@ -640,7 +667,7 @@ function getGlobalHeadcountData(filters) {
     if (!ccMap[ccKey]) ccMap[ccKey] = { count: 0, label: rawCc };
     ccMap[ccKey].count++;
 
-    const rawHead = String(emp["Regional Head/Head of function"] || "Unknown").trim();
+    const rawHead = normalizeHeadName(emp["Regional Head/Head of function"] || "Unknown");
     const headKey = rawHead.toLowerCase();
     if (!headMap[headKey]) headMap[headKey] = { count: 0, label: rawHead };
     headMap[headKey].count++;
@@ -683,7 +710,7 @@ function getGlobalHeadcountData(filters) {
       email: getEmail(e),
       role: e["Profile"] || "Employee",
       costCenter: e["Cost Center"] || "Global",
-      headOfFunction: e["Regional Head/Head of function"] || "N/A",
+      headOfFunction: normalizeHeadName(e["Regional Head/Head of function"]),
       directManager: e["Direct Manager Name"] || "N/A",
       directManagerEmail: e["Direct Manager Email"] ? String(e["Direct Manager Email"]).toLowerCase().trim() : ""
     }))
@@ -702,10 +729,10 @@ function saveUserAllocation(payload) {
   return runWithWriteLock(() => {
     const session = validateTier(1);
     
-    // Validate period format (must be "Month YYYY", e.g., "May 2026")
+    // Validate period format (must be "Month YYYY", e.g., "July 2024")
     const validPeriodRegex = /^[A-Za-z]+ \d{4}$/;
     if (!payload || !payload.period || !validPeriodRegex.test(String(payload.period).trim())) {
-      throw new Error("Critical Database Guardrail: Cannot save allocation. The period must be in a valid format (e.g. 'May 2026').");
+      throw new Error("Critical Database Guardrail: Cannot save allocation. The period must be in a valid format (e.g. 'July 2024').");
     }
     
     // Enforce 3-State Master Switch Business Rules
@@ -744,7 +771,7 @@ function saveUserAllocation(payload) {
         const row = allocData[i];
         const rowEmail = String(row[emailIdxAlloc]).toLowerCase().trim();
         const rawP = row[periodIdxAlloc];
-        const rowPeriod = (rawP instanceof Date) ? Utilities.formatDate(rawP, tz, "MMMM yyyy") : String(rawP);
+        const rowPeriod = (rawP instanceof Date) ? Utilities.formatDate(rawP, "GMT", "MMMM yyyy") : String(rawP);
         
         if (rowEmail === payload.email.toLowerCase().trim() && 
             rowPeriod.toLowerCase().trim() === payload.period.toLowerCase().trim()) {
@@ -773,7 +800,7 @@ function saveUserAllocation(payload) {
       const rowEmail = String(row[emailIdxAlloc]).toLowerCase().trim();
       
       const rawP = row[periodIdxAlloc];
-      const rowPeriod = (rawP instanceof Date) ? Utilities.formatDate(rawP, tz, "MMMM yyyy") : String(rawP);
+      const rowPeriod = (rawP instanceof Date) ? Utilities.formatDate(rawP, "GMT", "MMMM yyyy") : String(rawP);
       
       const matchesCurrent = (rowEmail === payload.email.toLowerCase().trim() && 
                               rowPeriod.toLowerCase().trim() === payload.period.toLowerCase().trim());
@@ -955,7 +982,7 @@ function getRegionalHeatmapData(filters) {
   const periodAllocationsMap = {};
   allocations.forEach(a => {
     const rawP = a["Month and Year"] !== undefined ? a["Month and Year"] : a["Period"];
-    const rowPeriod = (rawP instanceof Date) ? Utilities.formatDate(rawP, tz, "MMMM yyyy") : String(rawP || "");
+    const rowPeriod = (rawP instanceof Date) ? Utilities.formatDate(rawP, "GMT", "MMMM yyyy") : String(rawP || "");
     if (rowPeriod.toLowerCase().trim() === targetPeriodLower) {
       const email = String(a["Email Address"] || "").toLowerCase().trim();
       if (!periodAllocationsMap[email]) {
@@ -1012,7 +1039,7 @@ function getRegionalHeatmapData(filters) {
     if (!email) return;
 
     const region = String(emp["Cost Center"] || "Global").trim();
-    const head = String(emp["Regional Head/Head of function"] || "N/A").trim();
+    const head = normalizeHeadName(emp["Regional Head/Head of function"]);
 
     regionsSet.add(region);
     headsSet.add(head);
@@ -1136,7 +1163,7 @@ function getRegionalHeatmapData(filters) {
         name: (e["Google Chat Full Name"] || e["HR Name"] || `${e["First Name"] || ""} ${e["Last Name"] || ""}`).trim(),
         email: e["Email Address"],
         region: e["Cost Center"] || "Global",
-        head: e["Regional Head/Head of function"] || "N/A"
+        head: normalizeHeadName(e["Regional Head/Head of function"])
       }));
   };
 
@@ -1202,7 +1229,7 @@ function getCostOfDeliveryData(filters) {
   const firstAllocationRow = {}; // email -> first raw row for day calculations
   allocations.forEach(a => {
     const rawP = a["Month and Year"] !== undefined ? a["Month and Year"] : a["Period"];
-    const rowPeriod = (rawP instanceof Date) ? Utilities.formatDate(rawP, tz, "MMMM yyyy") : String(rawP || "");
+    const rowPeriod = (rawP instanceof Date) ? Utilities.formatDate(rawP, "GMT", "MMMM yyyy") : String(rawP || "");
     if (rowPeriod.toLowerCase().trim() === targetPeriodLower) {
       const email = String(a["Email Address"] || "").toLowerCase().trim();
       if (!periodAllocationsMap[email]) {
@@ -1351,7 +1378,7 @@ function getCostOfDeliveryData(filters) {
         name: (e["Google Chat Full Name"] || e["HR Name"] || `${e["First Name"] || ""} ${e["Last Name"] || ""}`).trim(),
         email: e["Email Address"],
         region: e["Cost Center"] || "Global",
-        head: e["Regional Head/Head of function"] || "N/A"
+        head: normalizeHeadName(e["Regional Head/Head of function"])
       })),
     regionalDistribution: {
       labels: Object.values(regionalMap).map(r => r.label),
@@ -1989,7 +2016,7 @@ function getManagerBulkAllocationData() {
   const teamAllocations = allAllocations.filter(a => {
     const isTeam = reportEmails.includes(String(a["Email Address"]).toLowerCase().trim());
     const rawP = a["Month and Year"] !== undefined ? a["Month and Year"] : a["Period"];
-    const period = (rawP instanceof Date) ? Utilities.formatDate(rawP, tz, "MMMM yyyy") : String(rawP || "");
+    const period = (rawP instanceof Date) ? Utilities.formatDate(rawP, "GMT", "MMMM yyyy") : String(rawP || "");
     return isTeam && period.toLowerCase().trim() === currentPeriod.toLowerCase();
   });
   
@@ -2060,7 +2087,7 @@ function getManagerBulkAllocationData() {
             const mProd = String(a["Product"]).trim() === String(prod).trim();
             const mSub = String(a["Sub-Product"] || "General").trim() === String(subProd).trim();
             const rawP = a["Month and Year"] !== undefined ? a["Month and Year"] : a["Period"];
-            const mPeriod = (rawP instanceof Date) ? Utilities.formatDate(rawP, tz, "MMMM yyyy") : String(rawP || "");
+            const mPeriod = (rawP instanceof Date) ? Utilities.formatDate(rawP, "GMT", "MMMM yyyy") : String(rawP || "");
             return mEmail && mProd && mSub && mPeriod.toLowerCase().trim() !== currentPeriod.toLowerCase();
           });
           if (pastAllocations.length > 0) {
@@ -2099,7 +2126,8 @@ function getManagerBulkAllocationData() {
   return JSON.parse(JSON.stringify({
     rows: rows,
     catalog: productCatalog,
-    skillsLegend: skillLevels
+    skillsLegend: skillLevels,
+    currentPeriod: currentPeriod
   }));
 }
 
@@ -2202,7 +2230,7 @@ function saveManagerBulkAllocation(payload) {
       let allocRowIndex = -1;
       for (let i = 1; i < allocValues.length; i++) {
         const rawP = allocValues[i][aPeriodIdx];
-        const rowPeriod = (rawP instanceof Date) ? Utilities.formatDate(rawP, tz, "MMMM yyyy") : String(rawP);
+        const rowPeriod = (rawP instanceof Date) ? Utilities.formatDate(rawP, "GMT", "MMMM yyyy") : String(rawP);
         
         if (String(allocValues[i][aEmailIdx]).toLowerCase().trim() === email &&
             String(allocValues[i][aProdIdx]).trim() === prod &&
@@ -2332,7 +2360,7 @@ function recalculateEmployeeFteCache(email) {
 
   for (let i = 1; i < allocValues.length; i++) {
     const rawP = allocValues[i][aPeriodIdx];
-    const rowPeriod = (rawP instanceof Date) ? Utilities.formatDate(rawP, tz, "MMMM yyyy") : String(rawP);
+    const rowPeriod = (rawP instanceof Date) ? Utilities.formatDate(rawP, "GMT", "MMMM yyyy") : String(rawP);
     
     if (String(allocValues[i][aEmailIdx]).toLowerCase().trim() === email.toLowerCase().trim() &&
         rowPeriod.toLowerCase().trim() === currentPeriod.toLowerCase()) {
@@ -3099,7 +3127,7 @@ function deleteEmployeeAllocation(email, period) {
       const rowEmail = String(row[emailIdx]).toLowerCase().trim();
       
       const rawP = row[periodIdx];
-      const rowPeriod = (rawP instanceof Date) ? Utilities.formatDate(rawP, tz, "MMMM yyyy") : String(rawP);
+      const rowPeriod = (rawP instanceof Date) ? Utilities.formatDate(rawP, "GMT", "MMMM yyyy") : String(rawP);
       
       if (rowEmail === targetEmail && rowPeriod.toLowerCase().trim() === targetPeriod) {
         removedCount++;
@@ -3151,7 +3179,7 @@ function cleanupCorruptedRows() {
   let normalizedCount = 0;
   let isModified = false;
   
-  // Valid period regex: e.g., "April 2026", "May 2026"
+  // Valid period regex: e.g., "April 2024", "July 2024"
   const validPeriodRegex = /^[A-Za-z]+ \d{4}$/;
   
   for (let i = 1; i < allocData.length; i++) {
@@ -3163,7 +3191,7 @@ function cleanupCorruptedRows() {
     
     if (rawP instanceof Date) {
       isValid = true;
-      normalizedPeriod = Utilities.formatDate(rawP, tz, "MMMM yyyy");
+      normalizedPeriod = Utilities.formatDate(rawP, "GMT", "MMMM yyyy");
     } else {
       const rowPeriod = String(rawP || "").trim();
       if (validPeriodRegex.test(rowPeriod)) {
@@ -3282,7 +3310,7 @@ function getAdminMonitorData(period) {
   const firstAllocationRow = {}; // email -> first matching raw allocation row
   allocations.forEach(a => {
     const rawP = a["Month and Year"] !== undefined ? a["Month and Year"] : a["Period"];
-    const rowPeriod = (rawP instanceof Date) ? Utilities.formatDate(rawP, tz, "MMMM yyyy") : String(rawP || "");
+    const rowPeriod = (rawP instanceof Date) ? Utilities.formatDate(rawP, "GMT", "MMMM yyyy") : String(rawP || "");
     if (rowPeriod.toLowerCase().trim() === currentPeriod.toLowerCase()) {
       const email = String(a["Email Address"] || "").toLowerCase().trim();
       
@@ -3452,7 +3480,7 @@ function sendBulkNotifications(payload) {
             ${contentHtml}
           </div>
           <div class="footer">
-            <p>© 2026 OSTTRA Group. All rights reserved.</p>
+            <p>© ${new Date().getFullYear()} OSTTRA Group. All rights reserved.</p>
             <p>The home of <strong>MarkitServ, Traiana, TriOptima & Reset</strong></p>
           </div>
         </div>

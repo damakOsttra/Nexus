@@ -289,12 +289,9 @@
     };
 
     window.removeAssignment = function(idx) {
-      const item = activeMappings[idx];
-      showConfirmModal(`Revoke allocation assignment for Product: ${item.product} (${item.subProduct})?`, () => {
-        activeMappings.splice(idx, 1);
-        renderMappingsTable();
-        triggerAutoSave();
-      });
+      activeMappings.splice(idx, 1);
+      renderMappingsTable();
+      triggerAutoSave();
     };
 
     function renderMappingsTable() {

@@ -375,26 +375,22 @@
       const checkedCbs = document.querySelectorAll('.mapping-checkbox:checked');
       if (checkedCbs.length === 0) return;
       
-      showConfirmModal(`Remove the ${checkedCbs.length} selected product assignments from ${activeEmp.name}? (Note: Allocation active items will restore as N/A on reload)`, () => {
-        const indicesToRemove = Array.from(checkedCbs).map(cb => parseInt(cb.dataset.index));
-        indicesToRemove.sort((a, b) => b - a);
-        
-        indicesToRemove.forEach(idx => {
-          activeMappings.splice(idx, 1);
-        });
-        
-        renderActiveMappings();
-        triggerAutoSave();
+      const indicesToRemove = Array.from(checkedCbs).map(cb => parseInt(cb.dataset.index));
+      indicesToRemove.sort((a, b) => b - a);
+      
+      indicesToRemove.forEach(idx => {
+        activeMappings.splice(idx, 1);
       });
+      
+      renderActiveMappings();
+      triggerAutoSave();
     };
 
     window.removeAllLocalMappings = function() {
       if (activeMappings.length === 0) return;
-      showConfirmModal(`Are you sure you want to remove ALL product assignments from ${activeEmp.name}? (Note: Allocation active items will restore as N/A on reload)`, () => {
-        activeMappings = [];
-        renderActiveMappings();
-        triggerAutoSave();
-      });
+      activeMappings = [];
+      renderActiveMappings();
+      triggerAutoSave();
     };
 
     window.updateLocalMappingSkill = function(index, skillVal) {
@@ -403,12 +399,9 @@
     };
 
     window.removeLocalMapping = function(index) {
-      const p = activeMappings[index];
-      showConfirmModal(`Remove product ${p.product} (${p.subProduct}) assignment from ${activeEmp.name}? (Note: If active in Allocation scope, it will restore as N/A on reload)`, () => {
-        activeMappings.splice(index, 1);
-        renderActiveMappings();
-        triggerAutoSave();
-      });
+      activeMappings.splice(index, 1);
+      renderActiveMappings();
+      triggerAutoSave();
     };
 
     window.addProductMapping = function() {

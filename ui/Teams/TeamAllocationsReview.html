@@ -110,13 +110,14 @@
     if (month === -1 || isNaN(year)) return 20;
     
     let weekdays = 0;
-    const date = new Date(year, month, 1);
-    while (date.getMonth() === month) {
-      const day = date.getDay();
+    // Force UTC to bypass local timezone DST edge cases that cause day-skipping
+    const date = new Date(Date.UTC(year, month, 1));
+    while (date.getUTCMonth() === month) {
+      const day = date.getUTCDay();
       if (day !== 0 && day !== 6) {
         weekdays++;
       }
-      date.setDate(date.getDate() + 1);
+      date.setUTCDate(date.getUTCDate() + 1);
     }
     return weekdays;
   };
@@ -795,7 +796,7 @@
 
       google.script.run
         .withSuccessHandler(allocations => {
-          // Exclude current period (May 2026) from history table
+          // Exclude current period from history table
           const currentPeriod = window.currentUser.currentPeriod || "Unknown Period";
           const pastAllocations = (allocations || []).filter(a => String(a.period).trim().toLowerCase() !== currentPeriod.toLowerCase());
 
