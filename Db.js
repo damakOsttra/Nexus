@@ -367,10 +367,7 @@ function getDebugSheetInfo() {
 function getPrePopulatedData(email) {
   validateTier(1);
   
-  const d = new Date();
-  d.setMonth(d.getMonth() - 1);
-  const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
-  const currentPeriod = months[d.getMonth()] + " " + d.getFullYear();
+  const currentPeriod = getActivePeriod();
   
   // 1. Define SQL for Productivity (BAU from Salesforce, Non-BAU from Jira)
   const sql = `
@@ -950,10 +947,7 @@ function getRegionalHeatmapData(filters) {
   const skillLevels = getSheetData(CONFIG.SHEETS.SKILL_LEVELS);
 
   // 1. Identify target period
-  const d = new Date();
-  d.setMonth(d.getMonth() - 1);
-  const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
-  const defaultPeriod = months[d.getMonth()] + " " + d.getFullYear();
+  const defaultPeriod = getActivePeriod();
   const period = (filters && filters.period && filters.period !== "All") ? filters.period : defaultPeriod;
   const targetPeriodLower = period.toLowerCase().trim();
 
@@ -1199,10 +1193,7 @@ function getCostOfDeliveryData(filters) {
   const allocations = getSheetData(CONFIG.SHEETS.ALLOCATION_HISTORICAL);
 
   // 1. Identify target period
-  const d = new Date();
-  d.setMonth(d.getMonth() - 1);
-  const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
-  const defaultPeriod = months[d.getMonth()] + " " + d.getFullYear();
+  const defaultPeriod = getActivePeriod();
   const period = (filters && filters.period && filters.period !== "All") ? filters.period : defaultPeriod;
   const targetPeriodLower = period.toLowerCase().trim();
 
@@ -1482,10 +1473,7 @@ function getEmployeeProfileData(email) {
 
   // Real-time submission validation to avoid cached roster sync issues
   const allocations = getHistoricalAllocation(email);
-  const d = new Date();
-  d.setMonth(d.getMonth() - 1);
-  const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
-  const currentPeriod = months[d.getMonth()] + " " + d.getFullYear();
+  const currentPeriod = getActivePeriod();
   const hasSubmitted = (allocations || []).some(a => String(a.period).trim().toLowerCase() === currentPeriod.toLowerCase());
 
   const payload = { user, skills: getSkillMatrix(email), metrics: { cases: caseCount }, hasSubmitted: hasSubmitted };
@@ -1509,10 +1497,7 @@ function getEmployeeProfileData(email) {
 function getUtilizationData(managerName) {
   validateTier(2); // Managers+
   
-  const d = new Date();
-  d.setMonth(d.getMonth() - 1);
-  const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
-  const currentPeriod = months[d.getMonth()] + " " + d.getFullYear();
+  const currentPeriod = getActivePeriod();
 
   // 1. Fetch capacity data from People Data (BigQuery)
   const ptoSql = `
@@ -1998,10 +1983,7 @@ function getManagerBulkAllocationData() {
   const teamAllocationScope = allAllocationScope.filter(s => reportEmails.includes(String(s["Email Address"]).toLowerCase().trim()));
   
   // 3. Fetch current monthly Allocations (Dynamic current period)
-  const d = new Date();
-  d.setMonth(d.getMonth() - 1);
-  const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
-  const currentPeriod = months[d.getMonth()] + " " + d.getFullYear();
+  const currentPeriod = getActivePeriod();
 
   const allAllocations = getSheetData(CONFIG.SHEETS.ALLOCATION_HISTORICAL);
   const teamAllocations = allAllocations.filter(a => {
@@ -2162,10 +2144,7 @@ function saveManagerBulkAllocation(payload) {
     if (aPeriodIdx === -1) aPeriodIdx = allocHeaders.indexOf("Period");
     
     // Build lookup index keys for allocations (Dynamic current period)
-    const d = new Date();
-    d.setMonth(d.getMonth() - 1);
-    const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
-    const allocPeriod = months[d.getMonth()] + " " + d.getFullYear();
+    const allocPeriod = getActivePeriod();
     
     let skillUpdatedCount = 0;
     let allocUpdatedCount = 0;
@@ -2349,10 +2328,7 @@ function recalculateEmployeeFteCache(email) {
   
   let sumBau = 0, sumNbau = 0;
   
-  const d = new Date();
-  d.setMonth(d.getMonth() - 1);
-  const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
-  const currentPeriod = months[d.getMonth()] + " " + d.getFullYear();
+  const currentPeriod = getActivePeriod();
 
   for (let i = 1; i < allocValues.length; i++) {
     const rawP = allocValues[i][aPeriodIdx];
@@ -3084,10 +3060,7 @@ function deleteEmployeeAllocation(email, period) {
   const session = validateTier(2); // Manager or above
   
   // Historical Deletion Protection Guardrail: Managers cannot delete past/historical cycles
-  const d = new Date();
-  d.setMonth(d.getMonth() - 1);
-  const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
-  const currentActivePeriod = months[d.getMonth()] + " " + d.getFullYear();
+  const currentActivePeriod = getActivePeriod();
   
   if (String(period).toLowerCase().trim() !== currentActivePeriod.toLowerCase().trim() && session.tier < 3) {
     throw new Error(`Critical Database Guardrail: Managers are only permitted to reset/delete allocations for the current active period (${currentActivePeriod}). Historical allocation data (${period}) is locked and cannot be altered.`);
@@ -3302,10 +3275,7 @@ function getAdminMonitorData(period) {
   });
   
   // Current Period Setup
-  const d = new Date();
-  d.setMonth(d.getMonth() - 1);
-  const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
-  const currentPeriod = period || (months[d.getMonth()] + " " + d.getFullYear());
+  const currentPeriod = period || getActivePeriod();
   
   // Aggregate emails and total allocation percentage for fast lookup (lowercase and trimmed)
   const allocationTotals = {}; // email -> total percentage sum

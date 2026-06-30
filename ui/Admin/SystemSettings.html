@@ -38,7 +38,7 @@
           <i class="fas fa-file-csv text-emerald-500 text-2xl"></i>
         </div>
         <h3 class="text-lg font-bold text-white mb-2 uppercase tracking-widest">Finance Export</h3>
-        <p class="text-xs text-gray-500 leading-relaxed">Download April 2026 allocation data mapped to Finance classification (Run/Change).</p>
+        <p id="finance-export-desc" class="text-xs text-gray-500 leading-relaxed">Download April 2026 allocation data mapped to Finance classification (Run/Change).</p>
       </div>
       <div class="mt-4 pt-4 border-t border-white/5 text-[9px] font-black uppercase text-white/40 tracking-widest">
         Format: Granular CSV
@@ -386,6 +386,13 @@
   // Run diagnostics on load
   (function runDiagnostics() {
     loadConfig(); // Load Phase 1 Toggle state on page load
+    
+    // Set dynamic current period in the description
+    const curPeriod = (window.currentUser && window.currentUser.currentPeriod) ? window.currentUser.currentPeriod : "Unknown Period";
+    const descEl = document.getElementById("finance-export-desc");
+    if (descEl) {
+      descEl.innerText = `Download ${curPeriod} allocation data mapped to Finance classification (Run/Change).`;
+    }
     google.script.run
       .withSuccessHandler(health => {
         const debug = document.getElementById('debug-info');

@@ -182,7 +182,7 @@
         .withSuccessHandler(res => {
           gridRows = res.rows || [];
           
-          const currentPeriod = res.currentPeriod || "May 2026";
+          const currentPeriod = res.currentPeriod || "Unknown Period";
           const pLabel = document.getElementById('active-period-label');
           if (pLabel) {
             pLabel.innerText = "Active Cycle: " + currentPeriod;
@@ -338,7 +338,7 @@
       renderRoster();
 
       const workspace = document.getElementById('workspace-area');
-      const currentPeriod = window.currentUser.currentPeriod || "May 2026";
+      const currentPeriod = window.currentUser.currentPeriod || "Unknown Period";
 
       if (activeEmp.isPendingAssignment) {
         workspace.innerHTML = `
@@ -613,7 +613,7 @@
       const banner = document.getElementById('proxy-status-banner');
       if (!banner) return;
 
-      const currentPeriod = window.currentUser.currentPeriod || "May 2026";
+      const currentPeriod = window.currentUser.currentPeriod || "Unknown Period";
       let html = "";
 
       if (window.currentUser.phase1State === "2") {
@@ -796,7 +796,7 @@
       google.script.run
         .withSuccessHandler(allocations => {
           // Exclude current period (May 2026) from history table
-          const currentPeriod = window.currentUser.currentPeriod || "May 2026";
+          const currentPeriod = window.currentUser.currentPeriod || "Unknown Period";
           const pastAllocations = (allocations || []).filter(a => String(a.period).trim().toLowerCase() !== currentPeriod.toLowerCase());
 
           if (pastAllocations.length === 0) {
@@ -838,7 +838,7 @@
     }
 
     window.saveProxyAllocation = function(retryCount = 0) {
-      const currentPeriod = window.currentUser.currentPeriod || "May 2026";
+      const currentPeriod = window.currentUser.currentPeriod || "Unknown Period";
       const btn = document.getElementById('btn-save-allocation');
       
       if (btn) {
@@ -947,10 +947,10 @@
     }
 
     window.resetProxyAllocation = function() {
-      const currentPeriod = window.currentUser.currentPeriod || "May 2026";
+      const currentPeriod = window.currentUser.currentPeriod || "Unknown Period";
       
       showConfirmModal(
-        `Are you sure you want to RESET and UNLOCK the allocation splits for ${activeEmp.name}?\n\nThis will purge all May 2026 split entries for this employee, clearing their cache and unlocking their personal tab so they can certify it themselves.`,
+        `Are you sure you want to RESET and UNLOCK the allocation splits for ${activeEmp.name}?\n\nThis will purge all ${currentPeriod} split entries for this employee, clearing their cache and unlocking their personal tab so they can certify it themselves.`,
         () => {
           showLoading(`Resetting and unlocking ${activeEmp.name}'s allocation splits...`);
           google.script.run

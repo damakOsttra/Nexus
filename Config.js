@@ -81,3 +81,15 @@ function getAllowedHeads() {
     "jerry.lin@osttra.com"
   ];
 }
+
+/**
+ * Safely calculates the active allocation period (the previous month).
+ * Sets the day of the month to 1 before subtracting to prevent JS date overflow/rollover bugs on the 31st.
+ */
+function getActivePeriod() {
+  const d = new Date();
+  d.setDate(1); // Set to 1st to prevent end-of-month rollover bugs
+  d.setMonth(d.getMonth() - 1);
+  const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+  return months[d.getMonth()] + " " + d.getFullYear();
+}

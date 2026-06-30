@@ -113,10 +113,7 @@ function getCurrentUserSession() {
 
   console.log(`User: ${activeEmail} | Identity Tier: ${identityTier} | Effective Tier: ${tier} | Executive View: ${isExecutiveView}`);
   
-  const d = new Date();
-  d.setMonth(d.getMonth() - 1); // Retroactive: Active period is previous month
-  const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
-  const currentPeriod = months[d.getMonth()] + " " + d.getFullYear();
+  const currentPeriod = getActivePeriod();
   
   return {
     email: activeEmail,

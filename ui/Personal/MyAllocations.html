@@ -276,7 +276,7 @@
     const banner = document.getElementById('lock-info-banner');
     if (!banner) return;
 
-    const currentPeriod = window.currentUser.currentPeriod || "May 2026";
+    const currentPeriod = window.currentUser.currentPeriod || "Unknown Period";
     const matchedAlloc = (allocations || []).find(a => String(a.period).trim().toLowerCase() === currentPeriod.toLowerCase());
     const lastUpdatedBy = matchedAlloc ? String(matchedAlloc.lastUpdatedBy || "").trim().toLowerCase() : "";
 
@@ -342,7 +342,7 @@
       return;
     }
 
-    const currentPeriod = user.currentPeriod || "May 2026";
+    const currentPeriod = user.currentPeriod || "Unknown Period";
     document.getElementById('welcome-name').innerText = user.name;
     document.getElementById('user-region-text').innerText = `${user.role} | ${user.region} | Active Cycle: ${currentPeriod}`;
     document.getElementById('user-photo-small').innerHTML = `<img src="${user.photoUrl}" class="w-full h-full object-cover">`;
@@ -557,7 +557,7 @@
     if (!body) return;
 
     // Calculate previous month dynamically based on currentPeriod (e.g. "May 2026" -> "April 2026")
-    const currentPeriod = window.currentUser.currentPeriod || "May 2026";
+    const currentPeriod = window.currentUser.currentPeriod || "Unknown Period";
     const parts = currentPeriod.split(" ");
     const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
     let monthIdx = months.indexOf(parts[0]);
@@ -788,7 +788,7 @@
   }
 
   function openConfirmModal() {
-    const currentPeriod = window.currentUser.currentPeriod || "May 2026";
+    const currentPeriod = window.currentUser.currentPeriod || "Unknown Period";
     const msg = `You are certifying ${totals.fte}% capacity across ${assignedScope.length} assigned products for ${currentPeriod}. This submission will lock your operational split. Your direct manager will be notified to review.`;
     
     const modalHtml = `
@@ -808,7 +808,7 @@
 
   function submitTabularData(retryCount = 0) {
     const btn = document.getElementById('submit-btn');
-    const currentPeriod = window.currentUser.currentPeriod || "May 2026";
+    const currentPeriod = window.currentUser.currentPeriod || "Unknown Period";
     btn.disabled = true;
     btn.innerHTML = retryCount > 0 
       ? `<i class="fas fa-spinner animate-spin"></i> Retrying (${retryCount}/3)...`
