@@ -1,0 +1,293 @@
+<div class="p-8 h-full flex flex-col space-y-6 animate-in fade-in duration-700">
+  
+  <!-- Header & Toolbar -->
+  <div class="flex flex-col md:flex-row justify-between items-start md:items-center pb-4 border-b border-white/5 gap-4 shrink-0">
+    <div class="space-y-1">
+      <h4 class="text-xs font-black uppercase tracking-[0.2em] text-white/30 italic">Interactive Directory</h4>
+      <h2 class="text-xl font-black text-white uppercase tracking-widest flex items-center gap-2">
+        <i class="fas fa-sitemap text-osttra-rubine"></i> Organization Chart
+      </h2>
+    </div>
+
+    <!-- Search & Export Actions -->
+    <div class="flex flex-wrap items-center gap-4 self-stretch md:self-auto justify-between md:justify-end w-full md:w-auto">
+      <!-- Search Bar -->
+      <div class="relative w-full md:w-64">
+        <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-white/30 text-xs"></i>
+        <input type="text" id="search-orgchart" onkeyup="searchOrgChart()" placeholder="Search people..." class="w-full bg-white/5 border border-white/5 focus:border-osttra-violet/40 rounded-xl pl-9 pr-4 py-2.5 text-xs text-white focus:outline-none transition-all placeholder-white/20">
+      </div>
+
+      <!-- Export Buttons -->
+      <div class="flex items-center gap-2 self-stretch md:self-auto w-full md:w-auto">
+        <button onclick="exportOrgChart('image')" class="flex-1 md:flex-none px-4 py-2.5 bg-white/5 border border-white/5 hover:border-osttra-violet/40 text-white text-[10px] font-black uppercase tracking-widest rounded-xl transition-all flex items-center justify-center gap-1.5">
+          <i class="fas fa-file-image"></i> Export Image
+        </button>
+        <button onclick="exportOrgChart('svg')" class="flex-1 md:flex-none px-4 py-2.5 bg-white/5 border border-white/5 hover:border-osttra-violet/40 text-white text-[10px] font-black uppercase tracking-widest rounded-xl transition-all flex items-center justify-center gap-1.5">
+          <i class="fas fa-file-code"></i> Export SVG
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Interactive Canvas Container -->
+  <div class="flex-1 relative border border-white/5 rounded-3xl overflow-hidden bg-[#121212] min-h-[500px]">
+    <!-- Inline Loader -->
+    <div id="orgchart-loader" class="absolute inset-0 z-50 bg-[#121212] flex flex-col items-center justify-center gap-4 transition-all">
+      <i class="fas fa-circle-notch animate-spin text-4xl text-osttra-rubine"></i>
+      <p class="text-[10px] font-black uppercase tracking-widest text-white/50 animate-pulse">Building Dynamic Org Chart...</p>
+    </div>
+
+    <!-- Floating Canvas Controls -->
+    <div class="absolute right-6 top-6 z-10 flex flex-col gap-2 bg-[#1a1a1a]/80 border border-white/5 p-2 rounded-xl backdrop-blur-md">
+      <button onclick="orgChartExpandAll()" class="p-2 text-white/60 hover:text-white transition-colors hover:bg-white/5 rounded" title="Expand All">
+        <i class="fas fa-expand-arrows-alt text-xs"></i>
+      </button>
+      <button onclick="orgChartCollapseAll()" class="p-2 text-white/60 hover:text-white transition-colors hover:bg-white/5 rounded" title="Collapse All">
+        <i class="fas fa-compress-arrows-alt text-xs"></i>
+      </button>
+      <button onclick="orgChartFit()" class="p-2 text-white/60 hover:text-white transition-colors hover:bg-white/5 rounded" title="Fit to Screen">
+        <i class="fas fa-crosshairs text-xs"></i>
+      </button>
+    </div>
+
+    <!-- D3 Canvas -->
+    <div id="orgchart-canvas" class="w-full h-full"></div>
+  </div>
+</div>
+
+<!-- Load D3 and Org Chart CDNs (Scoped cleanly inside the module view) -->
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/d3-flextree@2.1.2/build/d3-flextree.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/d3-org-chart@3"></script>
+
+<script>
+  (function() {
+    let orgChartInstance = null;
+
+    function hashCode(str) {
+      let hash = 0;
+      for (let i = 0; i < str.length; i++) {
+        hash = str.charCodeAt(i) + ((hash << 5) - hash);
+      }
+      return hash;
+    }
+
+    function loadOrgChartData() {
+      const loader = document.getElementById('orgchart-loader');
+      if (loader) loader.classList.remove('hidden');
+
+      google.script.run
+        .withSuccessHandler(data => {
+          if (loader) loader.classList.add('hidden');
+          renderOrgChartCanvas(data);
+        })
+        .withFailureHandler(err => {
+          if (loader) loader.classList.add('hidden');
+          showNotification('Org Chart Fetch Failed', err.message, 'error');
+        })
+        .getGlobalHeadcountData({
+          region: 'All',
+          period: 'All',
+          product: 'All',
+          subProduct: 'All',
+          regionalHead: 'All',
+          manager: 'All',
+          employeeName: ''
+        });
+    }
+
+    function renderOrgChartCanvas(data) {
+      const container = document.getElementById('orgchart-canvas');
+      if (!container) return;
+
+      const employees = data.employees || [];
+      if (employees.length === 0) {
+        container.innerHTML = `<div class="flex items-center justify-center h-full text-white/40 uppercase tracking-widest text-xs font-black">No roster employees found.</div>`;
+        return;
+      }
+
+      const nameToEmailMap = {};
+      employees.forEach(e => {
+        const cleanName = e.name.toLowerCase().trim();
+        nameToEmailMap[cleanName] = e.email;
+        
+        const parts = e.name.split(' ');
+        if (parts.length > 1) {
+          const lastName = parts[parts.length - 1];
+          const firstNames = parts.slice(0, -1).join(' ');
+          const invertedName = `${lastName}, ${firstNames}`.toLowerCase().trim();
+          nameToEmailMap[invertedName] = e.email;
+        }
+      });
+
+      const formattedData = employees.map(e => {
+        let parentId = e.directManagerEmail ? e.directManagerEmail.toLowerCase().trim() : "";
+        if (!parentId) {
+          const mgrNameClean = e.directManager ? e.directManager.toLowerCase().trim() : "";
+          parentId = (mgrNameClean && nameToEmailMap[mgrNameClean]) ? nameToEmailMap[mgrNameClean] : "";
+          
+          if (!parentId && mgrNameClean.includes(',')) {
+            const parts = mgrNameClean.split(',').map(s => s.trim());
+            if (parts.length === 2) {
+              const invertedMgr = `${parts[1]} ${parts[0]}`;
+              parentId = nameToEmailMap[invertedMgr] || "";
+            }
+          }
+
+          if (!parentId && mgrNameClean && mgrNameClean !== "n/a" && mgrNameClean !== "unknown") {
+            const mgrTokens = mgrNameClean.replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(t => t.length > 1);
+            if (mgrTokens.length > 0) {
+              const potentialMatches = employees.filter(emp => {
+                const empNameClean = emp.name.toLowerCase().replace(/[^a-z0-9\s]/g, ' ');
+                return mgrTokens.every(tok => empNameClean.includes(tok));
+              });
+              if (potentialMatches.length === 1) {
+                parentId = potentialMatches[0].email;
+              }
+            }
+          }
+        }
+        
+        return {
+          id: e.email,
+          parentId: parentId,
+          name: e.name,
+          role: e.role,
+          costCenter: e.costCenter,
+          headOfFunction: e.headOfFunction,
+          managerName: e.directManager
+        };
+      });
+
+      const validIds = new Set(formattedData.map(d => d.id));
+      const orphans = [];
+      formattedData.forEach(d => {
+        if (!d.parentId || !validIds.has(d.parentId)) {
+          d.parentId = "";
+          orphans.push(d);
+        }
+      });
+
+      const topLeaderEmail = validIds.has("john.stewart@osttra.com") ? "john.stewart@osttra.com" : "anup.hariharan@osttra.com";
+      const hasTopLeader = validIds.has(topLeaderEmail);
+      const trueOrphans = orphans.filter(d => d.id !== topLeaderEmail);
+
+      if (trueOrphans.length > 0) {
+        const unmappedId = "unmapped-orphan-node@osttra.com";
+        formattedData.push({
+          id: unmappedId,
+          parentId: hasTopLeader ? topLeaderEmail : "",
+          name: "Unmapped / Missing Manager",
+          role: "Data Discrepancy",
+          costCenter: "Global",
+          headOfFunction: "N/A",
+          managerName: hasTopLeader ? (topLeaderEmail === "john.stewart@osttra.com" ? "John Stewart" : "Anup Hariharan") : ""
+        });
+        
+        trueOrphans.forEach(d => {
+          d.parentId = unmappedId;
+        });
+      }
+
+      const finalRoots = formattedData.filter(d => d.parentId === "");
+      if (finalRoots.length > 1) {
+        const virtualRootId = "virtual-root@osttra.com";
+        formattedData.push({
+          id: virtualRootId,
+          parentId: "",
+          name: "OSTTRA Executive Board",
+          role: "Operations Hub",
+          costCenter: "Global",
+          headOfFunction: "N/A",
+          managerName: ""
+        });
+        finalRoots.forEach(d => {
+          d.parentId = virtualRootId;
+        });
+      }
+
+      orgChartInstance = new d3.OrgChart()
+        .container('#orgchart-canvas')
+        .layout('left')
+        .nodeHeight(d => 110)
+        .nodeWidth(d => 250)
+        .childrenMargin(d => 50)
+        .compactMarginBetween(d => 25)
+        .compact(false)
+        .initialZoom(0.85)
+        .nodeContent(function(d, i, arr, state) {
+          const emp = d.data;
+          const initials = emp.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+          const colors = ['#FF0061', '#9125BF', '#FE952D', '#00E1D9', '#0061FF', '#10B981'];
+          const colorCode = colors[Math.abs(hashCode(emp.name)) % colors.length];
+
+          return `
+            <div class="p-4 bg-[#222222]/95 border border-white/10 rounded-2xl flex items-center gap-3 shadow-[0_0_15px_rgba(0,0,0,0.5)]" style="width: 250px; height: 110px;">
+              <div class="w-12 h-12 rounded-xl flex items-center justify-center font-black uppercase text-sm text-white shrink-0" style="background: ${colorCode};">
+                ${initials}
+              </div>
+              <div class="flex-1 min-w-0 space-y-0.5">
+                <p class="text-white text-xs font-black uppercase tracking-tight truncate">${emp.name}</p>
+                <p class="text-white/40 text-[9px] font-bold uppercase tracking-wider truncate">${emp.role}</p>
+                <p class="text-osttra-rubine/70 text-[9px] font-bold uppercase tracking-widest mt-1.5 truncate">${emp.costCenter}</p>
+              </div>
+            </div>
+          `;
+        });
+
+      orgChartInstance
+        .data(formattedData)
+        .render()
+        .collapseAll();
+    }
+
+    window.searchOrgChart = function() {
+      const search = document.getElementById('search-orgchart').value.toLowerCase().trim();
+      if (!orgChartInstance) return;
+      if (!search) {
+        orgChartInstance.clearHighlighting();
+        return;
+      }
+      const matchedNode = orgChartInstance.data().find(d => 
+        d.name.toLowerCase().includes(search) || 
+        d.role.toLowerCase().includes(search)
+      );
+      if (matchedNode) {
+        orgChartInstance.setCentered(matchedNode.id).setHighlighted(matchedNode.id).render();
+      }
+    };
+
+    window.orgChartExpandAll = function() {
+      if (orgChartInstance) orgChartInstance.expandAll().render();
+    };
+
+    window.orgChartCollapseAll = function() {
+      if (orgChartInstance) orgChartInstance.collapseAll().render();
+    };
+
+    window.orgChartFit = function() {
+      if (orgChartInstance) orgChartInstance.fit();
+    };
+
+    window.exportOrgChart = function(type) {
+      if (!orgChartInstance) return;
+      try {
+        if (type === 'image') {
+          orgChartInstance.exportImg({
+            full: true,
+            onSuccess: () => showNotification('Export Successful', 'Org Chart exported as High-Resolution PNG', 'success')
+          });
+        } else if (type === 'svg') {
+          orgChartInstance.exportSvg({
+            onSuccess: () => showNotification('Export Successful', 'Org Chart exported as clean vector SVG', 'success')
+          });
+        }
+      } catch (err) {
+        showNotification('Export Failed', err.message, 'error');
+      }
+    };
+
+    // Initialize Page Load
+    loadOrgChartData();
+  })();
+</script>

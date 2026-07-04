@@ -10,7 +10,14 @@
  * 1: Employee (Individual Contributor - hasReports === false)
  */
 
+// Global state cache for active user session (memoized per single execution path)
+let _cachedUserSession = null;
+
 function getCurrentUserSession() {
+  if (_cachedUserSession) {
+    return _cachedUserSession;
+  }
+
   // Real Identity
   const realEmail = String(Session.getActiveUser().getEmail() || "").trim().toLowerCase();
   
@@ -115,7 +122,7 @@ function getCurrentUserSession() {
   
   const currentPeriod = getActivePeriod();
   
-  return {
+  _cachedUserSession = {
     email: activeEmail,
     realEmail: realEmail,
     name: name,
@@ -132,6 +139,8 @@ function getCurrentUserSession() {
     currentPeriod: currentPeriod,
     isExecutiveView: isExecutiveView
   };
+  
+  return _cachedUserSession;
 }
 
 /**
@@ -151,6 +160,8 @@ function validateTier(requiredTier) {
 function setSimulatedUser(email) {
   const realEmail = Session.getActiveUser().getEmail().toLowerCase();
   if (!getAdminEmails().includes(realEmail)) throw new Error("Unauthorized: Admin privileges required for simulation.");
+  
+  _cachedUserSession = null; // Bust memoized session cache on simulation switch
   
   if (email) {
     const targetEmail = String(email).trim().toLowerCase();
@@ -174,6 +185,7 @@ function setSimulatedUser(email) {
  */
 function clearSimulatedUser() {
   const realEmail = Session.getActiveUser().getEmail().toLowerCase();
+  _cachedUserSession = null; // Bust memoized session cache on simulation clear
   PropertiesService.getScriptProperties().deleteProperty('SIMULATED_USER_' + realEmail);
   return true;
 }

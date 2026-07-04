@@ -32,7 +32,7 @@
     </div>
 
     <!-- Finance Export Card (Functional Setting) -->
-    <div onclick="downloadFinanceCSV()" class="bg-[#1a1a1a]/30 border border-white/5 p-6 rounded-2xl hover:border-emerald-500/50 hover:bg-[#1a1a1a]/40 transition-all cursor-pointer group border-l-4 border-emerald-500 flex flex-col justify-between">
+    <div onclick="openFinanceExportModal()" class="bg-[#1a1a1a]/30 border border-white/5 p-6 rounded-2xl hover:border-emerald-500/50 hover:bg-[#1a1a1a]/40 transition-all cursor-pointer group border-l-4 border-emerald-500 flex flex-col justify-between">
       <div>
         <div class="w-12 h-12 bg-emerald-500/10 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
           <i class="fas fa-file-csv text-emerald-500 text-2xl"></i>
@@ -70,12 +70,12 @@
         <p class="text-[11px] text-gray-500 mb-6 leading-relaxed">Impersonate any employee to verify their allocation and permissions.</p>
       </div>
       <div class="space-y-3">
-        <input type="email" id="custom-simulate-email" placeholder="Enter employee email" class="w-full bg-white/5 border border-white/10 rounded-[14px] px-4 py-2.5 text-[10px] text-white placeholder-white/30 focus:outline-none focus:border-[#FF0061]/50 transition-all">
+        <input type="email" id="custom-simulate-email" placeholder="Enter employee email" class="w-full bg-white/5 border border-white/10 rounded-[14px] px-4 py-3 text-xs text-white placeholder-white/30 focus:outline-none focus:border-[#FF0061]/50 transition-all">
         <div class="grid grid-cols-2 gap-2">
-          <button onclick="simulateCustomUser()" class="px-3 py-2 bg-white/5 hover:bg-[#FF0061]/20 text-[#FF0061] text-[9px] font-black uppercase tracking-widest rounded-xl transition-all border border-[#FF0061]/20">
+          <button onclick="simulateCustomUser()" class="px-3 py-2.5 bg-white/5 hover:bg-[#FF0061]/20 text-[#FF0061] text-[10px] font-black uppercase tracking-widest rounded-xl transition-all border border-[#FF0061]/20">
             Simulate
           </button>
-          <button onclick="resetSimulation()" class="px-3 py-2 bg-white/5 hover:bg-white/10 text-white/50 text-[9px] font-black uppercase tracking-widest rounded-xl transition-all border border-white/10">
+          <button onclick="resetSimulation()" class="px-3 py-2.5 bg-white/5 hover:bg-white/10 text-white/50 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all border border-white/10">
             Clear
           </button>
         </div>
@@ -152,20 +152,110 @@
       </div>
     </div>
   </div>
+
+  <!-- Finance Export Period Dialog (New) -->
+  <div id="finance-export-modal" class="hidden fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+    <div class="glass border border-white/10 w-full max-w-md rounded-[2rem] overflow-hidden flex flex-col shadow-2xl animate-in zoom-in duration-300">
+      
+      <!-- Modal Header -->
+      <div class="px-8 py-6 border-b border-white/5 bg-[#1a1a1a]/80">
+        <h3 class="text-lg font-black uppercase text-white tracking-tight italic flex items-center gap-2">
+          <i class="fas fa-file-invoice-dollar text-emerald-500"></i> Finance Export
+        </h3>
+        <p class="text-[10px] text-white/40 uppercase tracking-widest font-semibold mt-1">Select Period from App Employee Allocation Data</p>
+      </div>
+
+      <!-- Modal Content -->
+      <div class="p-8 space-y-6">
+        <div class="space-y-2">
+          <label class="text-[8px] font-black text-white/40 uppercase tracking-widest pl-1">Available Periods</label>
+          <div id="finance-period-loader" class="flex items-center gap-2 py-3 px-4 bg-white/5 border border-white/5 rounded-xl text-xs text-white/50 animate-pulse">
+            <i class="fas fa-circle-notch animate-spin text-emerald-500"></i> Fetching available periods...
+          </div>
+          <select id="finance-period-select" class="hidden w-full bg-[#1a1a1a]/80 border border-white/5 focus:border-emerald-500/40 rounded-xl py-3 px-4 text-xs text-white focus:outline-none transition-all font-semibold cursor-pointer">
+            <!-- Populated dynamically -->
+          </select>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="flex gap-3 pt-2">
+          <button onclick="closeFinanceExportModal()" class="flex-1 py-3 bg-white/5 hover:bg-white/10 border border-white/10 text-white text-[10px] font-black uppercase tracking-widest rounded-xl transition-all">
+            Cancel
+          </button>
+          <button id="btn-execute-finance-export" disabled onclick="executeFinanceExport()" class="flex-1 py-3 bg-emerald-500/10 hover:bg-emerald-500 text-emerald-400 hover:text-white border border-emerald-500/20 hover:border-transparent text-[10px] font-black uppercase tracking-widest rounded-xl transition-all disabled:opacity-40 disabled:pointer-events-none">
+            Download CSV
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script>
   /**
-   * Triggers the Finance CSV download
+   * Opens the Finance Export Period Selection Modal
    */
-  function downloadFinanceCSV() {
-    showLoading('Generating Finance Export...');
+  window.openFinanceExportModal = function() {
+    document.getElementById('finance-export-modal').classList.remove('hidden');
+    
+    // Show loader, hide select
+    const loader = document.getElementById('finance-period-loader');
+    const select = document.getElementById('finance-period-select');
+    const btn = document.getElementById('btn-execute-finance-export');
+    
+    if (loader) loader.classList.remove('hidden');
+    if (select) select.classList.add('hidden');
+    if (btn) {
+      btn.disabled = true;
+      btn.classList.add('opacity-40');
+    }
+    
+    google.script.run
+      .withSuccessHandler(periods => {
+        if (loader) loader.classList.add('hidden');
+        if (!periods || periods.length === 0) {
+          showNotification('No Data', 'No historical allocation periods found in database.', 'warning');
+          return;
+        }
+        
+        if (select) {
+          select.innerHTML = periods.map(p => `<option value="${p}">${p}</option>`).join('');
+          select.classList.remove('hidden');
+        }
+        if (btn) {
+          btn.disabled = false;
+          btn.classList.remove('opacity-40');
+        }
+      })
+      .withFailureHandler(err => {
+        if (loader) loader.classList.add('hidden');
+        showNotification('Fetch Failed', 'Failed to retrieve available allocation periods: ' + err.message, 'error');
+      })
+      .getAvailableFinancePeriods();
+  };
+
+  window.closeFinanceExportModal = function() {
+    document.getElementById('finance-export-modal').classList.add('hidden');
+  };
+
+  /**
+   * Executes the Finance CSV export for the selected period
+   */
+  window.executeFinanceExport = function() {
+    const periodVal = document.getElementById('finance-period-select').value;
+    if (!periodVal) {
+      showNotification('Selection Error', 'Please select a valid period first.', 'warning');
+      return;
+    }
+    
+    closeFinanceExportModal();
+    showLoading(`Generating Finance Export for ${periodVal}...`);
     
     google.script.run
       .withSuccessHandler(data => {
         hideLoading();
         if (!data || data.length === 0) {
-          showNotification("Export Failed", "No data found for the current period.", "error");
+          showNotification("Export Failed", `No allocation data found for the selected period (${periodVal}).`, "error");
           return;
         }
 
@@ -178,19 +268,19 @@
         const url = URL.createObjectURL(blob);
         
         link.setAttribute("href", url);
-        link.setAttribute("download", `OSTTRA_Nexus_Finance_Export_${new Date().toISOString().split('T')[0]}.csv`);
+        link.setAttribute("download", `OSTTRA_Nexus_Finance_Export_${periodVal.replace(/ /g, '_')}.csv`);
         link.style.visibility = 'hidden';
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
         
-        showNotification("Success", "Finance export generated successfully.");
+        showNotification("Success", `Finance export for ${periodVal} generated successfully.`);
       })
       .withFailureHandler(err => {
         hideLoading();
         showNotification("Export Error", err.message, "error");
       })
-      .getFinanceExportData();
+      .getFinanceExportData(periodVal);
   }
 
   /**

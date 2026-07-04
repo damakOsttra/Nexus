@@ -17,15 +17,18 @@
   </div>
 
   <!-- Header -->
-  <div class="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 border-b border-white/5 pb-4">
+  <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 border-b border-white/5 pb-4">
     <div class="flex items-center gap-4">
       <div class="w-10 h-10 rounded-lg bg-osttra-rubine/10 flex items-center justify-center text-osttra-rubine"><i class="fas fa-id-card"></i></div>
       <h2 class="text-2xl font-black text-osttra-rubine uppercase tracking-widest flex items-center gap-2">My Profile</h2>
     </div>
+    <button onclick="handleReload()" class="px-5 py-2.5 bg-white/5 border border-white/10 hover:bg-white/10 text-white/70 hover:text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-200 flex items-center gap-2">
+      <i class="fas fa-sync-alt"></i> Refresh Data
+    </button>
   </div>
 
   <!-- Profile Header Card -->
-  <div class="p-10 glass rounded-[3rem] border border-white/5 flex flex-col md:flex-row items-center gap-12 relative overflow-hidden">
+  <div id="profile-header-card" class="p-10 glass rounded-[3rem] border border-white/5 flex flex-col md:flex-row items-center gap-12 relative overflow-hidden">
     <!-- Glow Backdrop Effects -->
     <div class="absolute w-64 h-64 bg-gradient-to-tr from-osttra-rubine/15 to-osttra-violet/15 rounded-full blur-3xl -top-10 -left-10 opacity-60 z-0"></div>
     <div class="absolute w-64 h-64 bg-gradient-to-br from-osttra-ochre/10 to-osttra-rubine/10 rounded-full blur-3xl -bottom-10 -right-10 opacity-40 z-0"></div>
@@ -246,15 +249,8 @@
 
       if (stateStr === "1") {
         if (completed) {
-          // Completed: Emerald Success State
-          banner.className = "p-6 rounded-2xl border transition-all flex flex-col md:flex-row justify-between items-start md:items-center gap-6 border-emerald-500/20 bg-emerald-500/10 text-emerald-400 border-l-4 border-l-emerald-500";
-          iconContainer.className = "w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-lg shrink-0 text-emerald-400";
-          iconContainer.innerHTML = '<i class="fas fa-check-circle"></i>';
-          title.className = "text-xs font-black uppercase tracking-[0.2em] text-emerald-400";
-          title.innerText = "Monthly Allocation Window is Open.";
-          desc.className = "text-[11px] font-medium text-white/70 leading-relaxed";
-          desc.innerText = "Your operational allocations for this period are certified and locked. No further action is required.";
-          actionArea.innerHTML = "";
+          // Completed: Clean Home Profile without cluttering success banner
+          banner.classList.add("hidden");
           if (headerBtn) {
             headerBtn.innerHTML = '<i class="fas fa-lock opacity-55"></i> View Past Allocation';
             headerBtn.className = "px-6 py-3 bg-white/5 border border-white/10 text-white/60 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-white/10 hover:scale-[1.03] active:scale-95 transition-all duration-200 flex items-center gap-3";
@@ -268,7 +264,7 @@
           title.innerText = "Monthly Allocation Exercise is Open.";
           desc.className = "text-[11px] font-medium text-white/70 leading-relaxed";
           desc.innerText = "Please complete and submit your product allocations for this month to maintain compliance.";
-          actionArea.innerHTML = '<button onclick="loadPage(\'Allocation\')" class="px-5 py-2.5 bg-osttra-rubine hover:brightness-110 hover:scale-[1.03] active:scale-95 text-white text-[9px] font-black uppercase tracking-widest rounded-xl transition-all duration-200 shadow-lg shadow-osttra-rubine/20 flex items-center gap-2"><i class="fas fa-arrow-right"></i> Complete Now</button>';
+          actionArea.innerHTML = '<button onclick="loadPage(\'MyAllocations\')" class="px-5 py-2.5 bg-osttra-rubine hover:brightness-110 hover:scale-[1.03] active:scale-95 text-white text-[9px] font-black uppercase tracking-widest rounded-xl transition-all duration-200 shadow-lg shadow-osttra-rubine/20 flex items-center gap-2"><i class="fas fa-arrow-right"></i> Complete Now</button>';
           if (headerBtn) {
             headerBtn.innerHTML = 'Update Allocation';
             headerBtn.className = "px-6 py-3 bg-osttra-rubine rounded-xl text-[10px] font-black uppercase tracking-widest hover:brightness-110 hover:scale-[1.03] active:scale-95 shadow-lg shadow-osttra-rubine/20 transition-all duration-200 flex items-center gap-3";
@@ -309,16 +305,21 @@
 
         renderPhase1Banner(user.phase1State || "1", false);
 
-        showLoading('Loading Profile...');
+        const card = document.getElementById('profile-header-card');
+        if (card) card.classList.add('animate-pulse');
+
         google.script.run
           .withSuccessHandler(function(p) {
-            hideLoading();
+            if (card) card.classList.remove('animate-pulse');
             if (!p || !p.user) { showNotification("Error", "User not in roster.", "warning"); return; }
             const isSubmitted = !!p.hasSubmitted;
             renderPhase1Banner(user.phase1State || "1", isSubmitted);
             window.renderMyProfile(p, []);
           })
-          .withFailureHandler(function(e) { hideLoading(); showNotification("Error", e.message, "error"); })
+          .withFailureHandler(function(e) { 
+            if (card) card.classList.remove('animate-pulse');
+            showNotification("Error", e.message, "error"); 
+          })
           .getEmployeeProfileData(email);
         return;
       }

@@ -17,10 +17,27 @@
       <h4 class="text-[10px] font-black text-white/30 uppercase tracking-[0.2em] px-2">Direct Reports</h4>
       
       <!-- Roster Search -->
-      <div class="px-2">
+      <div class="px-2 space-y-3">
         <div class="relative flex items-center">
           <input type="text" id="roster-search" oninput="filterRoster(this.value)" placeholder="Search employee..." class="w-full bg-white/5 border border-white/5 focus:border-osttra-violet/40 rounded-xl py-2.5 pl-10 pr-4 text-xs text-white placeholder-white/30 focus:outline-none transition-all font-semibold" />
           <i class="fas fa-search absolute left-3.5 text-white/20 text-xs"></i>
+        </div>
+        <!-- Hierarchy Selector -->
+        <div class="flex items-center justify-between gap-2">
+          <label class="text-[8px] font-black text-white/40 uppercase tracking-widest pl-1">Hierarchy</label>
+          <select id="roster-hierarchy" onchange="handleHierarchyChange(this.value)" class="bg-[#1a1a1a]/80 border border-white/5 focus:border-osttra-violet/40 rounded-xl py-1.5 px-3 text-[9px] text-white/70 focus:outline-none transition-all font-semibold cursor-pointer">
+            <option value="all" selected>All in Hierarchy</option>
+            <option value="direct">My Directs Only</option>
+          </select>
+        </div>
+        <!-- Sort Selector -->
+        <div class="flex items-center justify-between gap-2">
+          <label class="text-[8px] font-black text-white/40 uppercase tracking-widest pl-1">Sort By</label>
+          <select id="roster-sort" onchange="handleSortChange(this.value)" class="bg-[#1a1a1a]/80 border border-white/5 focus:border-osttra-violet/40 rounded-xl py-1.5 px-3 text-[9px] text-white/70 focus:outline-none transition-all font-semibold cursor-pointer">
+            <option value="alpha" selected>Alphabetical</option>
+            <option value="uncertified">Uncertified First</option>
+            <option value="certified">Certified First</option>
+          </select>
         </div>
       </div>
 
@@ -170,9 +187,21 @@
     let isDirty = false;
     let confirmCallback = null;
     let searchQuery = ""; // Search query state
+    let hierarchyMode = "all"; // Hierarchy filter state ("all" or "direct")
+    let sortMode = "alpha"; // Sort state ("alpha", "uncertified", "certified")
 
     window.filterRoster = function(query) {
       searchQuery = query || "";
+      renderRoster();
+    };
+
+    window.handleHierarchyChange = function(mode) {
+      hierarchyMode = mode || "all";
+      renderRoster();
+    };
+
+    window.handleSortChange = function(mode) {
+      sortMode = mode || "alpha";
       renderRoster();
     };
 
@@ -210,10 +239,32 @@
     function renderRoster() {
       const container = document.getElementById('reports-list-container');
       
-      const filtered = reports.filter(emp => {
+      let filtered = reports;
+
+      // 1. Apply Hierarchy Filter
+      if (hierarchyMode === "direct") {
+        filtered = filtered.filter(emp => emp.isDirectReport);
+      }
+
+      // 2. Apply Search Filter
+      filtered = filtered.filter(emp => {
         const query = searchQuery.toLowerCase().trim();
         if (!query) return true;
         return String(emp.name).toLowerCase().includes(query) || String(emp.email).toLowerCase().includes(query);
+      });
+
+      // 3. Apply Sorting
+      filtered.sort((a, b) => {
+        if (sortMode === "uncertified") {
+          if (a.hasSkills !== b.hasSkills) {
+            return a.hasSkills ? 1 : -1;
+          }
+        } else if (sortMode === "certified") {
+          if (a.hasSkills !== b.hasSkills) {
+            return a.hasSkills ? -1 : 1;
+          }
+        }
+        return String(a.name).localeCompare(String(b.name));
       });
 
       if (filtered.length === 0) {
@@ -225,13 +276,22 @@
         return;
       }
 
-      container.innerHTML = filtered.map(emp => `
-        <button id="report-btn-${emp.email.replace(/[@.]/g, '-')}" onclick="selectReport('${emp.email}')" class="w-full text-left p-4 bg-white/5 border border-white/5 hover:bg-white/[0.08] hover:border-white/10 rounded-2xl transition-all flex flex-col gap-1 group">
-          <p class="text-xs font-black text-white uppercase group-hover:text-osttra-rubine transition-colors">${emp.name}</p>
-          <p class="text-[9px] text-white/30 uppercase font-bold tracking-wider">${emp.role}</p>
-          <p class="text-[8px] font-mono text-white/15 uppercase mt-0.5">${emp.email}</p>
-        </button>
-      `).join('');
+      container.innerHTML = filtered.map(emp => {
+        const badge = emp.hasSkills
+          ? `<span class="shrink-0 ml-1.5 inline-flex items-center px-1.5 py-0.5 rounded text-[7px] font-black tracking-wider uppercase bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">CERTIFIED</span>`
+          : `<span class="shrink-0 ml-1.5 inline-flex items-center px-1.5 py-0.5 rounded text-[7px] font-black tracking-wider uppercase bg-white/5 border border-white/10 text-white/30">UNCERTIFIED</span>`;
+
+        return `
+          <button id="report-btn-${emp.email.replace(/[@.]/g, '-')}" onclick="selectReport('${emp.email}')" class="w-full text-left p-4 bg-white/5 border border-white/5 hover:bg-white/[0.08] hover:border-white/10 rounded-2xl transition-all flex flex-col gap-1 group min-w-0">
+            <p class="text-xs font-black text-white uppercase group-hover:text-osttra-rubine transition-colors truncate w-full" title="${emp.name}">${emp.name}</p>
+            <div class="text-[9px] text-white/30 uppercase font-bold tracking-wider flex items-center justify-between min-w-0 w-full" title="${emp.role}">
+              <span class="truncate flex-1 min-w-0">${emp.role}</span>
+              ${badge}
+            </div>
+            <p class="text-[8px] font-mono text-white/15 uppercase mt-0.5 truncate w-full" title="${emp.email}">${emp.email}</p>
+          </button>
+        `;
+      }).join('');
     }
 
     function populateCatalogs() {
@@ -281,10 +341,20 @@
       document.getElementById('mapping-panel').classList.remove('hidden');
 
       // Fetch active assignments (allocation scope merged with existing ratings - UNION)
-      showLoading('Loading existing products matrix...');
+      const rowsBody = document.getElementById('active-mappings-rows');
+      if (rowsBody) {
+        rowsBody.innerHTML = `
+          <tr>
+            <td colspan="4" class="p-16 text-center text-white/30 uppercase italic tracking-widest space-y-4">
+              <i class="fas fa-circle-notch animate-spin text-3xl text-osttra-rubine block mb-4 mx-auto"></i>
+              <p class="text-xs font-black">Loading Assigned Products & Skills...</p>
+            </td>
+          </tr>
+        `;
+      }
+
       google.script.run
         .withSuccessHandler(data => {
-          hideLoading();
           activeMappings = (data || []).map(item => ({
             product: item.product,
             subProduct: item.subProduct || 'General',
@@ -293,7 +363,16 @@
           renderActiveMappings();
         })
         .withFailureHandler(err => {
-          hideLoading();
+          if (rowsBody) {
+            rowsBody.innerHTML = `
+              <tr>
+                <td colspan="4" class="p-16 text-center text-osttra-rubine uppercase italic tracking-widest">
+                  <i class="fas fa-exclamation-triangle text-3xl text-osttra-rubine block mb-4 mx-auto"></i>
+                  <p class="text-xs font-black">Failed to load products: ${err.message}</p>
+                </td>
+              </tr>
+            `;
+          }
           showNotification('Fetch Failed', err.message, 'error');
         })
         .getEmployeeProductSkills(email);

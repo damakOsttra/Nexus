@@ -3,6 +3,16 @@
  * Database operations, BigQuery integration, and data aggregation logic.
  */
 
+// Global state cache for spreadsheet reference (memoized per single execution path)
+let _cachedSpreadsheet = null;
+function getSpreadsheet() {
+  if (!_cachedSpreadsheet) {
+    const spreadsheetId = CONFIG.SPREADSHEET_ID;
+    _cachedSpreadsheet = SpreadsheetApp.openById(spreadsheetId);
+  }
+  return _cachedSpreadsheet;
+}
+
 /**
  * Global Utility: Normalizes Functional Head names to resolve HR data discrepancies
  */
@@ -44,7 +54,7 @@ function createSafeRowForDatabase(row, tz, periodIdxAlloc) {
 }
 
 /**
- * CACHE UTILITY: Puts data into ScriptCache with chunking to handle sizes > 100KB.
+ * CACHE UTILITY: Puts data into ScriptCache with chunking and atomic batching to handle sizes > 100KB.
  */
 function putCachedData(key, data, expirationSeconds) {
   try {
@@ -52,26 +62,28 @@ function putCachedData(key, data, expirationSeconds) {
     const jsonStr = JSON.stringify(data);
     const chunkSize = 90 * 1024; // ~90KB chunk size (safely below 100KB limit)
     
-    // Clear any previous cached data of this key to avoid leftovers
+    // Clear any previous cached data of this key atomically
     clearCachedData(key);
     
     const chunksCount = Math.ceil(jsonStr.length / chunkSize);
+    const exp = expirationSeconds || 300;
     
-    // Store metadata index
-    cache.put("CACHE_META_" + key, String(chunksCount), expirationSeconds || 300);
+    const cacheMap = {};
+    cacheMap["CACHE_META_" + key] = String(chunksCount);
     
-    // Store chunks
     for (let i = 0; i < chunksCount; i++) {
-      const chunk = jsonStr.substring(i * chunkSize, (i + 1) * chunkSize);
-      cache.put("CACHE_CHUNK_" + key + "_" + i, chunk, expirationSeconds || 300);
+      cacheMap["CACHE_CHUNK_" + key + "_" + i] = jsonStr.substring(i * chunkSize, (i + 1) * chunkSize);
     }
+    
+    // Atomically write metadata and all chunks in ONE batch call
+    cache.putAll(cacheMap, exp);
   } catch (e) {
     console.warn("Put Cache failed silently for key: " + key + " Error: " + e.message);
   }
 }
 
 /**
- * CACHE UTILITY: Retrieves chunked data from ScriptCache and reconstructs it.
+ * CACHE UTILITY: Retrieves chunked data from ScriptCache and reconstructs it atomically in a single trip.
  */
 function getCachedData(key) {
   try {
@@ -80,10 +92,17 @@ function getCachedData(key) {
     if (!metaVal) return null;
     
     const chunksCount = parseInt(metaVal, 10);
+    const chunkKeys = [];
+    for (let i = 0; i < chunksCount; i++) {
+      chunkKeys.push("CACHE_CHUNK_" + key + "_" + i);
+    }
+    
+    // Atomic fetch of all chunks in ONE batch call
+    const chunkMap = cache.getAll(chunkKeys);
     let jsonStr = "";
     
     for (let i = 0; i < chunksCount; i++) {
-      const chunk = cache.get("CACHE_CHUNK_" + key + "_" + i);
+      const chunk = chunkMap["CACHE_CHUNK_" + key + "_" + i];
       if (!chunk) return null; // If any chunk is evicted, consider cache miss
       jsonStr += chunk;
     }
@@ -96,7 +115,7 @@ function getCachedData(key) {
 }
 
 /**
- * CACHE UTILITY: Removes chunked metadata and chunk keys from cache.
+ * CACHE UTILITY: Removes chunked metadata and chunk keys from cache atomically in a single trip.
  */
 function clearCachedData(key) {
   try {
@@ -104,10 +123,12 @@ function clearCachedData(key) {
     const metaVal = cache.get("CACHE_META_" + key);
     if (metaVal) {
       const chunksCount = parseInt(metaVal, 10);
-      cache.remove("CACHE_META_" + key);
+      const keysToRemove = ["CACHE_META_" + key];
       for (let i = 0; i < chunksCount; i++) {
-        cache.remove("CACHE_CHUNK_" + key + "_" + i);
+        keysToRemove.push("CACHE_CHUNK_" + key + "_" + i);
       }
+      // Atomic removal of all chunks and metadata in ONE batch call
+      cache.removeAll(keysToRemove);
     }
   } catch (e) {
     console.warn("Clear Cache failed silently for key: " + key + " Error: " + e.message);
@@ -121,7 +142,7 @@ function clearSheetCache(sheetName) {
   clearCachedData("SHEET_" + sheetName);
   if (sheetName === CONFIG.SHEETS.EMPLOYEES) {
     try {
-      CacheService.getScriptCache().remove("filter_metadata_v6");
+      clearCachedData("filter_metadata_v6");
       console.log("[CACHE] Busted filter metadata cache.");
     } catch(e) {}
   }
@@ -135,7 +156,7 @@ function getSheetData(sheetName) {
   const cached = getCachedData(cacheKey);
   if (cached) return cached;
 
-  const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+  const ss = getSpreadsheet();
   const tz = ss.getSpreadsheetTimeZone();
   const sheet = ss.getSheetByName(sheetName);
   if (!sheet) return [];
@@ -189,12 +210,53 @@ function runWithWriteLock(workFunction) {
 }
 
 /**
+ * Utility: Normalizes diverse timestamp formats (raw Date objects, ISO strings, or dd/MM/yyyy HH:mm:ss strings)
+ * into a standardized ISO-8601 string for accurate optimistic concurrency comparisons.
+ */
+function normalizeTimestamp(ts) {
+  if (!ts) return "";
+  if (ts instanceof Date) return ts.toISOString();
+  
+  const str = String(ts).trim();
+  if (!str) return "";
+  
+  if (str.includes("T") && str.endsWith("Z")) return str; // Already ISO
+  
+  try {
+    // Check if it's formatted as standard dd/MM/yyyy HH:mm:ss
+    if (str.includes("/") && str.includes(":")) {
+      const parts = str.split(" ");
+      const dateParts = parts[0].split("/");
+      const timeParts = parts[1].split(":");
+      // dd/MM/yyyy HH:mm:ss -> Year, Month (0-based), Day, Hour, Min, Sec
+      const date = new Date(
+        parseInt(dateParts[2], 10),
+        parseInt(dateParts[1], 10) - 1,
+        parseInt(dateParts[0], 10),
+        parseInt(timeParts[0], 10),
+        parseInt(timeParts[1], 10),
+        parseInt(timeParts[2], 10)
+      );
+      return date.toISOString();
+    }
+    
+    const parsed = Date.parse(str);
+    if (!isNaN(parsed)) {
+      return new Date(parsed).toISOString();
+    }
+  } catch (e) {
+    console.warn("Timestamp normalization failed for: " + str);
+  }
+  return str;
+}
+
+/**
  * Admin Utility: Overwrites a specific sheet with a new 2D array.
  */
 function updateSheetData(sheetName, data2D) {
   validateTier(3); // Admin Only
   return runWithWriteLock(() => {
-    const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+    const ss = getSpreadsheet();
     const sheet = ss.getSheetByName(sheetName);
     if (!sheet) throw new Error("Target sheet not found.");
     
@@ -278,7 +340,7 @@ function getHistoricalAllocation(email) {
         lastUpdatedBy: lastUpdatedByVal,
         submissionTimestamp: subTime,
         standardWeekdays: parseInt(latest["Standard Weekdays in Month"]) || 0,
-        regularDays: parseInt(latest["Regular Days Worked"]) || 0,
+        regularDays: parseFloat(latest["Regular Days Worked"]) || 0,
         workedWeekend: (latest["Worked Weekend"] === true || latest["Worked Weekend"] === "TRUE" || latest["Worked Weekend"] === "true"),
         weekendDays: parseFloat(latest["Weekend Days Worked"]) || 0,
         workingDaysComment: latest["Comments"] || ""
@@ -379,7 +441,7 @@ function getSkillGapData(email) {
 function getDebugSheetInfo() {
   validateTier(3);
   try {
-    const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+    const ss = getSpreadsheet();
     return JSON.parse(JSON.stringify(ss.getSheets().map(s => s.getName())));
   } catch (e) {
     return ["Error: " + e.message];
@@ -487,8 +549,17 @@ function applyGlobalFilters(data, filters, bypassProductFilters) {
       if (rowRole !== filters.role) match = false;
     }
     if (filters.manager && filters.manager !== 'All') {
-      const rowMgr = String(row["Direct Manager Name"] || "");
-      if (rowMgr !== filters.manager) match = false;
+      const rowMgr = String(row["Direct Manager Name"] || "").trim().toLowerCase();
+      const selectedManagerLower = filters.manager.trim().toLowerCase();
+      
+      if (filters.layeredTeam === true || filters.layeredTeam === "true") {
+        const mgmtLine = String(row["Management Line (Hierarchy)"] || row["Management Line"] || "").trim().toLowerCase();
+        const isDirect = (rowMgr === selectedManagerLower);
+        const isIndirect = mgmtLine.includes(selectedManagerLower);
+        if (!isDirect && !isIndirect) match = false;
+      } else {
+        if (rowMgr !== selectedManagerLower) match = false;
+      }
     }
     if (!bypassProductFilters) {
       if (filters.product && filters.product !== 'All') {
@@ -633,6 +704,14 @@ function getFilterMetadata() {
 function getGlobalHeadcountData(filters) {
   validateTier(1);
   let data = getSheetData(CONFIG.SHEETS.EMPLOYEES);
+  
+  // Exclude inactive employees and ignored executives globally
+  const ignoredEmails = new Set(CONFIG.IGNORED_EMAILS || []);
+  data = data.filter(e => {
+    const email = String(e["Email Address"] || "").toLowerCase().trim();
+    return isActiveEmployee(e) && !ignoredEmails.has(email);
+  });
+
   data = enrichEmployeesWithProducts(data);
   data = applyGlobalFilters(data, filters);
   
@@ -640,7 +719,7 @@ function getGlobalHeadcountData(filters) {
 
   if (filters && filters.period && filters.period !== 'All') {
     const historicalAlloc = getSheetData(CONFIG.SHEETS.ALLOCATION_HISTORICAL);
-    const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+    const ss = getSpreadsheet();
     const tz = ss.getSpreadsheetTimeZone();
     const activeEmailsInPeriod = new Set(
       historicalAlloc
@@ -669,8 +748,10 @@ function getGlobalHeadcountData(filters) {
 
     const rawHead = normalizeHeadName(emp["Regional Head/Head of function"] || "Unknown");
     const headKey = rawHead.toLowerCase();
-    if (!headMap[headKey]) headMap[headKey] = { count: 0, label: rawHead };
-    headMap[headKey].count++;
+    if (headKey !== "n/a" && headKey !== "unknown") {
+      if (!headMap[headKey]) headMap[headKey] = { count: 0, label: rawHead };
+      headMap[headKey].count++;
+    }
 
     const rawMgr = String(emp["Direct Manager Name"] || "Unknown").trim();
     const mgrKey = rawMgr.toLowerCase();
@@ -744,7 +825,7 @@ function saveUserAllocation(payload) {
       throw new Error("Submission failed: The Allocation module has been closed and locked by an Administrator.");
     }
 
-    const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+    const ss = getSpreadsheet();
     const tz = ss.getSpreadsheetTimeZone();
     
     // 1. SAVE GRANULAR RECORDS TO ALLOCATION HISTORICAL SHEET
@@ -828,7 +909,7 @@ function saveUserAllocation(payload) {
           case "date and time of submission":
           case "date of submission": return Utilities.formatDate(new Date(), tz, "dd/MM/yyyy HH:mm:ss");
           case "standard weekdays in month": return payload.workingDays ? parseInt(payload.workingDays.standardWeekdays) || 0 : 0;
-          case "regular days worked": return payload.workingDays ? parseInt(payload.workingDays.regularDays) || 0 : 0;
+          case "regular days worked": return payload.workingDays ? parseFloat(payload.workingDays.regularDays) || 0 : 0;
           case "worked weekend": return payload.workingDays ? (payload.workingDays.workedWeekend === true || payload.workingDays.workedWeekend === "true") : false;
           case "weekend days worked": return payload.workingDays ? parseFloat(payload.workingDays.weekendDays) || 0 : 0;
           case "comments": return payload.workingDays ? payload.workingDays.comment || "" : "";
@@ -926,29 +1007,94 @@ function saveUserAllocation(payload) {
 /**
  * PHASE 2.3: Finance Export Aggregation
  */
-function getFinanceExportData() {
+function getAvailableFinancePeriods() {
+  validateTier(3); // Admin Only
+  const allocs = getSheetData(CONFIG.SHEETS.ALLOCATION_HISTORICAL);
+  const periods = new Set();
+  
+  allocs.forEach(a => {
+    const rawP = a["Month and Year"] !== undefined ? a["Month and Year"] : a["Period"];
+    if (!rawP) return;
+    const period = (rawP instanceof Date) ? Utilities.formatDate(rawP, "GMT", "MMMM yyyy") : String(rawP || "").trim();
+    if (period && period.toLowerCase() !== "period" && period.toLowerCase() !== "month and year") {
+      periods.add(period);
+    }
+  });
+  
+  // Sort descending (Newest first)
+  return Array.from(periods).sort((a, b) => {
+    const parseDate = (str) => {
+      const parts = str.split(" ");
+      if (parts.length === 2) {
+        const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+        const mIdx = months.indexOf(parts[0]);
+        if (mIdx !== -1) return new Date(parseInt(parts[1]), mIdx, 1);
+      }
+      return new Date(0);
+    };
+    return parseDate(b) - parseDate(a);
+  });
+}
+
+function getFinanceExportData(selectedPeriod) {
   validateTier(3);
-  const data = getSheetData(CONFIG.SHEETS.EMPLOYEES);
+  if (!selectedPeriod) {
+    throw new Error("Missing required argument: selectedPeriod");
+  }
+
+  const employees = getSheetData(CONFIG.SHEETS.EMPLOYEES);
+  const allocs = getSheetData(CONFIG.SHEETS.ALLOCATION_HISTORICAL);
+  
   const exportData = [["Employee Name", "Email Address", "Region", "Operational Category", "Finance Classification", "Allocation %"]];
   
-  const regionsMap = new Map(); // lowercase -> original
-
-  data.forEach(emp => {
+  // Create quick lookup for employee demographics (Name, Cost Center/Region)
+  const empMap = {};
+  employees.forEach(emp => {
     if (!emp["Email Address"]) return;
+    const email = String(emp["Email Address"]).toLowerCase().trim();
     const name = (emp["Google Chat Full Name"] || emp["HR Name"] || `${emp["First Name"] || ""} ${emp["Last Name"] || ""}`).trim();
-    
-    const rawCc = String(emp["Cost Center"] || "Global").trim();
-    const ccKey = rawCc.toLowerCase();
-    if (!regionsMap.has(ccKey)) regionsMap.set(ccKey, rawCc);
-    const region = regionsMap.get(ccKey);
+    const region = String(emp["Cost Center"] || "Global").trim();
+    empMap[email] = { name, region };
+  });
 
-    if (emp["BAU (%)"] > 0) exportData.push([name, emp["Email Address"], region, "BAU", "Run", emp["BAU (%)"]]);
-    if (emp["Non-BAU (%)"] > 0) exportData.push([name, emp["Email Address"], region, "Non-BAU", "Change", emp["Non-BAU (%)"]]);
+  // Filter historical allocations down to the selected period
+  const periodLower = selectedPeriod.toLowerCase().trim();
+  const filteredAllocs = allocs.filter(a => {
+    const rawP = a["Month and Year"] !== undefined ? a["Month and Year"] : a["Period"];
+    if (!rawP) return false;
+    const period = (rawP instanceof Date) ? Utilities.formatDate(rawP, "GMT", "MMMM yyyy") : String(rawP || "").trim();
+    return period.toLowerCase().trim() === periodLower;
+  });
+
+  // Aggregate BAU and Non-BAU per employee
+  const aggregates = {};
+  filteredAllocs.forEach(a => {
+    const email = String(a["Email Address"] || "").toLowerCase().trim();
+    if (!email) return;
+    
+    if (!aggregates[email]) {
+      aggregates[email] = { bau: 0, nbau: 0 };
+    }
+    
+    const bauVal = a["Allocation BAU"] !== undefined ? a["Allocation BAU"] : (a["BAU (%)"] !== undefined ? a["BAU (%)"] : 0);
+    const nbauVal = a["Allocation Non-BAU"] !== undefined ? a["Allocation Non-BAU"] : (a["Non-BAU (%)"] !== undefined ? a["Non-BAU (%)"] : 0);
+    
+    aggregates[email].bau += parseInt(bauVal) || 0;
+    aggregates[email].nbau += parseInt(nbauVal) || 0;
+  });
+
+  // Build final rows mapping back to the expected schema
+  Object.keys(aggregates).forEach(email => {
+    const empInfo = empMap[email] || { name: "Unknown Employee", region: "Global" };
+    const { bau, nbau } = aggregates[email];
+
+    if (bau > 0) exportData.push([empInfo.name, email, empInfo.region, "BAU", "Run", bau]);
+    if (nbau > 0) exportData.push([empInfo.name, email, empInfo.region, "Non-BAU", "Change", nbau]);
   });
   
   // Log telemetry for audit (Project Nexus)
   try {
-    logBackendTelemetry("FINANCE_REPORT_EXPORTED", "None", `Exported capacity data for ${exportData.length - 1} records`, "SYSTEM");
+    logBackendTelemetry("FINANCE_REPORT_EXPORTED", "None", `Exported capacity data for ${exportData.length - 1} records in period ${selectedPeriod}`, "SYSTEM");
   } catch (e) {
     console.warn("Failed to log FINANCE_REPORT_EXPORTED telemetry event:", e.message);
   }
@@ -965,7 +1111,7 @@ function getRegionalHeatmapData(filters) {
     throw new Error("Unauthorized: Executive access required.");
   }
 
-  const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+  const ss = getSpreadsheet();
   const tz = ss.getSpreadsheetTimeZone();
 
   const employees = getSheetData(CONFIG.SHEETS.EMPLOYEES);
@@ -1213,7 +1359,7 @@ function getCostOfDeliveryData(filters) {
     throw new Error("Unauthorized: Executive access required.");
   }
 
-  const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+  const ss = getSpreadsheet();
   const tz = ss.getSpreadsheetTimeZone();
 
   const employees = getSheetData(CONFIG.SHEETS.EMPLOYEES);
@@ -1251,6 +1397,7 @@ function getCostOfDeliveryData(filters) {
 
   const pendingRoster = [];
   const employeesWithAllocations = new Set();
+  const employeeEffortsMap = {}; // email -> { bau, nbau }
   let submittedCount = 0;
 
   // Audits counters for compliance charts
@@ -1313,6 +1460,9 @@ function getCostOfDeliveryData(filters) {
       }
 
       let hasMatchingAllocation = false;
+      let empScopeBauSum = 0;
+      let empScopeNbauSum = 0;
+
       empAllocations.forEach(a => {
         // Direct filters at allocation row level for maximum precision
         let rowMatch = true;
@@ -1331,20 +1481,24 @@ function getCostOfDeliveryData(filters) {
         hasMatchingAllocation = true;
 
         const bauVal = a["Allocation BAU"] !== undefined ? a["Allocation BAU"] : a["BAU (%)"];
-        const bau = (parseFloat(bauVal) || 0) / 100;
+        const bau = parseFloat(bauVal) || 0;
 
         const nbauVal = a["Allocation Non-BAU"] !== undefined ? a["Allocation Non-BAU"] : a["Non-BAU (%)"];
-        const nbau = (parseFloat(nbauVal) || 0) / 100;
+        const nbau = parseFloat(nbauVal) || 0;
 
-        totalRun += bau;
-        totalChange += nbau;
+        empScopeBauSum += bau;
+        empScopeNbauSum += nbau;
 
-        regionalMap[ccKey].run += bau;
-        regionalMap[ccKey].change += nbau;
+        totalRun += bau / 100;
+        totalChange += nbau / 100;
+
+        regionalMap[ccKey].run += bau / 100;
+        regionalMap[ccKey].change += nbau / 100;
       });
 
       if (hasMatchingAllocation) {
         employeesWithAllocations.add(email);
+        employeeEffortsMap[email] = { bau: empScopeBauSum, nbau: empScopeNbauSum };
       }
     } else {
       // Pending submission
@@ -1374,12 +1528,21 @@ function getCostOfDeliveryData(filters) {
     totalChange,
     employees: filteredEmployees
       .filter(e => e["Email Address"] && employeesWithAllocations.has(String(e["Email Address"]).toLowerCase().trim()))
-      .map(e => ({
-        name: (e["Google Chat Full Name"] || e["HR Name"] || `${e["First Name"] || ""} ${e["Last Name"] || ""}`).trim(),
-        email: e["Email Address"],
-        region: e["Cost Center"] || "Global",
-        head: normalizeHeadName(e["Regional Head/Head of function"])
-      })),
+      .map(e => {
+        const emailKey = String(e["Email Address"]).toLowerCase().trim();
+        const effort = employeeEffortsMap[emailKey] || { bau: 0, nbau: 0 };
+        return {
+          name: (e["Google Chat Full Name"] || e["HR Name"] || `${e["First Name"] || ""} ${e["Last Name"] || ""}`).trim(),
+          email: e["Email Address"],
+          region: e["Cost Center"] || "Global",
+          head: normalizeHeadName(e["Regional Head/Head of function"]),
+          manager: e["Direct Manager Name"] || "N/A",
+          skill: e["Skill Level"] || e["Skill Rating"] || "Level 1 (Inactive)",
+          bau: effort.bau,
+          nbau: effort.nbau,
+          total: effort.bau + effort.nbau
+        };
+      }),
     regionalDistribution: {
       labels: Object.values(regionalMap).map(r => r.label),
       run: Object.values(regionalMap).map(r => r.run),
@@ -1607,7 +1770,7 @@ function getTeamData() {
  */
 function assignProductToEmployee(payload) {
   const session = validateTier(2); // Manager or above
-  const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+  const ss = getSpreadsheet();
   const sheet = ss.getSheetByName(CONFIG.SHEETS.SKILL_MATRIX);
   if (!sheet) throw new Error("Skill Matrix sheet not found.");
   
@@ -1667,7 +1830,7 @@ function assignProductToEmployee(payload) {
  */
 function removeProductFromEmployee(email, product, subProduct) {
   const session = validateTier(2); // Manager or above
-  const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+  const ss = getSpreadsheet();
   const sheet = ss.getSheetByName(CONFIG.SHEETS.SKILL_MATRIX);
   if (!sheet) throw new Error("Skill Matrix sheet not found.");
   
@@ -1718,7 +1881,7 @@ function removeProductFromEmployee(email, product, subProduct) {
  */
 function cascadeEmailUpdate(oldEmail, newEmail) {
   validateTier(3); // System Sync is Tier 3
-  const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+  const ss = getSpreadsheet();
   const targetSheets = [CONFIG.SHEETS.SKILL_MATRIX, CONFIG.SHEETS.ALLOCATION_HISTORICAL];
   
   targetSheets.forEach(sheetName => {
@@ -1750,7 +1913,7 @@ function cascadeEmailUpdate(oldEmail, newEmail) {
  * Helper: Logs system and governance events to the System Logs sheet.
  */
 function logSystemEvent(actor, target, action, sheetName, before, after) {
-  const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+  const ss = getSpreadsheet();
   let logSheet = ss.getSheetByName(CONFIG.SHEETS.SYSTEM_LOGS);
   if (!logSheet) {
     logSheet = ss.insertSheet(CONFIG.SHEETS.SYSTEM_LOGS);
@@ -1765,7 +1928,7 @@ function logSystemEvent(actor, target, action, sheetName, before, after) {
  */
 function initializeDatabaseSchema() {
   validateTier(3); // Admin Only
-  const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+  const ss = getSpreadsheet();
   
   const schemas = [
     {
@@ -1786,7 +1949,7 @@ function initializeDatabaseSchema() {
     },
     {
       name: CONFIG.SHEETS.ALLOCATION_HISTORICAL,
-      headers: ["Email Address", "Month and Year", "Allocation BAU", "Allocation Non-BAU", "Product", "Sub-Product", "Last Updated By", "Date and time of Submission", "Standard Weekdays in Month", "Regular Days Worked", "Worked Weekend", "Weekend Days Worked", "Comments"]
+      headers: ["Email Address", "Month and Year", "Allocation BAU", "Allocation Non-BAU", "Product", "Sub-Product", "Allocation Comment", "Last Updated By", "Date and time of Submission", "Standard Weekdays in Month", "Regular Days Worked", "Worked Weekend", "Weekend Days Worked", "Comments"]
     },
     {
       name: CONFIG.SHEETS.SYSTEM_LOGS,
@@ -1848,7 +2011,7 @@ function getDatabaseHealth() {
   };
 
   try {
-    const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+    const ss = getSpreadsheet();
     const actualSheets = ss.getSheets().map(s => s.getName());
 
     for (const key in CONFIG.SHEETS) {
@@ -1889,7 +2052,7 @@ function getSystemConfig() {
   }
 
   SpreadsheetApp.flush(); // BUST CACHE
-  const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+  const ss = getSpreadsheet();
   let sheet = ss.getSheetByName(CONFIG.SHEETS.CONFIG);
   if (!sheet) {
     sheet = ss.insertSheet(CONFIG.SHEETS.CONFIG);
@@ -1933,7 +2096,7 @@ function updateSystemConfig(key, value) {
     }
   }
 
-  const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+  const ss = getSpreadsheet();
   let sheet = ss.getSheetByName(CONFIG.SHEETS.CONFIG);
   if (!sheet) {
     sheet = ss.insertSheet(CONFIG.SHEETS.CONFIG);
@@ -1978,32 +2141,39 @@ function updateSystemConfig(key, value) {
  */
 function getManagerBulkAllocationData() {
   const session = validateTier(2); // Manager or above
-  const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+  const ss = getSpreadsheet();
   const tz = ss.getSpreadsheetTimeZone();
   
-  // 1. Fetch Direct Reports
+  // 1. Fetch Downstream Team Hierarchy
   const employees = getSheetData(CONFIG.SHEETS.EMPLOYEES);
   const userEmailLower = session.email.toLowerCase();
   const userNameLower = session.name.toLowerCase();
   const isAdmin = session.tier >= 3;
 
-  const directReports = employees.filter(e => {
+  const teamHierarchy = employees.filter(e => {
+    const email = String(e["Email Address"] || "").toLowerCase();
+    if (CONFIG.IGNORED_EMAILS.includes(email)) return false; // Exclude top-level execs
+
     if (isAdmin) return isActiveEmployee(e);
 
-    const email = String(e["Email Address"] || "").toLowerCase();
     if (email === userEmailLower) return false;
 
     const lead = String(e["Leads"] || "").toLowerCase();
     const managerEmail = String(e["Direct Manager Email"] || "").toLowerCase();
     const managerName = String(e["Direct Manager Name"] || "").toLowerCase();
-    return (lead === userNameLower || managerEmail === userEmailLower || managerName === userNameLower) && isActiveEmployee(e);
+    const mgmtLine = String(e["Management Line (Hierarchy)"] || e["Management Line"] || "").toLowerCase();
+
+    const isDirect = (lead === userNameLower || managerEmail === userEmailLower || managerName === userNameLower);
+    const isIndirect = mgmtLine.includes(userEmailLower) || mgmtLine.includes(userNameLower);
+
+    return (isDirect || isIndirect) && isActiveEmployee(e);
   });
   
-  if (directReports.length === 0) {
+  if (teamHierarchy.length === 0) {
     return { rows: [], catalog: [], skillsLegend: [] };
   }
   
-  const reportEmails = directReports.map(e => String(e["Email Address"]).toLowerCase().trim());
+  const reportEmails = teamHierarchy.map(e => String(e["Email Address"]).toLowerCase().trim());
   
   // 2. Fetch all Manager Product Allocation rows (Allocation Scope)
   const allAllocationScope = getSheetData(CONFIG.SHEETS.MANAGER_PRODUCT_ALLOCATION);
@@ -2040,8 +2210,8 @@ function getManagerBulkAllocationData() {
     const mgr = String(e["Direct Manager Name"] || "").toLowerCase().trim();
     if (mgr && mgr !== "n/a" && mgr !== "unknown") allManagers.add(mgr);
   });
-  
-  directReports.forEach(emp => {
+
+  teamHierarchy.forEach(emp => {
     const empEmail = String(emp["Email Address"]).toLowerCase().trim();
     const empName = (emp["Google Chat Full Name"] || emp["HR Name"] || `${emp["First Name"] || ""} ${emp["Last Name"] || ""}`).trim();
     const empNameLower = empName.toLowerCase();
@@ -2114,7 +2284,7 @@ function getManagerBulkAllocationData() {
             return (rawSub instanceof Date) ? rawSub.toISOString() : String(rawSub);
           })() : "",
           standardWeekdays: (alloc && !isHistoricalFallback) ? (parseInt(alloc["Standard Weekdays in Month"]) || 0) : 0,
-          regularDays: (alloc && !isHistoricalFallback) ? (parseInt(alloc["Regular Days Worked"]) || 0) : 0,
+          regularDays: (alloc && !isHistoricalFallback) ? (parseFloat(alloc["Regular Days Worked"]) || 0) : 0,
           workedWeekend: (alloc && !isHistoricalFallback) ? (alloc["Worked Weekend"] === true || alloc["Worked Weekend"] === "TRUE" || alloc["Worked Weekend"] === "true") : false,
           weekendDays: (alloc && !isHistoricalFallback) ? (parseFloat(alloc["Weekend Days Worked"]) || 0) : 0,
           workingDaysComment: (alloc && !isHistoricalFallback) ? (alloc["Comments"] || "") : ""
@@ -2148,7 +2318,7 @@ function saveManagerBulkAllocation(payload) {
       throw new Error("Save failed: The Allocation module has been closed and locked by an Administrator.");
     }
 
-    const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+    const ss = getSpreadsheet();
     const tz = ss.getSpreadsheetTimeZone();
     
     const skillSheet = ss.getSheetByName(CONFIG.SHEETS.SKILL_MATRIX);
@@ -2204,7 +2374,7 @@ function saveManagerBulkAllocation(payload) {
           case "email address": return email;
           case "product": return prod;
           case "sub-product": return subProd;
-          case "skill level": return item.skillLevel;
+          // Do NOT overwrite skill level, preserve existing!
           case "last updated by": return session.realEmail || session.email;
           case "date and time of submission":
           case "date of submission": return Utilities.formatDate(new Date(), tz, "dd/MM/yyyy HH:mm:ss");
@@ -2213,16 +2383,12 @@ function saveManagerBulkAllocation(payload) {
       });
       
       if (skillRowIndex !== -1) {
-        const beforeState = String(skillValues[skillRowIndex - 1][sSkillIdx]);
-        if (beforeState !== String(item.skillLevel)) {
-          skillSheet.getRange(skillRowIndex, 1, 1, skillHeaders.length).setValues([mappedSkillRowValues]);
-          logsToCommit.push([email, "SKILL_MATRIX", `Skill update to ${item.skillLevel}`, beforeState, item.skillLevel]);
-          skillUpdatedCount++;
-        }
+        // Just update the timestamp to reflect the allocation submission
+        skillSheet.getRange(skillRowIndex, 1, 1, skillHeaders.length).setValues([mappedSkillRowValues]);
       } else {
-        // Insert new skill record if product has been freshly assigned by manager
+        // Insert new skill record if product has been freshly assigned by manager via allocation UI
         skillSheet.appendRow(mappedSkillRowValues);
-        logsToCommit.push([email, "SKILL_MATRIX", "Fresh Product Assignment", "None", item.skillLevel]);
+        logsToCommit.push([email, "SKILL_MATRIX", "Fresh Product Assignment via Allocation", "None", "Unknown"]);
         skillUpdatedCount++;
       }
       
@@ -2276,7 +2442,7 @@ function saveManagerBulkAllocation(payload) {
           case "date and time of submission":
           case "date of submission": return Utilities.formatDate(new Date(), tz, "dd/MM/yyyy HH:mm:ss");
           case "standard weekdays in month": return item.workingDays ? parseInt(item.workingDays.standardWeekdays) || 0 : 0;
-          case "regular days worked": return item.workingDays ? parseInt(item.workingDays.regularDays) || 0 : 0;
+          case "regular days worked": return item.workingDays ? parseFloat(item.workingDays.regularDays) || 0 : 0;
           case "worked weekend": return item.workingDays ? (item.workingDays.workedWeekend === true || item.workingDays.workedWeekend === "true") : false;
           case "weekend days worked": return item.workingDays ? parseFloat(item.workingDays.weekendDays) || 0 : 0;
           case "comments": return item.workingDays ? item.workingDays.comment || "" : "";
@@ -2336,7 +2502,7 @@ function saveManagerBulkAllocation(payload) {
  * HELPER: Recalculates and updates the aggregated FTE cache inside 'App All Employee Data' for a specific employee
  */
 function recalculateEmployeeFteCache(email) {
-  const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+  const ss = getSpreadsheet();
   const tz = ss.getSpreadsheetTimeZone();
   const empSheet = ss.getSheetByName(CONFIG.SHEETS.EMPLOYEES);
   const allocSheet = ss.getSheetByName(CONFIG.SHEETS.ALLOCATION_HISTORICAL);
@@ -2393,7 +2559,7 @@ function recalculateEmployeeFteCache(email) {
  */
 function migrateLegacyAllocationsToGranular() {
   validateTier(3); // Admin Only
-  const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+  const ss = getSpreadsheet();
   const tz = ss.getSpreadsheetTimeZone();
   const allocSheet = ss.getSheetByName(CONFIG.SHEETS.ALLOCATION_HISTORICAL);
   
@@ -2458,29 +2624,64 @@ function migrateLegacyAllocationsToGranular() {
  */
 function getTeamProductsData() {
   const session = validateTier(2); // Manager or above
-  const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+  const ss = getSpreadsheet();
   
-  // 1. Fetch direct reports
+  // 1. Fetch Downstream Team Hierarchy
   const employees = getSheetData(CONFIG.SHEETS.EMPLOYEES);
   const userNameLower = session.name.toLowerCase();
   const userEmailLower = session.email.toLowerCase();
   const isAdmin = session.tier >= 3;
 
-  const directReports = employees.filter(e => {
+  const skills = getSheetData(CONFIG.SHEETS.SKILL_MATRIX);
+  const productScopes = getSheetData(CONFIG.SHEETS.MANAGER_PRODUCT_ALLOCATION);
+
+  const skillAssigned = new Set();
+  skills.forEach(s => {
+    if (s["Skill Level"] && s["Skill Level"] !== "N/A" && s["Skill Level"] !== "NA" && s["Skill Level"] !== "") {
+      skillAssigned.add(String(s["Email Address"] || "").toLowerCase().trim());
+    }
+  });
+  
+  const productScopeAssigned = new Set();
+  productScopes.forEach(p => {
+    if (p["Product"]) {
+      productScopeAssigned.add(String(p["Email Address"] || "").toLowerCase().trim());
+    }
+  });
+
+  const teamHierarchy = employees.filter(e => {
+    const email = String(e["Email Address"] || "").toLowerCase();
+    if (CONFIG.IGNORED_EMAILS.includes(email)) return false; // Exclude top-level execs
+
     if (isAdmin) return isActiveEmployee(e);
 
-    const email = String(e["Email Address"] || "").toLowerCase();
     if (email === userEmailLower) return false;
 
     const lead = String(e["Leads"] || "").toLowerCase();
     const managerEmail = String(e["Direct Manager Email"] || "").toLowerCase();
     const managerName = String(e["Direct Manager Name"] || "").toLowerCase();
-    return (lead === userNameLower || managerEmail === userEmailLower || managerName === userNameLower) && isActiveEmployee(e);
-  }).map(e => ({
-    name: (e["Google Chat Full Name"] || e["HR Name"] || `${e["First Name"] || ""} ${e["Last Name"] || ""}`).trim(),
-    email: e["Email Address"],
-    role: e["Profile"] || "Employee"
-  }));
+    const mgmtLine = String(e["Management Line (Hierarchy)"] || e["Management Line"] || "").toLowerCase();
+
+    const isDirect = (lead === userNameLower || managerEmail === userEmailLower || managerName === userNameLower);
+    const isIndirect = mgmtLine.includes(userEmailLower) || mgmtLine.includes(userNameLower);
+
+    return (isDirect || isIndirect) && isActiveEmployee(e);
+  }).map(e => {
+    const email = String(e["Email Address"] || "").toLowerCase().trim();
+    const lead = String(e["Leads"] || "").toLowerCase();
+    const managerEmail = String(e["Direct Manager Email"] || "").toLowerCase();
+    const managerName = String(e["Direct Manager Name"] || "").toLowerCase();
+    const isDirectReport = isAdmin || (lead === userNameLower || managerEmail === userEmailLower || managerName === userNameLower);
+
+    return {
+      name: (e["Google Chat Full Name"] || e["HR Name"] || `${e["First Name"] || ""} ${e["Last Name"] || ""}`).trim(),
+      email: e["Email Address"],
+      role: e["Profile"] || "Employee",
+      isDirectReport: isDirectReport,
+      hasProductScope: productScopeAssigned.has(email),
+      hasSkills: skillAssigned.has(email)
+    };
+  });
   
   // 2. Fetch skill levels catalog
   const skillLevels = getSheetData(CONFIG.SHEETS.SKILL_LEVELS).map(s => ({
@@ -2494,7 +2695,7 @@ function getTeamProductsData() {
   const productCatalog = getProductCatalog(); // returns object { Product: [Sub-Products] }
   
   return JSON.parse(JSON.stringify({
-    reports: directReports,
+    reports: teamHierarchy,
     skillsLegend: skillLevels,
     catalog: productCatalog
   }));
@@ -2506,7 +2707,7 @@ function getTeamProductsData() {
 function saveTeamProducts(email, assignments) {
   return runWithWriteLock(() => {
     const session = validateTier(2); // Manager or above
-    const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+    const ss = getSpreadsheet();
     const tz = ss.getSpreadsheetTimeZone();
     const sheet = ss.getSheetByName(CONFIG.SHEETS.SKILL_MATRIX);
     if (!sheet) throw new Error("Skill Matrix sheet not found.");
@@ -2611,7 +2812,7 @@ function getManagerProductAllocation(email) {
  */
 function saveManagerProductAllocation(email, assignments) {
   const session = validateTier(2); // Manager or above
-  const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+  const ss = getSpreadsheet();
   const tz = ss.getSpreadsheetTimeZone();
   const sheet = ss.getSheetByName(CONFIG.SHEETS.MANAGER_PRODUCT_ALLOCATION);
   if (!sheet) throw new Error("Manager Product Allocation sheet not found.");
@@ -2709,7 +2910,7 @@ function getReportLinks() {
  */
 function saveReportLink(payload) {
   const session = validateTier(3); // Admin Only
-  const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+  const ss = getSpreadsheet();
   let sheet = ss.getSheetByName(CONFIG.SHEETS.ANALYTICAL_HUB);
   
   if (!sheet) {
@@ -2784,7 +2985,7 @@ function saveReportLink(payload) {
  */
 function deleteReportLink(id) {
   validateTier(3); // Admin Only
-  const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+  const ss = getSpreadsheet();
   const sheet = ss.getSheetByName(CONFIG.SHEETS.ANALYTICAL_HUB);
   if (!sheet) throw new Error("App Analytical Hub sheet not found.");
   
@@ -2832,7 +3033,7 @@ function deleteReportLink(id) {
  */
 function auditDayforceVsGoogle() {
   const session = validateTier(3); // Admin Only
-  const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+  const ss = getSpreadsheet();
 
   console.log("[DATA_AUDIT] Fetching Google directory...");
   const googleMap = getCompleteDirectoryMap();
@@ -3101,7 +3302,7 @@ function deleteEmployeeAllocation(email, period) {
   }
   
   return runWithWriteLock(() => {
-    const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+    const ss = getSpreadsheet();
     const tz = ss.getSpreadsheetTimeZone();
     const allocSheet = ss.getSheetByName(CONFIG.SHEETS.ALLOCATION_HISTORICAL);
     if (!allocSheet) throw new Error("Allocation Historical sheet not found.");
@@ -3147,6 +3348,8 @@ function deleteEmployeeAllocation(email, period) {
       // Recalculate summary totals in employee roster to reflect 0% allocation
       recalculateEmployeeFteCache(targetEmail);
       clearUserProfileCache(targetEmail); // Bust profile cache to reflect cleared state
+      clearSheetCache(CONFIG.SHEETS.ALLOCATION_HISTORICAL); // Bust historical sheet cache
+      clearSheetCache(CONFIG.SHEETS.EMPLOYEES); // Bust employee sheet cache
     }
     
     return `Successfully reset and unlocked allocations for ${email}.`;
@@ -3159,7 +3362,7 @@ function deleteEmployeeAllocation(email, period) {
  */
 function cleanupCorruptedRows() {
   validateTier(3); // Admin Only
-  const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+  const ss = getSpreadsheet();
   const tz = ss.getSpreadsheetTimeZone();
   const allocSheet = ss.getSheetByName(CONFIG.SHEETS.ALLOCATION_HISTORICAL);
   if (!allocSheet) throw new Error("Allocation Historical sheet not found.");
@@ -3264,7 +3467,12 @@ function cleanupCorruptedRows() {
 function isActiveEmployee(e) {
   const status = String(e["HR Employment Status"] || "").toLowerCase().trim();
   const termDate = String(e["HR Termination Date"] || "").toLowerCase().trim();
-  if (status.includes("term") || status.includes("inactive")) return false;
+  
+  // Exclude explicit negative statuses
+  if (status.includes("term") || status.includes("inactive") || status.includes("leave") || status.includes("separated")) return false;
+  
+  // If we have a populated status and it's not active, exclude them
+  if (status && status !== "active") return false;
   
   const emptyTermDates = ["", "n/a", "active (no term date)", "null", "-", "none", "0"];
   if (termDate && !emptyTermDates.includes(termDate)) return false;
@@ -3277,9 +3485,13 @@ function isActiveEmployee(e) {
  * Excludes employees marked with an 'Ignore' action status in the data audit.
  */
 function getAdminMonitorData(period) {
-  validateTier(3); // Admin Only
+  // Accessible to Admin (Tier 3) or Tier 2 with Executive View (Anup-2 clearance)
+  const session = getCurrentUserSession();
+  if (session.tier < 3 && !session.isExecutiveView) {
+    throw new Error("Unauthorized: Executive or Admin access required.");
+  }
   
-  const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+  const ss = getSpreadsheet();
   const tz = ss.getSpreadsheetTimeZone();
   
   // Fetch lists
@@ -3391,6 +3603,7 @@ function getAdminMonitorData(period) {
         managerEmail,
         managerName,
         region: e["Cost Center"] || "Global",
+        headOfFunction: normalizeHeadName(e["Regional Head/Head of function"]),
         hasAllocation,
         totalAllocPct,
         fteStatus,
@@ -3701,7 +3914,7 @@ function sendBulkNotifications(payload) {
 function updateAuditStatus(email, newStatus) {
   const session = validateTier(3); // Admin Only
   
-  const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+  const ss = getSpreadsheet();
   const sheet = ss.getSheetByName(CONFIG.SHEETS.DATA_AUDIT);
   if (!sheet) throw new Error("App Audit Discrepancies sheet not found.");
   

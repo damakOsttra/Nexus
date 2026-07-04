@@ -89,7 +89,7 @@ function getView(pageName) {
     'NexusAdoption': 3,
     'AssignProduct': 2, 'AssignSkill': 2, 'TeamAllocationsReview': 2,
     'About': 1, 'Profile': 1, 'MyAllocations': 1, 'AnalyticsHub': 1, 'ExecAnalytics': 2,
-    'UserGuide': 1
+    'UserGuide': 1, 'OrganizationChart': 1
   };
 
   const requiredTier = permissions[pageName];
@@ -131,7 +131,8 @@ function getView(pageName) {
     'MyAllocations': 'ui/Personal/MyAllocations',
     'AnalyticsHub': 'ui/Personal/AnalyticsHub',
     'ExecAnalytics': 'ui/Personal/ExecAnalytics',
-    'UserGuide': 'ui/Personal/UserGuide'
+    'UserGuide': 'ui/Personal/UserGuide',
+    'OrganizationChart': 'ui/Personal/OrgChart'
     };
 
     const filePath = viewMap[pageName];
@@ -266,7 +267,7 @@ function include(filename) {
 function getSkillMatrixDebug(email) {
   validateTier(1);
   try {
-    const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+    const ss = getSpreadsheet();
     const sheet = ss.getSheetByName(CONFIG.SHEETS.SKILL_MATRIX);
     if (!sheet) return { searched: email, error: "App Employee Skill Matrix sheet missing from Database." };
     

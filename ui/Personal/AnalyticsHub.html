@@ -104,50 +104,13 @@
         <p class="text-[10px] font-black uppercase tracking-widest text-white/50 animate-pulse">Refreshing Headcount Data...</p>
       </div>
 
-      <!-- Organization Chart Full-Screen Modal Overlay -->
-      <div id="orgchart-modal" class="hidden fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-300">
-        <div class="glass border border-white/10 w-full max-w-[95vw] h-[95vh] rounded-[2rem] overflow-hidden flex flex-col shadow-2xl animate-in zoom-in duration-300">
-          <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center p-6 border-b border-white/10 bg-[#1a1a1a] gap-4">
-            <div class="space-y-1">
-              <h2 class="text-xl font-black text-white uppercase tracking-widest flex items-center gap-2"><i class="fas fa-sitemap text-osttra-rubine"></i> Organization Chart</h2>
-              <p class="text-[10px] text-white/40 uppercase tracking-wider">Interactive reporting structure</p>
-            </div>
-            <div class="flex items-center gap-4 self-stretch sm:self-auto justify-between sm:justify-end">
-              <!-- Custom Search Bar for Org Chart inside modal -->
-              <div class="relative w-64">
-                <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-white/30 text-xs"></i>
-                <input type="text" id="search-orgchart" onkeyup="searchOrgChart()" placeholder="Search people..." class="w-full bg-[#222222] border border-white/10 rounded-xl pl-9 pr-4 py-2.5 text-xs text-white focus:outline-none focus:border-osttra-rubine/50 placeholder-white/20">
-              </div>
-              <button onclick="closeOrgChartModal()" class="w-10 h-10 rounded-full bg-white/5 hover:bg-osttra-rubine hover:text-white transition-all flex items-center justify-center text-white/50 border border-white/5">
-                <i class="fas fa-times"></i>
-              </button>
-            </div>
-          </div>
-          <div class="flex-1 relative overflow-hidden">
-            <!-- Modal Loader -->
-            <div id="orgchart-modal-loader" class="absolute inset-0 z-50 bg-[#121212] flex flex-col items-center justify-center gap-4 transition-all">
-              <i class="fas fa-circle-notch animate-spin text-4xl text-osttra-rubine"></i>
-              <p class="text-[10px] font-black uppercase tracking-widest text-white/50 animate-pulse">Building Interactive Org Chart...</p>
-            </div>
-            <!-- Toolbar Controls -->
-            <div class="absolute right-6 top-6 z-10 flex flex-col gap-2 bg-[#1a1a1a]/80 border border-white/5 p-2 rounded-xl backdrop-blur-md">
-              <button onclick="orgChartExpandAll()" class="p-2 text-white/60 hover:text-white transition-colors hover:bg-white/5 rounded" title="Expand All"><i class="fas fa-expand-arrows-alt text-xs"></i></button>
-              <button onclick="orgChartCollapseAll()" class="p-2 text-white/60 hover:text-white transition-colors hover:bg-white/5 rounded" title="Collapse All"><i class="fas fa-compress-arrows-alt text-xs"></i></button>
-              <button onclick="orgChartFit()" class="p-2 text-white/60 hover:text-white transition-colors hover:bg-white/5 rounded" title="Fit to Screen"><i class="fas fa-crosshairs text-xs"></i></button>
-            </div>
-            <!-- D3 Org Chart Canvas -->
-            <div id="orgchart-canvas" class="w-full h-full bg-[#121212]"></div>
-          </div>
-        </div>
-      </div>
-
       <div class="flex justify-between items-center pb-4 border-b border-white/5">
         <div class="space-y-1">
           <h4 class="text-xs font-black uppercase tracking-[0.2em] text-white/30 italic">Roster Intelligence</h4>
           <p class="text-[10px] text-white/40 uppercase font-medium">Headcount metrics & interactive roster charts</p>
         </div>
-        <button onclick="openOrgChartModal()" class="px-5 py-2.5 bg-osttra-rubine hover:bg-osttra-rubine/80 text-white text-[10px] font-black uppercase tracking-widest rounded-xl transition-all shadow-[0_0_15px_rgba(255,0,97,0.3)] flex items-center gap-2">
-          <i class="fas fa-sitemap"></i> Organization Chart
+        <button onclick="exportGlobalHeadcountToCSV()" class="px-5 py-2.5 bg-white/5 hover:bg-osttra-rubine text-white border border-white/5 hover:border-transparent text-[10px] font-black uppercase tracking-widest rounded-xl transition-all flex items-center gap-2 shadow-md">
+          <i class="fas fa-file-csv"></i> Export Roster CSV
         </button>
       </div>
 
@@ -239,6 +202,46 @@
     let rawLookerReports = [];
     let charts = {}; // To manage and destroy Chart instances
     let orgChartInstance = null;
+    let globalHeadcountRoster = []; // Cache headcount roster for CSV export
+
+    // Global CSV Downloader Helper
+    window.downloadCSV = function(headers, rows, filename) {
+      const csvContent = "data:text/csv;charset=utf-8,"
+        + [headers.join(",")].concat(rows.map(r => r.map(val => `"${String(val).replace(/"/g, '""')}"`).join(","))).join("\n");
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute("download", filename);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    };
+
+    window.exportGlobalHeadcountToCSV = function() {
+      if (!globalHeadcountRoster || globalHeadcountRoster.length === 0) {
+        showNotification('No Data', 'No active headcount roster available for export.', 'warning');
+        return;
+      }
+      
+      const headers = ["Name", "Email Address", "Profile / Role", "Region (Cost Center)", "Head of Function", "Direct Manager"];
+      const rows = globalHeadcountRoster.map(e => [
+        e.name,
+        e.email,
+        e.role,
+        e.costCenter,
+        e.headOfFunction,
+        e.directManager
+      ]);
+
+      const getVal = (id) => document.getElementById(id)?.value || "All";
+      const region = getVal('filt-region');
+      const head = getVal('filt-head');
+      const manager = getVal('filt-manager');
+      const search = document.getElementById('filt-name')?.value.trim() ? "Filtered" : "All";
+      
+      const filename = `CS_Headcount_Export_R_${region}_H_${head}_M_${manager}_S_${search}.csv`;
+      window.downloadCSV(headers, rows, filename);
+    };
 
     window.showAnalyticsTab = function(tabName) {
       // Hide all contents
@@ -528,6 +531,7 @@
         if (typeof data === 'string') {
           payload = JSON.parse(data);
         }
+        globalHeadcountRoster = payload.employees || []; // Cache the filtered roster for CSV export
         _unsafeRenderHeadcountTab(payload);
       } catch (e) {
         console.error("Headcount Render Failure:", e);

@@ -1,4 +1,29 @@
-<div class="p-8 max-w-7xl mx-auto space-y-12 animate-in fade-in duration-700">
+<style>
+  /* Connected Org Tree CSS */
+  .executive-tree ul {
+    list-style-type: none !important;
+    padding-left: 1.5rem !important;
+    margin-top: 0.25rem !important;
+    border-left: 1px solid rgba(255, 255, 255, 0.08) !important;
+    margin-left: 0.75rem !important;
+  }
+  .executive-tree li {
+    margin-bottom: 0.5rem !important;
+    position: relative !important;
+    list-style-type: none !important;
+  }
+  .executive-tree li::before {
+    content: "" !important;
+    position: absolute !important;
+    top: 1.1rem !important;
+    left: -1.5rem !important;
+    width: 1.15rem !important;
+    height: 1px !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
+  }
+</style>
+
+<div class="p-8 max-w-7xl mx-auto space-y-6 animate-in fade-in duration-700">
   
   <!-- Header & Tabs (About.html styling) -->
   <div class="space-y-6">
@@ -16,7 +41,7 @@
 
     <!-- Tabs Navigation (About.html menu style) -->
     <div class="flex gap-6 text-[11px] font-black tracking-[0.2em] uppercase overflow-x-auto no-scrollbar border-b border-white/10">
-        <button onclick="showAnalyticsTab('finance')" id="tab-finance" class="py-3 px-2 border-b-2 border-[#FE952D] text-white transition-all whitespace-nowrap">Cost of Delivery</button>
+        <button onclick="showAnalyticsTab('finance')" id="tab-finance" class="py-3 px-2 border-b-2 border-[#FE952D] text-white transition-all whitespace-nowrap">Nexus Tracker</button>
         <button onclick="showAnalyticsTab('heatmap')" id="tab-heatmap" class="py-3 px-2 border-b-2 border-transparent text-white/40 hover:text-white transition-all whitespace-nowrap">Allocation Heatmap</button>
         <button onclick="showAnalyticsTab('skills')" id="tab-skills" class="py-3 px-2 border-b-2 border-transparent text-white/40 hover:text-white transition-all whitespace-nowrap">Skills Heatmap</button>
     </div>
@@ -96,6 +121,14 @@
         </select>
       </div>
 
+      <!-- Include Hierarchy Checkbox -->
+      <div class="flex items-center h-12 pt-2 col-span-1 md:col-span-2 lg:col-span-1" id="filter-layered-container">
+        <label class="flex items-center gap-3 cursor-pointer select-none">
+          <input type="checkbox" id="filt-layered-team" onchange="triggerFilterChange()" class="rounded bg-[#1a1a1a]/50 border border-white/5 text-[#FE952D] focus:ring-[#FE952D] w-4 h-4">
+          <span class="text-[9px] font-black uppercase tracking-widest text-white/50">Include Entire Hierarchy (Layered Team)</span>
+        </label>
+      </div>
+
       <!-- Action Buttons (Apply & Reset Filters) -->
       <div class="flex items-end gap-3 h-full pb-0.5 md:col-span-2">
         <button onclick="triggerFilterChange()" class="flex-1 bg-[#FE952D] hover:bg-[#FE952D]/80 text-white font-black uppercase text-[10px] tracking-widest py-3 px-4 rounded-xl transition-all flex items-center justify-center gap-1.5 shadow-[0_0_12px_rgba(254,149,45,0.2)]">
@@ -112,141 +145,196 @@
   <!-- Main Content Space -->
   <div class="pt-4">
     
-    <!-- Tab 3: Cost of Delivery (Finance View) -->
+    <!-- Tab 3: Nexus Tracker (Rebranded and modified from Monitoring Admin) -->
     <section id="content-finance" class="analytics-tab-content space-y-8 animate-in fade-in duration-500 relative">
-      <div id="finance-inline-loader" class="hidden absolute inset-0 z-50 bg-[#141414]/80 backdrop-blur-sm rounded-[2rem] flex flex-col items-center justify-center gap-4 transition-all">
+      <div id="nexus-tracker-loading" class="hidden absolute inset-0 z-50 bg-[#141414]/80 backdrop-blur-sm rounded-[2rem] flex flex-col items-center justify-center gap-4 transition-all">
         <i class="fas fa-circle-notch animate-spin text-4xl text-[#FE952D]"></i>
-        <p class="text-[10px] font-black uppercase tracking-widest text-white/50 animate-pulse">Refreshing Finance Data...</p>
+        <p class="text-[10px] font-black uppercase tracking-widest text-white/30 animate-pulse">Syncing Nexus Tracker...</p>
       </div>
-      <div id="finance-content-grid" class="space-y-8 transition-all duration-300">
-        
-        <!-- Finance Readiness Banner (Compliance Guard) -->
-        <div id="fin-readiness-banner" class="hidden p-6 rounded-2xl border flex flex-col items-start gap-4 transition-all duration-300 animate-in slide-in-from-top-4 duration-500">
-          <div class="space-y-1.5 flex-1 w-full">
-            <div class="flex items-center gap-2">
-              <span id="fin-readiness-badge" class="px-2 py-0.5 rounded text-[9px] font-black uppercase">PENDING</span>
-              <h4 id="fin-readiness-title" class="text-xs font-black uppercase tracking-widest text-white">FINANCE SUBMISSION PENDING</h4>
+
+      <!-- Header -->
+      <div class="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 pb-6 border-b border-white/5">
+        <div class="space-y-2">
+          <p class="text-gray-400 text-sm mt-1">Monitor allocation submissions, skill matrix completions, and product scope mappings.</p>
+        </div>
+      </div>
+
+      <!-- Summary Cards -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <!-- Card 1: Total -->
+        <div class="p-6 bg-[#222222]/20 border border-white/5 rounded-2xl flex flex-col justify-between relative overflow-hidden group hover:border-white/10 transition-all duration-300 shadow-[0_0_15px_-3px_rgba(255,255,255,0.02)]">
+          <div class="flex justify-between items-start">
+            <p class="text-[10px] font-black uppercase text-white/40 tracking-widest">Total Employees</p>
+            <i class="fas fa-users text-white/10 group-hover:text-white/20 transition-colors text-base"></i>
+          </div>
+          <div class="flex items-baseline gap-4 mt-4">
+            <div>
+              <p id="nexus-stat-active-employees" class="text-3xl font-black text-emerald-500">0</p>
+              <span class="text-[9px] font-bold text-white/40 uppercase tracking-widest">Active</span>
             </div>
-            <p id="fin-readiness-desc" class="text-[10px] text-white/50 leading-relaxed font-medium uppercase"></p>
-            <!-- Progress bar -->
-            <div class="relative w-full h-1.5 bg-white/5 rounded-full overflow-hidden mt-2">
-              <div id="fin-readiness-progress" class="absolute top-0 left-0 h-full bg-[#FE952D] rounded-full transition-all duration-500" style="width: 0%"></div>
+            <div class="w-px h-8 bg-white/10"></div>
+            <div>
+              <p id="nexus-stat-inactive-employees" class="text-3xl font-black text-[#FF0061]">0</p>
+              <span class="text-[9px] font-bold text-white/40 uppercase tracking-widest">Inactive</span>
             </div>
           </div>
         </div>
-
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div class="p-6 bg-[#222222]/30 border border-white/5 rounded-2xl border-l-4 border-emerald-500">
-            <p class="text-[9px] font-black uppercase text-emerald-400 tracking-widest">Productive FTE Capacity</p>
-            <p id="fin-fte" class="text-4xl font-black text-white mt-2">0.00</p>
+        <!-- Card 2: Allocations -->
+        <div class="p-6 bg-[#222222]/20 border border-white/5 rounded-2xl border-l-4 border-emerald-500 flex flex-col justify-between relative overflow-hidden group hover:border-emerald-500/20 hover:shadow-[0_0_20px_-3px_rgba(16,185,129,0.1)] transition-all duration-300">
+          <div class="flex justify-between items-start">
+            <p class="text-[10px] font-black uppercase text-emerald-500 tracking-widest">Allocations Submitted</p>
+            <i class="fas fa-file-invoice-dollar text-emerald-500/10 group-hover:text-emerald-500/20 transition-colors text-base"></i>
           </div>
-          <div class="p-6 bg-[#222222]/30 border border-white/5 rounded-2xl border-l-4 border-osttra-ochre">
-            <p class="text-[9px] font-black uppercase text-osttra-ochre tracking-widest">Run Capacity (BAU)</p>
-            <p id="fin-run" class="text-4xl font-black text-white mt-2">0.00</p>
-          </div>
-          <div class="p-6 bg-[#222222]/30 border border-white/5 rounded-2xl border-l-4 border-osttra-violet">
-            <p class="text-[9px] font-black uppercase text-osttra-violet tracking-widest">Change Capacity (Non-BAU+MGMT)</p>
-            <p id="fin-change" class="text-4xl font-black text-white mt-2">0.00</p>
+          <div class="flex items-baseline gap-2 mt-4">
+            <p id="nexus-stat-alloc-submitted" class="text-3xl font-black text-white">0</p>
+            <span id="nexus-stat-alloc-pct" class="text-xs font-bold text-white/40">(0%)</span>
           </div>
         </div>
-
-        <div class="p-8 bg-[#222222]/20 border border-white/5 rounded-[2rem] space-y-6">
-          <h4 class="text-xs font-black uppercase tracking-widest text-white/30">Regional Run (BAU) vs Change Delivery Splits</h4>
-          <div class="relative h-80 flex items-center justify-center">
-            <canvas id="chart-finance"></canvas>
+        <!-- Card 3: Skills -->
+        <div class="p-6 bg-[#222222]/20 border border-white/5 rounded-2xl border-l-4 border-osttra-ochre flex flex-col justify-between relative overflow-hidden group hover:border-osttra-ochre/20 hover:shadow-[0_0_20px_-3px_rgba(254,149,45,0.1)] transition-all duration-300">
+          <div class="flex justify-between items-start">
+            <p class="text-[10px] font-black uppercase text-osttra-ochre tracking-widest">Skills Certified</p>
+            <i class="fas fa-award text-osttra-ochre/10 group-hover:text-osttra-ochre/20 transition-colors text-base"></i>
+          </div>
+          <div class="flex items-baseline gap-2 mt-4">
+            <p id="nexus-stat-skills-certified" class="text-3xl font-black text-white">0</p>
+            <span id="nexus-stat-skills-pct" class="text-xs font-bold text-white/40">(0%)</span>
           </div>
         </div>
+        <!-- Card 4: Products -->
+        <div class="p-6 bg-[#222222]/20 border border-white/5 rounded-2xl border-l-4 border-osttra-violet flex flex-col justify-between relative overflow-hidden group hover:border-osttra-violet/20 hover:shadow-[0_0_20px_-3px_rgba(145,37,191,0.1)] transition-all duration-300">
+          <div class="flex justify-between items-start">
+            <p class="text-[10px] font-black uppercase text-osttra-violet tracking-widest">Products Mapped</p>
+            <i class="fas fa-boxes text-osttra-violet/10 group-hover:text-osttra-violet/20 transition-colors text-base"></i>
+          </div>
+          <div class="flex items-baseline gap-2 mt-4">
+            <p id="nexus-stat-products-mapped" class="text-3xl font-black text-white">0</p>
+            <span id="nexus-stat-products-pct" class="text-xs font-bold text-white/40">(0%)</span>
+          </div>
+        </div>
+      </div>
 
-        <!-- Compliance & Data Quality Audit Charts Grid -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-          <!-- Chart 1: Timecard Submission Rate -->
-          <div class="p-8 bg-[#222222]/20 border border-white/5 rounded-[2rem] space-y-6">
-            <h4 class="text-xs font-black uppercase tracking-widest text-white/30">
-              <i class="fas fa-clipboard-check mr-2 text-emerald-400"></i>Timecard Submission Rate
-            </h4>
-            <div class="relative h-64 flex items-center justify-center">
-              <canvas id="chart-fin-compliance-alloc"></canvas>
+      <!-- Filters & Actions Toolbar -->
+      <div class="p-6 bg-white/5 rounded-2xl border border-white/5 space-y-4">
+        <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+          <div class="flex flex-wrap items-center gap-4 w-full lg:w-auto">
+            <!-- Search -->
+            <div class="relative flex-1 min-w-[240px] max-w-sm">
+              <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-white/30 text-xs"></i>
+              <input type="text" id="nexus-monitor-search" oninput="applyNexusTrackerFilters()" placeholder="Search employee name or email..." class="w-full bg-[#1a1a1a]/50 border border-white/5 rounded-xl pl-10 pr-4 py-2.5 text-xs text-white focus:outline-none focus:border-osttra-rubine/40 transition-all placeholder-white/20">
             </div>
-          </div>
-          <!-- Chart 2: FTE Allocation Audit -->
-          <div class="p-8 bg-[#222222]/20 border border-white/5 rounded-[2rem] space-y-6">
-            <h4 class="text-xs font-black uppercase tracking-widest text-white/30">
-              <i class="fas fa-exclamation-triangle mr-2 text-[#FF0061]"></i>FTE Allocation Audit
-            </h4>
-            <div class="relative h-64 flex items-center justify-center">
-              <canvas id="chart-fin-compliance-fte"></canvas>
-            </div>
-          </div>
-          <!-- Chart 3: Standard Days Worked Audit -->
-          <div class="p-8 bg-[#222222]/20 border border-white/5 rounded-[2rem] space-y-6">
-            <h4 class="text-xs font-black uppercase tracking-widest text-white/30">
-              <i class="fas fa-calendar-alt mr-2 text-osttra-ochre"></i>Standard Days Worked Audit
-            </h4>
-            <div class="relative h-64 flex items-center justify-center">
-              <canvas id="chart-fin-compliance-days"></canvas>
+
+            <!-- Filter by Period -->
+            <select id="nexus-filter-period" onchange="loadNexusTrackerData()" class="bg-[#1a1a1a]/50 border border-white/5 rounded-xl px-4 py-2.5 text-xs text-white/70 focus:outline-none focus:border-osttra-rubine/40 transition-all cursor-pointer">
+              <!-- Populated Dynamically -->
+            </select>
+
+            <!-- Filter by Region -->
+            <select id="nexus-filter-region" onchange="applyNexusTrackerFilters()" class="bg-[#1a1a1a]/50 border border-white/5 rounded-xl px-4 py-2.5 text-xs text-white/70 focus:outline-none focus:border-osttra-rubine/40 transition-all cursor-pointer">
+              <option value="All">All Regions</option>
+            </select>
+
+            <!-- Filter by Direct Manager -->
+            <select id="nexus-filter-manager" onchange="applyNexusTrackerFilters()" class="bg-[#1a1a1a]/50 border border-white/5 rounded-xl px-4 py-2.5 text-xs text-white/70 focus:outline-none focus:border-osttra-rubine/40 transition-all cursor-pointer">
+              <option value="All">All Direct Managers</option>
+            </select>
+
+            <!-- Filter by Head of Function -->
+            <select id="nexus-filter-head" onchange="applyNexusTrackerFilters()" class="bg-[#1a1a1a]/50 border border-white/5 rounded-xl px-4 py-2.5 text-xs text-white/70 focus:outline-none focus:border-osttra-rubine/40 transition-all cursor-pointer">
+              <option value="All">All Functional Heads</option>
+            </select>
+
+            <!-- Filter by Allocation Status -->
+            <select id="nexus-filter-alloc" onchange="applyNexusTrackerFilters()" class="bg-[#1a1a1a]/50 border border-white/5 rounded-xl px-4 py-2.5 text-xs text-white/70 focus:outline-none focus:border-osttra-rubine/40 transition-all cursor-pointer">
+              <option value="All">Allocation: All</option>
+              <option value="Submitted">Submitted (🟢)</option>
+              <option value="Pending">Pending (🔴)</option>
+            </select>
+
+            <!-- Filter by FTE Validation -->
+            <select id="nexus-filter-fte" onchange="applyNexusTrackerFilters()" class="bg-[#1a1a1a]/50 border border-white/5 rounded-xl px-4 py-2.5 text-xs text-white/70 focus:outline-none focus:border-osttra-rubine/40 transition-all cursor-pointer">
+              <option value="All">FTE: All</option>
+              <option value="Valid">Valid (1.00 FTE) (🟢)</option>
+              <option value="Pending">Pending (0.00 FTE) (⚪)</option>
+              <option value="Invalid">Discrepancy (🔴)</option>
+            </select>
+
+            <!-- Filter by Weekend Work -->
+            <select id="nexus-filter-weekend" onchange="applyNexusTrackerFilters()" class="bg-[#1a1a1a]/50 border border-white/5 rounded-xl px-4 py-2.5 text-xs text-white/70 focus:outline-none focus:border-[#FE952D]/40 transition-all cursor-pointer">
+              <option value="All">Weekend Work: All</option>
+              <option value="Worked">Worked Weekend (🟢)</option>
+              <option value="NotWorked">No Weekend Work (⚪)</option>
+            </select>
+
+            <!-- Filter by Skills Matrix Status -->
+            <select id="nexus-filter-skills" onchange="applyNexusTrackerFilters()" class="bg-[#1a1a1a]/50 border border-white/5 rounded-xl px-4 py-2.5 text-xs text-white/70 focus:outline-none focus:border-[#FE952D]/40 transition-all cursor-pointer">
+              <option value="All">Skills: All</option>
+              <option value="Certified">Certified (🟢)</option>
+              <option value="Uncertified">Uncertified (🔴)</option>
+            </select>
+
+            <!-- Filter by Products Assigned Status -->
+            <select id="nexus-filter-products" onchange="applyNexusTrackerFilters()" class="bg-[#1a1a1a]/50 border border-white/5 rounded-xl px-4 py-2.5 text-xs text-white/70 focus:outline-none focus:border-[#FE952D]/40 transition-all cursor-pointer">
+              <option value="All">Products: All</option>
+              <option value="Mapped">Mapped (🟢)</option>
+              <option value="Unmapped">Unmapped (🔴)</option>
+            </select>
+
+            <!-- Filter by Employee Status -->
+            <select id="nexus-filter-status" onchange="applyNexusTrackerFilters()" class="bg-[#1a1a1a]/50 border border-white/5 rounded-xl px-4 py-2.5 text-xs text-white/70 focus:outline-none focus:border-[#FE952D]/40 transition-all cursor-pointer">
+              <option value="All" selected>All Statuses</option>
+              <option value="Active">Active Only</option>
+              <option value="Inactive">Inactive Only</option>
+            </select>
+
+            <!-- Filter Actions & Export -->
+            <div class="flex items-center gap-2 w-full lg:w-auto shrink-0">
+              <button onclick="applyNexusTrackerFilters()" class="px-4 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-black uppercase tracking-widest rounded-xl transition-all shadow-md shadow-emerald-500/10 flex items-center justify-center gap-1.5 cursor-pointer">
+                <i class="fas fa-filter"></i> Apply Filters
+              </button>
+              <button onclick="resetNexusTrackerFilters()" class="px-4 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 hover:text-white text-xs font-black uppercase tracking-widest rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer">
+                <i class="fas fa-undo"></i> Reset Filters
+              </button>
+              <button onclick="exportNexusTrackerToCSV()" class="px-4 py-2.5 bg-[#FE952D] hover:bg-[#FE952D]/80 text-white text-xs font-black uppercase tracking-widest rounded-xl transition-all shadow-md shadow-[#FE952D]/10 flex items-center justify-center gap-1.5 cursor-pointer">
+                <i class="fas fa-file-export"></i> Export CSV
+              </button>
             </div>
           </div>
         </div>
+      </div>
 
-        <!-- Pending Certifications Table (Compliance Guard) -->
-        <div id="fin-pending-card" class="hidden p-8 bg-[#222222]/20 border border-white/5 rounded-[2rem] space-y-6 animate-in slide-in-from-bottom-4 duration-500">
-          <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-4 border-b border-white/5">
-            <div class="space-y-1">
-              <h4 class="text-xs font-black uppercase tracking-widest text-white/30">
-                <i class="fas fa-exclamation-triangle mr-2 text-[#FF0061]"></i>Pending Allocation Certifications
-              </h4>
-              <p class="text-[10px] text-white/40 uppercase">Roster of team members who have not certified their effort splits for <span id="fin-pending-period" class="text-white"></span></p>
-            </div>
-            <span id="fin-pending-count" class="px-3 py-1 bg-white/5 border border-white/10 rounded-xl text-[9px] font-black uppercase text-white/60">0 Pending</span>
-          </div>
-          <div class="overflow-x-auto">
-            <table class="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr class="bg-white/5 text-[9px] font-black uppercase tracking-widest text-white/40 border-b border-white/5">
-                  <th class="p-4 rounded-tl-xl">Employee</th>
-                  <th class="p-4">Email</th>
-                  <th class="p-4">Region</th>
-                  <th class="p-4 rounded-tr-xl">Direct Manager</th>
-                </tr>
-              </thead>
-              <tbody id="fin-pending-tbody" class="divide-y divide-white/5">
-                <!-- Dynamically populated -->
-              </tbody>
-            </table>
-          </div>
-          <div class="p-4 bg-white/5 rounded-xl border border-white/5 flex items-center gap-3">
-            <i class="fas fa-info-circle text-osttra-rubine text-xs shrink-0"></i>
-            <p class="text-[9px] font-bold text-white/50 uppercase tracking-wider leading-relaxed">
-              ⚠️ Compliance Note: To send bulk email reminders to uncertified team members, contact system administrators to run reminders from the central Compliance & Monitoring Center.
-            </p>
-          </div>
+      <!-- Monitoring Data Table -->
+      <div class="space-y-4">
+        <div id="nexus-tracker-table-wrapper" class="hidden overflow-x-auto rounded-2xl border border-white/5 bg-black/40">
+          <table class="w-full text-left border-collapse text-xs">
+            <thead>
+              <tr class="bg-white/5 text-[9px] font-black uppercase tracking-widest text-white/40 border-b border-white/5 whitespace-nowrap">
+                <th class="p-4">Employee</th>
+                <th class="p-4">Direct Manager</th>
+                <th class="p-4 text-center">Allocation Submitted</th>
+                <th class="p-4 text-center">FTE Validation</th>
+                <th class="p-4 text-center">Weekends Worked</th>
+                <th class="p-4 text-center">Skills Certified</th>
+                <th class="p-4 text-center">Products Mapped</th>
+                <th class="p-4 text-right">Region</th>
+              </tr>
+            </thead>
+            <tbody id="nexus-monitor-tbody" class="divide-y divide-white/5 text-white/70">
+              <!-- Populated Dynamically -->
+            </tbody>
+          </table>
         </div>
 
-        <!-- Employee Roster Card for Finance -->
-        <div id="finance-roster-card" class="p-8 bg-[#222222]/20 border border-white/5 border-l-4 border-l-[#FE952D] rounded-r-[2rem] rounded-l-md space-y-6 overflow-hidden animate-in fade-in duration-500">
-          <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-4 border-b border-white/5">
-            <div class="space-y-1">
-              <h4 class="text-xs font-black uppercase tracking-widest text-white/30">Active Roster under this Scope (<span id="finance-roster-count">0</span>)</h4>
-              <p class="text-[10px] text-white/40 uppercase">List of employees matching current filter criteria with active allocations</p>
-            </div>
+        <!-- Empty State -->
+        <div id="nexus-tracker-empty" class="hidden border border-white/5 rounded-3xl p-16 flex flex-col items-center justify-center text-center gap-4">
+          <div class="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center text-white/20 text-lg">
+            <i class="fas fa-users-slash"></i>
           </div>
-          <div class="overflow-x-auto rounded-2xl border border-white/5 bg-black/20 max-h-[300px]">
-            <table class="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr class="bg-white/5 text-[9px] font-black uppercase tracking-widest text-white/40 border-b border-white/5">
-                  <th class="p-4">Name</th>
-                  <th class="p-4">Email</th>
-                  <th class="p-4">Region</th>
-                  <th class="p-4">Head of Function</th>
-                </tr>
-              </thead>
-              <tbody id="finance-roster-tbody" class="divide-y divide-white/5 text-white/70">
-                <!-- Rendered Dynamically -->
-              </tbody>
-            </table>
+          <div class="space-y-1">
+            <h4 class="text-xs font-black uppercase text-white">No Employees Match Filter</h4>
+            <p class="text-[10px] text-white/40">Adjust your search parameters or selectors.</p>
           </div>
         </div>
-
       </div>
     </section>
 
@@ -414,6 +502,14 @@
   (function() {
     let charts = {}; // To manage and destroy Chart instances
 
+    // State storage for column sorting and CSV exports
+    window.activeFinanceEmployees = [];
+    window.activePendingEmployees = [];
+    let finSortCol = "name";
+    let finSortAsc = true;
+    let pendSortCol = "name";
+    let pendSortAsc = true;
+
     window.showAnalyticsTab = function(tabName) {
       // Hide all contents
       document.querySelectorAll('.analytics-tab-content').forEach(el => el.classList.add('hidden'));
@@ -433,7 +529,13 @@
       }
 
       const filterBar = document.getElementById('filter-toolbar');
-      if (filterBar) filterBar.classList.remove('hidden');
+      if (filterBar) {
+        if (tabName === 'finance') {
+          filterBar.classList.add('hidden');
+        } else {
+          filterBar.classList.remove('hidden');
+        }
+      }
         
       const periodContainer = document.getElementById('filter-period-container');
       const skillLvlContainer = document.getElementById('filter-skill-level-container');
@@ -502,6 +604,7 @@
         subProduct: subProduct,
         regionalHead: getVal('filt-head', 'All'),
         manager: getVal('filt-manager', 'All'),
+        layeredTeam: document.getElementById('filt-layered-team').checked,
         employeeName: '',
         skillLevel: skillLevel,
         skillScope: skillScope
@@ -537,23 +640,7 @@
       const filters = getFilterState(tabName);
 
       if (tabName === 'finance') {
-        const loader = document.getElementById('finance-inline-loader');
-        const grid = document.getElementById('finance-content-grid');
-        if (loader) loader.classList.remove('hidden');
-        if (grid) grid.classList.add('opacity-40');
-
-        google.script.run
-          .withSuccessHandler(data => {
-            if (loader) loader.classList.add('hidden');
-            if (grid) grid.classList.remove('opacity-40');
-            renderFinanceTab(data);
-          })
-          .withFailureHandler(err => {
-            if (loader) loader.classList.add('hidden');
-            if (grid) grid.classList.remove('opacity-40');
-            showNotification('Finance Fetch Failed', err.message, 'error');
-          })
-          .getCostOfDeliveryData(filters);
+        loadNexusTrackerData();
       } else if (tabName === 'heatmap' || tabName === 'skills') {
         const loaderId = tabName === 'heatmap' ? 'heatmap-inline-loader' : 'skills-inline-loader';
         const gridId = tabName === 'heatmap' ? 'heatmap-content-grid' : 'skills-content-grid';
@@ -578,199 +665,349 @@
     }
 
     /* =========================================================================
-       TAB 3: COST OF DELIVERY (FINANCE VIEW)
+       TAB 3: NEXUS TRACKER (REBRANDED AND MODIFIED FROM MONITORING ADMIN)
        ========================================================================= */
-    function renderFinanceTab(data) {
-      document.getElementById('fin-fte').innerText = Number(data.totalProductiveFTE).toFixed(2);
-      document.getElementById('fin-run').innerText = Number(data.totalRun).toFixed(2);
-      document.getElementById('fin-change').innerText = Number(data.totalChange).toFixed(2);
+    let nexusTrackerData = [];
 
-      const banner = document.getElementById('fin-readiness-banner');
-      const badge = document.getElementById('fin-readiness-badge');
-      const title = document.getElementById('fin-readiness-title');
-      const desc = document.getElementById('fin-readiness-desc');
-      const progress = document.getElementById('fin-readiness-progress');
+    // Global CSV Downloader Helper
+    window.downloadCSV = function(headers, rows, filename) {
+      const csvContent = "data:text/csv;charset=utf-8," 
+        + [headers.join(",")].concat(rows.map(r => r.map(val => `"${String(val).replace(/"/g, '""')}"`).join(","))).join("\n");
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute("download", filename);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    };
+
+    window.loadNexusTrackerData = function() {
+      const loader = document.getElementById('nexus-tracker-loading');
+      const tableWrapper = document.getElementById('nexus-tracker-table-wrapper');
+      const emptyState = document.getElementById('nexus-tracker-empty');
       
-      const comp = data.compliance;
-      const pendingUsers = comp ? (comp.pendingRoster || []) : [];
+      if (loader) loader.classList.remove('hidden');
+      if (tableWrapper) tableWrapper.classList.add('hidden');
+      if (emptyState) emptyState.classList.add('hidden');
       
-      if (banner && comp) {
-        banner.classList.remove('hidden');
-        progress.style.width = comp.certificationRate + '%';
-        
-        if (comp.certificationRate === 100) {
-          banner.className = "p-6 rounded-2xl border border-emerald-500/20 bg-emerald-500/5 flex flex-col items-start gap-4 transition-all duration-300";
-          badge.className = "px-2 py-0.5 rounded text-[9px] font-black uppercase bg-emerald-500/20 text-emerald-400";
-          badge.innerText = "READY";
-          title.innerText = "READY FOR FINANCE";
-          desc.innerText = `All employees (${comp.submittedCount} of ${comp.totalEmployees}) have certified their split allocations for ${comp.period}. This data is verified and ready for extraction.`;
-          progress.className = "absolute top-0 left-0 h-full bg-emerald-500 rounded-full transition-all duration-500";
-        } else {
-          banner.className = "p-6 rounded-2xl border border-[#FF0061]/20 bg-[#FF0061]/5 flex flex-col items-start gap-4 transition-all duration-300";
-          badge.className = "px-2 py-0.5 rounded text-[9px] font-black uppercase bg-[#FF0061]/20 text-[#FF0061]";
-          badge.innerText = "PENDING";
-          title.innerText = `PENDING FINANCE SUBMISSION — ${comp.certificationRate}% CERTIFIED`;
-          desc.innerText = `Operational split data is not yet fully certified. ${comp.submittedCount} of ${comp.totalEmployees} employees have submitted for ${comp.period}. Sending this data to finance now may result in incomplete reporting.`;
-          progress.className = "absolute top-0 left-0 h-full bg-[#FF0061] rounded-full transition-all duration-500";
+      const periodSelect = document.getElementById('nexus-filter-period');
+      if (periodSelect && periodSelect.options.length === 0) {
+        periodSelect.innerHTML = "";
+        const monthsList = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+        for (let i = 0; i < 6; i++) {
+          const today = new Date();
+          today.setDate(1);
+          today.setMonth(today.getMonth() - 1 - i);
+          const m = monthsList[today.getMonth()];
+          const y = today.getFullYear();
+          const periodStr = m + " " + y;
+          periodSelect.innerHTML += `<option value="${periodStr}">${periodStr}</option>`;
         }
       }
-
-      const pendingCard = document.getElementById('fin-pending-card');
-      const pendingCount = document.getElementById('fin-pending-count');
-      const pendingPeriod = document.getElementById('fin-pending-period');
-      const pendingTbody = document.getElementById('fin-pending-tbody');
       
-      if (pendingCard && comp) {
-        if (comp.certificationRate === 100 || pendingUsers.length === 0) {
-          pendingCard.classList.add('hidden');
-        } else {
-          pendingCard.classList.remove('hidden');
-          if (pendingCount) pendingCount.innerText = `${pendingUsers.length} Pending`;
-          if (pendingPeriod) pendingPeriod.innerText = comp.period;
+      const periodVal = periodSelect ? periodSelect.value : "";
+      
+      google.script.run
+        .withSuccessHandler(data => {
+          if (loader) loader.classList.add('hidden');
+          nexusTrackerData = data || [];
           
-          if (pendingTbody) {
-            pendingTbody.innerHTML = '';
-            pendingUsers.forEach(u => {
-              pendingTbody.innerHTML += `
-                <tr class="hover:bg-white/[0.02] transition-colors border-b border-white/5">
-                  <td class="p-4 font-bold text-white uppercase tracking-tight">${u.name}</td>
-                  <td class="p-4 font-mono text-white/60 text-[11px]">${u.email}</td>
-                  <td class="p-4 text-white/50 uppercase text-[10px] tracking-wider">${u.region}</td>
-                  <td class="p-4 text-white/60 font-medium">${u.managerName}</td>
-                </tr>
-              `;
+          // Seed Region filter
+          const regions = [...new Set(nexusTrackerData.map(e => e.region))].sort();
+          const regionSelect = document.getElementById('nexus-filter-region');
+          if (regionSelect) {
+            regionSelect.innerHTML = '<option value="All">All Regions</option>';
+            regions.forEach(r => {
+              if (r) {
+                regionSelect.innerHTML += `<option value="${r}">${r}</option>`;
+              }
             });
           }
-        }
-      }
 
-      destroyChart('finance');
-      const ctxFin = document.getElementById('chart-finance').getContext('2d');
-      charts['finance'] = new Chart(ctxFin, {
-        type: 'bar',
-        data: {
-          labels: data.regionalDistribution.labels,
-          datasets: [
-            {
-              label: 'Run (BAU)',
-              data: data.regionalDistribution.run,
-              backgroundColor: '#FE952D',
-              borderRadius: 6
-            },
-            {
-              label: 'Change (Non-BAU+MGMT)',
-              data: data.regionalDistribution.change,
-              backgroundColor: '#FF0061',
-              borderRadius: 6
-            }
-          ]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          scales: {
-            x: { stacked: true, grid: { display: false }, ticks: { color: 'rgba(255,255,255,0.4)', font: { size: 9 } } },
-            y: { stacked: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: 'rgba(255,255,255,0.4)', font: { size: 9 } } }
-          },
-          plugins: {
-            legend: { display: true, position: 'top', labels: { color: 'rgba(255,255,255,0.6)', font: { size: 9, family: 'monospace' } } }
+          // Seed Direct Manager filter
+          const managers = [...new Set(nexusTrackerData.map(e => e.managerName))].sort();
+          const managerSelect = document.getElementById('nexus-filter-manager');
+          if (managerSelect) {
+            managerSelect.innerHTML = '<option value="All">All Direct Managers</option>';
+            managers.forEach(m => {
+              if (m && m !== 'N/A' && m !== 'Unknown') {
+                managerSelect.innerHTML += `<option value="${m}">${m}</option>`;
+              }
+            });
           }
-        }
+
+          // Seed Head of Function filter
+          const heads = [...new Set(nexusTrackerData.map(e => e.headOfFunction))].sort();
+          const headSelect = document.getElementById('nexus-filter-head');
+          if (headSelect) {
+            headSelect.innerHTML = '<option value="All">All Functional Heads</option>';
+            heads.forEach(h => {
+              if (h && h !== 'N/A' && h !== 'Unknown') {
+                headSelect.innerHTML += `<option value="${h}">${h}</option>`;
+              }
+            });
+          }
+
+          calculateNexusTrackerStats();
+          applyNexusTrackerFilters();
+        })
+        .withFailureHandler(err => {
+          if (loader) loader.classList.add('hidden');
+          showNotification('Fetch Failed', err.message, 'error');
+        })
+        .getAdminMonitorData(periodVal);
+    };
+
+    function calculateNexusTrackerStats() {
+      const activeEmployees = nexusTrackerData.filter(e => e.isActive);
+      const activeCount = activeEmployees.length;
+      const inactiveCount = nexusTrackerData.length - activeCount;
+
+      const alloc = activeEmployees.filter(e => e.hasAllocation).length;
+      const skills = activeEmployees.filter(e => e.hasSkills).length;
+      const products = activeEmployees.filter(e => e.hasProductScope).length;
+
+      const statActive = document.getElementById('nexus-stat-active-employees');
+      const statInactive = document.getElementById('nexus-stat-inactive-employees');
+      const statAlloc = document.getElementById('nexus-stat-alloc-submitted');
+      const statAllocPct = document.getElementById('nexus-stat-alloc-pct');
+      const statSkills = document.getElementById('nexus-stat-skills-certified');
+      const statSkillsPct = document.getElementById('nexus-stat-skills-pct');
+      const statProducts = document.getElementById('nexus-stat-products-mapped');
+      const statProductsPct = document.getElementById('nexus-stat-products-pct');
+
+      if (statActive) statActive.innerText = activeCount;
+      if (statInactive) statInactive.innerText = inactiveCount;
+      
+      if (statAlloc) statAlloc.innerText = alloc;
+      if (statAllocPct) statAllocPct.innerText = `(${activeCount ? Math.round((alloc / activeCount) * 100) : 0}%)`;
+      
+      if (statSkills) statSkills.innerText = skills;
+      if (statSkillsPct) statSkillsPct.innerText = `(${activeCount ? Math.round((skills / activeCount) * 100) : 0}%)`;
+      
+      if (statProducts) statProducts.innerText = products;
+      if (statProductsPct) statProductsPct.innerText = `(${activeCount ? Math.round((products / activeCount) * 100) : 0}%)`;
+    }
+
+    window.applyNexusTrackerFilters = function() {
+      const search = (document.getElementById('nexus-monitor-search')?.value || '').toLowerCase().trim();
+      const region = document.getElementById('nexus-filter-region')?.value || 'All';
+      const managerFilter = document.getElementById('nexus-filter-manager')?.value || 'All';
+      const headFilter = document.getElementById('nexus-filter-head')?.value || 'All';
+      const allocFilter = document.getElementById('nexus-filter-alloc')?.value || 'All';
+      const fteFilter = document.getElementById('nexus-filter-fte')?.value || 'All';
+      const weekendFilter = document.getElementById('nexus-filter-weekend')?.value || 'All';
+      const skillsFilter = document.getElementById('nexus-filter-skills')?.value || 'All';
+      const productsFilter = document.getElementById('nexus-filter-products')?.value || 'All';
+      const statusFilter = document.getElementById('nexus-filter-status')?.value || 'All';
+
+      const filtered = nexusTrackerData.filter(e => {
+        const matchesSearch = e.name.toLowerCase().includes(search) || e.email.toLowerCase().includes(search);
+        const matchesRegion = region === 'All' || e.region === region;
+        const matchesManager = managerFilter === 'All' || e.managerName === managerFilter;
+        const matchesHead = headFilter === 'All' || e.headOfFunction === headFilter;
+        
+        const matchesAlloc = allocFilter === 'All' || 
+          (allocFilter === 'Submitted' && e.hasAllocation) || 
+          (allocFilter === 'Pending' && !e.hasAllocation);
+          
+        const matchesFte = fteFilter === 'All' ||
+          (fteFilter === 'Valid' && e.fteStatus === 'Valid') ||
+          (fteFilter === 'Pending' && e.fteStatus === 'Pending') ||
+          (fteFilter === 'Invalid' && e.fteStatus === 'Invalid');
+          
+        const matchesWeekend = weekendFilter === 'All' ||
+          (weekendFilter === 'Worked' && e.workedWeekend) ||
+          (weekendFilter === 'NotWorked' && !e.workedWeekend);
+          
+        const matchesSkills = skillsFilter === 'All' || 
+          (skillsFilter === 'Certified' && e.hasSkills) || 
+          (skillsFilter === 'Uncertified' && !e.hasSkills);
+          
+        const matchesProducts = productsFilter === 'All' || 
+          (productsFilter === 'Mapped' && e.hasProductScope) || 
+          (productsFilter === 'Unmapped' && !e.hasProductScope);
+
+        const matchesStatus = statusFilter === 'All' ||
+          (statusFilter === 'Active' && e.isActive) ||
+          (statusFilter === 'Inactive' && !e.isActive);
+
+        return matchesSearch && matchesRegion && matchesManager && matchesHead && matchesAlloc && matchesFte && matchesWeekend && matchesSkills && matchesProducts && matchesStatus;
       });
 
-      if (comp) {
-        destroyChart('fin-compliance-alloc');
-        const ctxAlloc = document.getElementById('chart-fin-compliance-alloc').getContext('2d');
-        charts['fin-compliance-alloc'] = new Chart(ctxAlloc, {
-          type: 'doughnut',
-          data: {
-            labels: ['Certified', 'Pending'],
-            datasets: [{
-              data: [comp.submittedCount, comp.totalEmployees - comp.submittedCount],
-              backgroundColor: ['#10B981', 'rgba(255,255,255,0.05)'],
-              borderWidth: 0
-            }]
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-              legend: { display: true, position: 'bottom', labels: { color: 'rgba(255,255,255,0.6)', font: { size: 9, family: 'monospace' } } }
-            }
-          }
-        });
+      renderNexusTrackerTable(filtered);
+    };
 
-        destroyChart('fin-compliance-fte');
-        const ctxFte = document.getElementById('chart-fin-compliance-fte').getContext('2d');
-        charts['fin-compliance-fte'] = new Chart(ctxFte, {
-          type: 'doughnut',
-          data: {
-            labels: ['Valid (1.00 FTE)', 'Discrepancy', 'Pending'],
-            datasets: [{
-              data: [comp.fteAudit.valid, comp.fteAudit.invalid, comp.fteAudit.pending],
-              backgroundColor: ['#10B981', '#FF0061', 'rgba(255,255,255,0.05)'],
-              borderWidth: 0
-            }]
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-              legend: { display: true, position: 'bottom', labels: { color: 'rgba(255,255,255,0.6)', font: { size: 9, family: 'monospace' } } }
-            }
-          }
-        });
-
-        destroyChart('fin-compliance-days');
-        const ctxDays = document.getElementById('chart-fin-compliance-days').getContext('2d');
-        charts['fin-compliance-days'] = new Chart(ctxDays, {
-          type: 'doughnut',
-          data: {
-            labels: ['Equal Standard', 'Under Standard', 'Over Standard', 'Pending'],
-            datasets: [{
-              data: [comp.daysAudit.equal, comp.daysAudit.less, comp.daysAudit.more, comp.daysAudit.pending],
-              backgroundColor: ['#10B981', '#FF0061', '#FE952D', 'rgba(255,255,255,0.05)'],
-              borderWidth: 0
-            }]
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-              legend: { display: true, position: 'bottom', labels: { color: 'rgba(255,255,255,0.6)', font: { size: 9, family: 'monospace' } } }
-            }
-          }
-        });
+    function renderFteBadge(e) {
+      if (!e.hasAllocation || e.totalAllocPct === 0) {
+        return '<span class="px-2.5 py-1 rounded-xl bg-white/5 border border-white/5 text-[9px] font-black text-white/30 uppercase tracking-widest">PENDING</span>';
       }
-
-      // Populate Finance Roster Table
-      const fTbody = document.getElementById('finance-roster-tbody');
-      const fCount = document.getElementById('finance-roster-count');
-      if (fTbody) {
-        fTbody.innerHTML = "";
-        const emps = data.employees || [];
-        if (fCount) fCount.innerText = emps.length;
-        
-        if (emps.length === 0) {
-          fTbody.innerHTML = `
-            <tr>
-              <td colspan="4" class="p-8 text-center text-white/20 uppercase italic tracking-widest text-xs">
-                No matching employees under current filters
-              </td>
-            </tr>
-          `;
-        } else {
-          fTbody.innerHTML = emps.map(emp => `
-            <tr class="hover:bg-white/[0.02] transition-colors border-b border-white/5">
-              <td class="p-4 font-bold text-white uppercase tracking-tight">${emp.name}</td>
-              <td class="p-4 font-mono text-[10px] text-white/40 lowercase tracking-widest">${emp.email}</td>
-              <td class="p-4 text-white/60">${emp.region}</td>
-              <td class="p-4 text-white/60">${emp.head}</td>
-            </tr>
-          `).join('');
-        }
+      if (e.totalAllocPct === 100) {
+        return '<span class="px-2.5 py-1 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-[9px] font-black text-emerald-400 uppercase tracking-widest"><i class="fas fa-check-circle mr-1"></i>1.00 FTE (100%)</span>';
       }
+      const fteValue = (e.totalAllocPct / 100).toFixed(2);
+      return `<span class="px-2.5 py-1 rounded-xl bg-osttra-rubine/10 border border-osttra-rubine/20 text-[9px] font-black text-[#FF0061] uppercase tracking-widest animate-pulse"><i class="fas fa-exclamation-triangle mr-1"></i>${fteValue} FTE (${e.totalAllocPct}%)</span>`;
     }
+
+    function renderWeekendsBadge(e) {
+      if (!e.hasAllocation) {
+        return '<span class="px-2 py-0.5 rounded text-[8px] font-black uppercase bg-white/5 border border-white/5 text-white/30 tracking-widest">PENDING</span>';
+      }
+      if (!e.workedWeekend || e.weekendDaysWorked === 0) {
+        return '<span class="px-2 py-0.5 rounded text-[8px] font-black uppercase bg-white/5 border border-white/5 text-white/40 tracking-widest">0 DAYS</span>';
+      }
+      return `<span class="px-2 py-0.5 rounded text-[8px] font-black uppercase bg-osttra-violet/10 border border-osttra-violet/20 text-osttra-violet tracking-widest animate-pulse"><i class="fas fa-calendar-check mr-1"></i>${e.weekendDaysWorked} DAYS</span>`;
+    }
+
+    function renderNexusTrackerTable(data) {
+      const tbody = document.getElementById('nexus-monitor-tbody');
+      const tableWrapper = document.getElementById('nexus-tracker-table-wrapper');
+      const emptyState = document.getElementById('nexus-tracker-empty');
+      
+      if (!tbody) return;
+      tbody.innerHTML = "";
+      
+      if (data.length === 0) {
+        if (tableWrapper) tableWrapper.classList.add('hidden');
+        if (emptyState) emptyState.classList.remove('hidden');
+        return;
+      }
+
+      if (emptyState) emptyState.classList.add('hidden');
+      if (tableWrapper) tableWrapper.classList.remove('hidden');
+
+      data.forEach(e => {
+        const row = `
+          <tr class="hover:bg-white/5 transition-colors border-b border-white/5">
+            <td class="p-4 font-bold uppercase tracking-tight text-white">
+              ${e.name}<br>
+              <span class="text-[9px] font-mono font-medium text-white/40 lowercase tracking-widest">${e.email}</span>
+            </td>
+            <td class="p-4 font-bold text-white/80">
+              ${e.managerName}<br>
+              ${e.isManagerInvalid 
+                ? `<span class="text-[9px] font-mono font-bold text-osttra-rubine lowercase tracking-widest" title="Manager email not found in directory">⚠️ ${e.managerEmail} (Invalid)</span>`
+                : `<span class="text-[9px] font-mono font-medium text-white/40 lowercase tracking-widest">${e.managerEmail}</span>`}
+            </td>
+            <td class="p-4 text-center">
+              ${e.hasAllocation 
+                ? '<span class="inline-flex w-3 h-3 bg-emerald-500 rounded-full border border-emerald-500/20 shadow-md"></span>' 
+                : '<span class="inline-flex w-3 h-3 bg-osttra-rubine rounded-full border border-osttra-rubine/20 shadow-md"></span>'}
+            </td>
+            <td class="p-4 text-center">
+              ${renderFteBadge(e)}
+            </td>
+            <td class="p-4 text-center">
+              ${renderWeekendsBadge(e)}
+            </td>
+            <td class="p-4 text-center">
+              ${e.hasSkills 
+                ? '<span class="inline-flex w-3 h-3 bg-emerald-500 rounded-full border border-emerald-500/20 shadow-md"></span>' 
+                : '<span class="inline-flex w-3 h-3 bg-osttra-rubine rounded-full border border-osttra-rubine/20 shadow-md"></span>'}
+            </td>
+            <td class="p-4 text-center">
+              ${e.hasProductScope 
+                ? '<span class="inline-flex w-3 h-3 bg-emerald-500 rounded-full border border-emerald-500/20 shadow-md"></span>' 
+                : '<span class="inline-flex w-3 h-3 bg-osttra-rubine rounded-full border border-osttra-rubine/20 shadow-md"></span>'}
+            </td>
+            <td class="p-4 text-right font-semibold text-white/60">${e.region}</td>
+          </tr>
+        `;
+        tbody.insertAdjacentHTML('beforeend', row);
+      });
+    }
+
+    window.resetNexusTrackerFilters = function() {
+      const search = document.getElementById('nexus-monitor-search');
+      const region = document.getElementById('nexus-filter-region');
+      const manager = document.getElementById('nexus-filter-manager');
+      const head = document.getElementById('nexus-filter-head');
+      const alloc = document.getElementById('nexus-filter-alloc');
+      const fte = document.getElementById('nexus-filter-fte');
+      const weekend = document.getElementById('nexus-filter-weekend');
+      const skills = document.getElementById('nexus-filter-skills');
+      const products = document.getElementById('nexus-filter-products');
+      const status = document.getElementById('nexus-filter-status');
+
+      if (search) search.value = "";
+      if (region) region.value = "All";
+      if (manager) manager.value = "All";
+      if (head) head.value = "All";
+      if (alloc) alloc.value = "All";
+      if (fte) fte.value = "All";
+      if (weekend) weekend.value = "All";
+      if (skills) skills.value = "All";
+      if (products) products.value = "All";
+      if (status) status.value = "All";
+      
+      applyNexusTrackerFilters();
+    };
+
+    window.exportNexusTrackerToCSV = function() {
+      const search = (document.getElementById('nexus-monitor-search')?.value || '').toLowerCase().trim();
+      const region = document.getElementById('nexus-filter-region')?.value || 'All';
+      const managerFilter = document.getElementById('nexus-filter-manager')?.value || 'All';
+      const headFilter = document.getElementById('nexus-filter-head')?.value || 'All';
+      const allocFilter = document.getElementById('nexus-filter-alloc')?.value || 'All';
+      const fteFilter = document.getElementById('nexus-filter-fte')?.value || 'All';
+      const weekendFilter = document.getElementById('nexus-filter-weekend')?.value || 'All';
+      const skillsFilter = document.getElementById('nexus-filter-skills')?.value || 'All';
+      const productsFilter = document.getElementById('nexus-filter-products')?.value || 'All';
+      const statusFilter = document.getElementById('nexus-filter-status')?.value || 'All';
+
+      const filtered = nexusTrackerData.filter(e => {
+        const matchesSearch = e.name.toLowerCase().includes(search) || e.email.toLowerCase().includes(search);
+        const matchesRegion = region === 'All' || e.region === region;
+        const matchesManager = managerFilter === 'All' || e.managerName === managerFilter;
+        const matchesHead = headFilter === 'All' || e.headOfFunction === headFilter;
+        
+        const matchesAlloc = allocFilter === 'All' || 
+          (allocFilter === 'Submitted' && e.hasAllocation) || 
+          (allocFilter === 'Pending' && !e.hasAllocation);
+          
+        const matchesFte = fteFilter === 'All' ||
+          (fteFilter === 'Valid' && e.fteStatus === 'Valid') ||
+          (fteFilter === 'Pending' && e.fteStatus === 'Pending') ||
+          (fteFilter === 'Invalid' && e.fteStatus === 'Invalid');
+          
+        const matchesWeekend = weekendFilter === 'All' ||
+          (weekendFilter === 'Worked' && e.workedWeekend) ||
+          (weekendFilter === 'NotWorked' && !e.workedWeekend);
+          
+        const matchesSkills = skillsFilter === 'All' || 
+          (skillsFilter === 'Certified' && e.hasSkills) || 
+          (skillsFilter === 'Uncertified' && !e.hasSkills);
+          
+        const matchesProducts = productsFilter === 'All' || 
+          (productsFilter === 'Mapped' && e.hasProductScope) || 
+          (productsFilter === 'Unmapped' && !e.hasProductScope);
+
+        const matchesStatus = statusFilter === 'All' ||
+          (statusFilter === 'Active' && e.isActive) ||
+          (statusFilter === 'Inactive' && !e.isActive);
+
+        return matchesSearch && matchesRegion && matchesManager && matchesHead && matchesAlloc && matchesFte && matchesWeekend && matchesSkills && matchesProducts && matchesStatus;
+      });
+
+      const headers = ["Employee Name", "Employee Email", "Direct Manager", "Manager Email", "Allocation Submitted", "FTE Status", "FTE %", "Weekends Worked", "Skills Certified", "Products Mapped", "Region"];
+      const rows = filtered.map(e => [
+        e.name,
+        e.email,
+        e.managerName,
+        e.managerEmail,
+        e.hasAllocation ? "Yes" : "No",
+        e.fteStatus,
+        e.totalAllocPct + "%",
+        e.weekendDaysWorked,
+        e.hasSkills ? "Yes" : "No",
+        e.hasProductScope ? "Yes" : "No",
+        e.region
+      ]);
+      
+      const currentPeriod = document.getElementById('nexus-filter-period')?.value || "Active Period";
+      window.downloadCSV(headers, rows, `Nexus_Tracker_Export_${currentPeriod.replace(/ /g, '_')}.csv`);
+    };
 
     /* =========================================================================
        TAB 4 & 5: HEATMAPS COMMAND SUITES

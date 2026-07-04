@@ -312,7 +312,7 @@
                         </div>
                         
                         <div class="flex gap-2">
-                          <a href="${url}" target="_blank" class="flex-1 text-center py-2.5 bg-white/5 hover:bg-osttra-rubine rounded-xl text-white text-[9px] font-black uppercase tracking-widest transition-all">
+                          <a href="${url}" target="_blank" class="flex-1 flex items-center justify-center py-2.5 bg-white/5 hover:bg-osttra-rubine rounded-xl text-white text-[9px] font-black uppercase tracking-widest transition-all">
                             <i class="fas fa-external-link-alt mr-1"></i> Launch
                           </a>
                           <button onclick="editReport('${id}')" class="px-3 bg-white/5 hover:bg-white/10 rounded-xl border border-white/10 text-white/60 hover:text-white transition-all">
@@ -377,7 +377,7 @@
                       </div>
                       
                       <div class="flex gap-2">
-                        <a href="${url}" target="_blank" class="flex-1 text-center py-2.5 bg-white/5 hover:bg-osttra-rubine rounded-xl text-white text-[9px] font-black uppercase tracking-widest transition-all">
+                        <a href="${url}" target="_blank" class="flex-1 flex items-center justify-center py-2.5 bg-white/5 hover:bg-osttra-rubine rounded-xl text-white text-[9px] font-black uppercase tracking-widest transition-all">
                           <i class="fas fa-external-link-alt mr-1"></i> Launch
                         </a>
                         <button onclick="editReport('${id}')" class="px-3 bg-white/5 hover:bg-white/10 rounded-xl border border-white/10 text-white/60 hover:text-white transition-all">
@@ -529,15 +529,22 @@
 
     window.deleteReport = function(id) {
       if (confirm(`⚠️ WARNING: Are you sure you want to permanently delete Report Link ${id}?`)) {
-        showLoading(`Deleting report ${id}...`);
+        const btn = document.querySelector(`button[onclick="deleteReport('${id}')"]`);
+        if (btn) {
+          btn.disabled = true;
+          btn.innerHTML = '<i class="fas fa-spinner animate-spin text-xs"></i>';
+        }
+
         google.script.run
           .withSuccessHandler(() => {
-            hideLoading();
             showNotification('Deleted', `Report link ${id} was deleted successfully.`, 'success');
             loadRegistry();
           })
           .withFailureHandler(err => {
-            hideLoading();
+            if (btn) {
+              btn.disabled = false;
+              btn.innerHTML = '<i class="fas fa-trash-alt text-xs"></i>';
+            }
             showNotification('Deletion Failed', err.message, 'error');
           })
           .deleteReportLink(id);
@@ -587,7 +594,18 @@
 
     window.executeConfirmSave = function() {
       closeComplianceModal();
-      showLoading('Saving analytical link context...');
+      
+      const saveBtn = document.querySelector('#report-form button[type="submit"]');
+      const confirmBtn = document.getElementById('compliance-confirm-btn');
+
+      if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '<i class="fas fa-spinner animate-spin"></i> Saving...';
+      }
+      if (confirmBtn) {
+        confirmBtn.disabled = true;
+        confirmBtn.innerHTML = '<i class="fas fa-spinner animate-spin"></i> Saving...';
+      }
 
       const payload = {
         id: document.getElementById('report-id').value,
@@ -603,13 +621,27 @@
 
       google.script.run
         .withSuccessHandler(() => {
-          hideLoading();
+          if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = '<i class="fas fa-save"></i> Save Report Link';
+          }
+          if (confirmBtn) {
+            confirmBtn.disabled = false;
+            confirmBtn.innerHTML = 'Confirm & Publish';
+          }
           showNotification('Saved Successfully', 'Report configuration committed to database.', 'success');
           closeReportModal(); // Close modal upon success!
           loadRegistry();
         })
         .withFailureHandler(err => {
-          hideLoading();
+          if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = '<i class="fas fa-save"></i> Save Report Link';
+          }
+          if (confirmBtn) {
+            confirmBtn.disabled = false;
+            confirmBtn.innerHTML = 'Confirm & Publish';
+          }
           showNotification('Save Failed', err.message, 'error');
         })
         .saveReportLink(payload);

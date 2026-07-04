@@ -1,46 +1,24 @@
 <div class="p-8 max-w-6xl mx-auto space-y-8 animate-in fade-in duration-700">
   <!-- Header -->
-  <div class="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
+  <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
     <div class="space-y-2">
       <h2 class="text-2xl font-black text-osttra-rubine uppercase tracking-widest flex items-center gap-2">
-        <i class="fas fa-edit text-xl"></i> Effort Allocation
+        <i class="fas fa-edit text-xl"></i> Effort Allocation <span id="auto-save-status" class="text-[9px] font-bold uppercase tracking-widest text-white/30 ml-3"></span>
       </h2>
       <p id="certification-period" class="text-white/40 text-sm font-medium tracking-wide uppercase">Tabular Self-Certification | Period: Loading...</p>
     </div>
-    <div class="px-6 py-3 bg-white/5 border border-white/10 rounded-2xl flex items-center gap-4">
-      <div class="text-right">
-        <p id="welcome-name" class="text-sm font-black text-white uppercase tracking-wider"></p>
-        <p id="user-region-text" class="text-[9px] font-bold text-white/30 uppercase tracking-[0.2em]"></p>
-      </div>
-      <div class="w-10 h-10 rounded-full osttra-gradient p-0.5">
-        <div id="user-photo-small" class="w-full h-full bg-osttra-dark rounded-full overflow-hidden"></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Guideline & Reference Banner -->
-  <div class="grid grid-cols-1 gap-6">
-    <!-- Month Capacity Card -->
-    <div class="glass p-6 rounded-3xl border border-white/5 flex items-start gap-4">
-      <div class="w-10 h-10 rounded-xl bg-osttra-ochre/10 flex items-center justify-center text-osttra-ochre shrink-0">
-        <i class="fas fa-percent text-lg"></i>
-      </div>
-      <div class="space-y-1">
-        <p class="text-[10px] font-black uppercase text-osttra-ochre tracking-widest">Operational Capacity Target</p>
-        <p class="text-xs text-white/60 leading-relaxed">
-          Standard operational base is set to <span class="text-white font-bold">100%</span> (1.0 FTE). All product allocations must sum perfectly to exactly 100%.
-        </p>
-      </div>
-    </div>
+    <button onclick="handleReload()" class="px-5 py-2.5 bg-white/5 border border-white/10 hover:bg-white/10 text-white/70 hover:text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-200 flex items-center gap-2">
+      <i class="fas fa-sync-alt"></i> Refresh Data
+    </button>
   </div>
 
   <!-- Lock / Submission Info Banner -->
   <div id="lock-info-banner" class="hidden shrink-0 animate-in slide-in-from-top duration-500"></div>
 
   <!-- Main Workspace -->
-  <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
+  <div class="space-y-8">
     <!-- Tabular Entry Grid (Left) -->
-    <div class="lg:col-span-3 space-y-6">
+    <div class="space-y-6">
       <!-- Working Days Capacity Tracking (Progressive Disclosure) -->
       <div class="glass rounded-[2rem] border border-white/5 p-6 space-y-6">
         <div class="flex items-center gap-2 border-b border-white/5 pb-3">
@@ -48,44 +26,26 @@
           <h4 class="text-xs font-black uppercase tracking-[0.2em] text-osttra-ochre">Working Days & Capacity</h4>
         </div>
         
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
-          
-          <!-- LEFT HAND SIDE: Data Entering Fields -->
-          <div class="space-y-6">
-            <!-- 1. Include Weekend/Overtime Checkbox on Top -->
-            <div class="pt-2">
-              <label class="flex items-center gap-3 cursor-pointer select-none">
-                <input type="checkbox" id="working-days-weekend-check" onchange="toggleWeekendDaysInput()" class="rounded bg-white/5 border border-white/10 shadow-inner text-osttra-rubine focus:ring-osttra-rubine focus:ring-offset-0 focus:outline-none w-4 h-4">
-                <span class="text-[10px] font-black uppercase tracking-widest text-white/60">Include Weekend / Overtime Shift</span>
-              </label>
-            </div>
-
-            <!-- 2. Total Working Days -->
-            <div class="space-y-2">
-              <label class="text-[10px] font-black uppercase tracking-widest text-white/40 block">Total Working Days</label>
-              <input type="number" id="working-days-total" min="0" oninput="this.value = this.value.replace(/[^0-9.]/g, ''); calculateTotals()" class="w-full bg-white/5 border border-white/10 shadow-inner rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:bg-white/10 focus:border-osttra-rubine focus:ring-1 focus:ring-osttra-rubine/50 transition-all">
-            </div>
-
-            <!-- 3. Additional Days (Weekend/OT) -->
-            <div id="working-days-weekend-container" class="space-y-2">
-              <label class="text-[10px] font-black uppercase tracking-widest text-white/40 block">Additional Days (Weekend/OT)</label>
-              <input type="number" id="working-days-weekend" min="0" max="8" step="0.5" disabled oninput="this.value = this.value.replace(/[^0-9.]/g, ''); calculateTotals()" class="w-full bg-white/5 border border-white/10 shadow-inner rounded-xl px-4 py-2.5 text-xs text-white/30 focus:outline-none focus:bg-white/10 focus:border-osttra-rubine focus:ring-1 focus:ring-osttra-rubine/50 transition-all opacity-50 cursor-not-allowed">
-            </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
+          <!-- 1. Include Weekend/Overtime Checkbox -->
+          <div class="space-y-3 pb-2.5">
+            <label class="flex items-center gap-3 cursor-pointer select-none">
+              <input type="checkbox" id="working-days-weekend-check" onchange="toggleWeekendDaysInput()" class="rounded bg-white/5 border border-white/10 shadow-inner text-osttra-rubine focus:ring-osttra-rubine focus:ring-offset-0 focus:outline-none w-4 h-4">
+              <span class="text-[10px] font-black uppercase tracking-widest text-white/60">Include Weekend / Overtime Shift</span>
+            </label>
           </div>
 
-          <!-- RIGHT HAND SIDE: Instructions -->
-          <div class="space-y-6">
-            <!-- 1. Instructions -->
-            <div class="p-5 bg-white/5 rounded-2xl border border-white/5 space-y-2.5">
-              <h5 class="text-[9px] font-black uppercase tracking-widest text-osttra-ochre">Allocation Guidelines</h5>
-              <ul class="text-[10px] text-white/60 list-disc pl-4 space-y-1.5 font-medium leading-relaxed uppercase tracking-wider">
-                <li>Deduct any PTO, Sick Leave, or Public Holidays from your <strong class="text-white">Total Working Days</strong>.</li>
-                <li>Standard weekdays baseline for this month is <strong id="working-days-baseline" class="text-white">--</strong> days.</li>
-                <li>If you worked weekend shifts or overtime, check the box on the left to log extra shift ranging from 0.5 to 8.</li>
-              </ul>
-            </div>
+          <!-- 2. Total Working Days -->
+          <div class="space-y-2">
+            <label class="text-[10px] font-black uppercase tracking-widest text-white/40 block">Total Working Days</label>
+            <input type="number" id="working-days-total" min="0" step="any" oninput="calculateTotals()" class="w-full bg-white/5 border border-white/10 shadow-inner rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:bg-white/10 focus:border-osttra-rubine focus:ring-1 focus:ring-osttra-rubine/50 transition-all">
           </div>
 
+          <!-- 3. Additional Days (Weekend/OT) -->
+          <div id="working-days-weekend-container" class="space-y-2">
+            <label class="text-[10px] font-black uppercase tracking-widest text-white/40 block">Additional Days (Weekend/OT)</label>
+            <input type="number" id="working-days-weekend" min="0" max="8" step="0.5" disabled oninput="calculateTotals()" class="w-full bg-white/5 border border-white/10 shadow-inner rounded-xl px-4 py-2.5 text-xs text-white/30 focus:outline-none focus:bg-white/10 focus:border-osttra-rubine focus:ring-1 focus:ring-osttra-rubine/50 transition-all opacity-50 cursor-not-allowed">
+          </div>
         </div>
 
         <!-- Underneath Both: Comments -->
@@ -134,53 +94,64 @@
           </table>
         </div>
       </div>
-    </div>
 
-    <!-- Effort Breakdown & Gauge (Right) -->
-    <div class="space-y-6 shrink-0 flex flex-col">
-      <!-- FTE circular status -->
-      <div class="p-8 glass rounded-3xl border border-white/5 space-y-6 text-center flex flex-col justify-center items-center">
-        <p class="text-[10px] font-black text-white/30 uppercase tracking-[0.3em]">Operational Balance</p>
-        <div class="relative inline-flex items-center justify-center">
-          <svg class="w-40 h-32 transform -rotate-90">
-            <circle cx="80" cy="64" r="58" stroke="currentColor" stroke-width="10" fill="transparent" class="text-white/5"></circle>
-            <circle id="fte-progress" cx="80" cy="64" r="58" stroke="currentColor" stroke-width="10" fill="transparent" stroke-dasharray="364.4" stroke-dashoffset="364.4" class="text-osttra-rubine transition-all duration-500"></circle>
-          </svg>
-          <div class="absolute flex flex-col items-center">
-            <span id="total-fte-text" class="text-2xl font-black text-white">0%</span>
-            <span class="text-[9px] font-black text-white/40 uppercase mt-0.5">Allocated</span>
+      <!-- Modern Full-Width Horizontal Progress Bar -->
+      <div class="p-8 glass rounded-[2rem] border border-white/5 space-y-4 shadow-[0_0_20px_rgba(0,0,0,0.2)]">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-2">
+          <div>
+            <p class="text-[10px] font-black text-white/30 uppercase tracking-[0.3em]">Operational Balance</p>
+            <p id="fte-status-msg" class="text-xs font-bold text-white/40 uppercase tracking-widest mt-1">No allocation entered</p>
+          </div>
+          <div class="flex items-baseline gap-2 shrink-0">
+            <span id="total-fte-text" class="text-4xl font-black text-white">0%</span>
+            <span class="text-[9px] font-black text-white/40 uppercase tracking-widest font-mono">Allocated</span>
           </div>
         </div>
-        <p id="fte-status-msg" class="text-xs font-bold text-white/40 uppercase tracking-widest">No allocation entered</p>
+        <!-- Linear Progress Bar -->
+        <div class="relative w-full h-4 bg-white/5 rounded-full overflow-hidden border border-white/5 shadow-inner">
+          <div id="fte-progress" class="absolute top-0 left-0 h-full bg-osttra-rubine transition-all duration-500 rounded-full" style="width: 0%"></div>
+        </div>
       </div>
 
-      <!-- Actions Panel -->
-      <div class="p-8 glass rounded-3xl border border-white/5 space-y-6 flex-1 flex flex-col justify-between">
-        <div class="space-y-4">
-          <h4 class="text-xs font-black uppercase tracking-widest text-white/30">Compliance Checklist</h4>
-          <div class="space-y-3">
-            <div id="check-products" class="flex items-center gap-3 text-xs text-white/40">
-              <i class="fas fa-check-circle text-white/10"></i>
-              <span>Has assigned products</span>
-            </div>
-            <div id="check-hours" class="flex items-center gap-3 text-xs text-white/40">
-              <i class="fas fa-check-circle text-white/10"></i>
-              <span>Total sum matches 100%</span>
-            </div>
-            <div id="check-working-days" class="flex items-center gap-3 text-xs text-white/40">
-              <i class="fas fa-check-circle text-white/10"></i>
-              <span>Working Days Valid</span>
-            </div>
-            <div id="check-comments" class="flex items-center gap-3 text-xs text-white/40">
-              <i class="fas fa-check-circle text-white/10"></i>
-              <span>Comments (Optional)</span>
+      <!-- Bottom Section: Checklist, Submission & Guidelines -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <!-- Checklist & Submit -->
+        <div class="lg:col-span-2 p-8 glass rounded-[2rem] border border-white/5 space-y-6 flex flex-col justify-between">
+          <div class="space-y-4">
+            <h4 class="text-xs font-black uppercase tracking-widest text-white/30">Compliance Checklist</h4>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div id="check-products" class="flex items-center gap-3 text-xs text-white/40">
+                <i class="fas fa-check-circle text-white/10"></i>
+                <span>Has assigned products</span>
+              </div>
+              <div id="check-hours" class="flex items-center gap-3 text-xs text-white/40">
+                <i class="fas fa-check-circle text-white/10"></i>
+                <span>Total sum matches 100%</span>
+              </div>
+              <div id="check-working-days" class="flex items-center gap-3 text-xs text-white/40">
+                <i class="fas fa-check-circle text-white/10"></i>
+                <span>Working Days Valid</span>
+              </div>
+              <div id="check-comments" class="flex items-center gap-3 text-xs text-white/40">
+                <i class="fas fa-check-circle text-white/10"></i>
+                <span>Comments (Optional)</span>
+              </div>
             </div>
           </div>
+          <button id="submit-btn" onclick="openConfirmModal()" disabled class="w-full py-5 osttra-gradient text-white rounded-2xl font-black uppercase tracking-[0.2em] text-xs hover:brightness-110 hover:scale-[1.02] active:scale-95 transition-all duration-200 shadow-xl shadow-osttra-rubine/20 disabled:opacity-25 disabled:cursor-not-allowed">
+            Submit Allocation
+          </button>
         </div>
 
-        <button id="submit-btn" onclick="openConfirmModal()" disabled class="w-full py-5 osttra-gradient text-white rounded-2xl font-black uppercase tracking-[0.2em] text-xs hover:brightness-110 hover:scale-[1.02] active:scale-95 transition-all duration-200 shadow-xl shadow-osttra-rubine/20 disabled:opacity-25 disabled:cursor-not-allowed">
-          Submit Allocation
-        </button>
+        <!-- Allocation Guidelines -->
+        <div class="p-6 bg-white/5 rounded-[2rem] border border-white/5 space-y-2.5 text-left flex flex-col justify-center">
+          <h5 class="text-[9px] font-black uppercase tracking-widest text-osttra-ochre">Allocation Guidelines</h5>
+          <ul class="text-[10px] text-white/50 list-disc pl-4 space-y-1.5 font-semibold leading-relaxed uppercase tracking-wider">
+            <li>Deduct any PTO, Sick Leave, or Public Holidays from your <strong class="text-white">Total Working Days</strong>.</li>
+            <li>Standard weekdays baseline for this month is <strong id="working-days-baseline" class="text-white">--</strong> days.</li>
+            <li>If you worked weekend shifts or overtime, check the box on the left to log extra shift ranging from 0.5 to 8.</li>
+          </ul>
+        </div>
       </div>
     </div>
   </div>
@@ -232,6 +203,56 @@
   var assignedScope = assignedScope || [];
   var totals = totals || { bau: 0, nbau: 0, mgmt: 0, fte: 0 };
   var hasSubmitted = hasSubmitted || false;
+  var lastTotalsFte = lastTotalsFte || 0;
+
+  function triggerConfetti(containerId) {
+    const particleCount = 60;
+    const colors = ['#FF0061', '#5E17EB', '#FE952D', '#00E6FF', '#10B981', '#EAB308'];
+    const shapes = ['rounded-sm', 'rounded-full'];
+
+    for (let i = 0; i < particleCount; i++) {
+      const flake = document.createElement('div');
+      
+      const sizeW = Math.random() * 6 + 6; // 6px to 12px
+      const sizeH = Math.random() * 10 + 6; // 6px to 16px
+      const color = colors[Math.floor(Math.random() * colors.length)];
+      const shape = shapes[Math.floor(Math.random() * shapes.length)];
+      
+      flake.className = `fixed pointer-events-none z-[100] ${shape} transition-all ease-in`;
+      flake.style.width = `${sizeW}px`;
+      flake.style.height = `${sizeH}px`;
+      flake.style.backgroundColor = color;
+      
+      // Start randomly distributed along the top of the viewport
+      flake.style.left = `${Math.random() * 100}%`;
+      flake.style.top = `-20px`;
+      flake.style.opacity = `${Math.random() * 0.4 + 0.6}`; // 0.6 to 1.0 opacity
+      
+      document.body.appendChild(flake);
+      
+      // Compute destination
+      const fallDuration = Math.random() * 1500 + 1500; // 1.5s to 3s fall time
+      const rotate = Math.random() * 720 - 360; // -360deg to 360deg rotation
+      const driftX = Math.random() * 160 - 80; // -80px to 80px horizontal sway
+      
+      // Force reflow
+      flake.offsetWidth;
+      
+      // Animate downward falling, rotating, and swaying
+      flake.style.transition = `transform ${fallDuration}ms cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity ${fallDuration}ms ease-out`;
+      flake.style.transform = `translateY(110vh) translateX(${driftX}px) rotate(${rotate}deg)`;
+      
+      // Fade out near the bottom
+      setTimeout(() => {
+        flake.style.opacity = '0';
+      }, fallDuration - 600);
+
+      // Clean up DOM
+      setTimeout(() => {
+        flake.remove();
+      }, fallDuration + 50);
+    }
+  }
 
   function getWeekdaysInMonth(monthString) {
     const parts = monthString.trim().split(" ");
@@ -311,25 +332,8 @@
       banner.innerHTML = html;
       banner.classList.remove('hidden');
     } else if (hasSubmitted) {
-      const isSelf = (lastUpdatedBy === userEmail.toLowerCase().trim());
-      const displayEmail = matchedAlloc ? (matchedAlloc.lastUpdatedBy || "your manager") : "your manager";
-      const message = isSelf 
-        ? `✅ Your allocation for ${currentPeriod} has been submitted and certified. You may continue to make updates and re-certify if needed.`
-        : `✅ Your allocation for ${currentPeriod} was last updated on your behalf by ${displayEmail}. You may continue to make edits and re-certify it yourself.`;
-
-      html = `
-        <div class="p-6 rounded-3xl border border-emerald-500/20 bg-emerald-500/10 text-emerald-400 flex items-center gap-4">
-          <div class="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center text-lg shrink-0">
-            <i class="fas fa-check-circle"></i>
-          </div>
-          <div>
-            <p class="text-xs font-black uppercase tracking-wider text-emerald-400">Allocation Submitted</p>
-            <p class="text-xs text-white/70 leading-relaxed mt-0.5">${message}</p>
-          </div>
-        </div>
-      `;
-      banner.innerHTML = html;
-      banner.classList.remove('hidden');
+      // Clean Workspace: Hidden submission banner
+      banner.classList.add('hidden');
     } else {
       banner.classList.add('hidden');
     }
@@ -344,9 +348,6 @@
     }
 
     const currentPeriod = user.currentPeriod || "Unknown Period";
-    document.getElementById('welcome-name').innerText = user.name;
-    document.getElementById('user-region-text').innerText = `${user.role} | ${user.region} | Active Cycle: ${currentPeriod}`;
-    document.getElementById('user-photo-small').innerHTML = `<img src="${user.photoUrl}" class="w-full h-full object-cover">`;
 
     // Dynamic Header period update
     const headerPeriod = document.getElementById('certification-period');
@@ -454,8 +455,7 @@
       renderTable();
     }
 
-    const state = window.nexusState;
-    if (!state || !state.managerProductAllocation || !state.historicalAllocation) {
+    window.loadAllocationData = function() {
       google.script.run
         .withSuccessHandler(scopeData => {
           if (!scopeData || scopeData.length === 0) {
@@ -477,6 +477,11 @@
           showNotification("Scope Fetch Failed", err.message, "error");
         })
         .getManagerProductAllocation(user.email);
+    };
+
+    const state = window.nexusState;
+    if (!state || !state.managerProductAllocation || !state.historicalAllocation) {
+      window.loadAllocationData();
       return;
     }
 
@@ -685,9 +690,7 @@
 
     fteText.innerText = `${totals.fte}%`;
 
-    const circum = 2 * Math.PI * 58;
-    const offset = circum - (Math.min(totals.fte, 100) / 100) * circum;
-    progress.style.strokeDashoffset = offset;
+    progress.style.width = `${Math.min(totals.fte, 100)}%`;
 
     // Check bounds
     const exactCapacity = (totals.fte === 100);
@@ -695,30 +698,23 @@
     updateChecklistIcon('check-comments', true); // Comments are optional now!
 
     if (exactCapacity) {
-      // 100% Celebration: triggers a bounce/pop pulse on the SVG progress circle
-      progress.style.transform = "scale(1.05)";
-      progress.style.transformOrigin = "center";
-      setTimeout(() => {
-        progress.style.transform = "";
-      }, 350);
-      
-      progress.className = "text-emerald-500 transition-all duration-300";
-      fteText.className = "text-3xl font-black text-emerald-500 transition-all duration-300";
+      progress.className = "absolute top-0 left-0 h-full bg-emerald-500 transition-all duration-500 rounded-full";
+      fteText.className = "text-4xl font-black text-emerald-500 transition-all duration-300";
       msg.innerText = "Operational Balance Met";
-      msg.className = "text-xs font-bold text-emerald-500 uppercase tracking-widest";
+      msg.className = "text-xs font-bold text-emerald-500 uppercase tracking-widest mt-1";
     } else {
       const isUnder = totals.fte < 100;
       // Under capacity = Ochre (Orange), Over capacity = Rubine (Red)
       progress.className = isUnder 
-        ? "text-osttra-ochre transition-all duration-300" 
-        : "text-osttra-rubine transition-all duration-300";
+        ? "absolute top-0 left-0 h-full bg-osttra-ochre transition-all duration-500 rounded-full" 
+        : "absolute top-0 left-0 h-full bg-osttra-rubine transition-all duration-500 rounded-full";
       fteText.className = isUnder 
-        ? "text-3xl font-black text-osttra-ochre transition-all duration-300" 
-        : "text-3xl font-black text-osttra-rubine transition-all duration-300";
+        ? "text-4xl font-black text-osttra-ochre transition-all duration-300" 
+        : "text-4xl font-black text-osttra-rubine transition-all duration-300";
       msg.innerText = isUnder ? "Under Capacity" : "Over Capacity";
       msg.className = isUnder 
-        ? "text-xs font-bold text-osttra-ochre uppercase tracking-widest" 
-        : "text-xs font-bold text-osttra-rubine uppercase tracking-widest";
+        ? "text-xs font-bold text-osttra-ochre uppercase tracking-widest mt-1" 
+        : "text-xs font-bold text-osttra-rubine uppercase tracking-widest mt-1";
     }
 
     // Enable / Disable submit button (comments are optional!)
@@ -809,11 +805,25 @@
 
   function submitTabularData(retryCount = 0) {
     const btn = document.getElementById('submit-btn');
+    const statusEl = document.getElementById('auto-save-status');
     const currentPeriod = window.currentUser.currentPeriod || "Unknown Period";
+
+    // Celebrate immediately on button click while the save runs in the background
+    if (retryCount === 0) {
+      triggerConfetti('gauge-container');
+    }
+
     btn.disabled = true;
     btn.innerHTML = retryCount > 0 
       ? `<i class="fas fa-spinner animate-spin"></i> Retrying (${retryCount}/3)...`
       : '<i class="fas fa-spinner animate-spin"></i> Processing...';
+
+    if (statusEl) {
+      statusEl.innerHTML = retryCount > 0 
+        ? `<i class="fas fa-spinner animate-spin text-osttra-rubine mr-1"></i> Retrying (${retryCount}/3)...`
+        : '<i class="fas fa-circle-notch animate-spin text-osttra-rubine mr-1"></i> Saving...';
+      statusEl.className = 'text-[9px] font-bold uppercase tracking-widest text-osttra-rubine animate-pulse ml-3';
+    }
 
     // Store percentages directly
     const mappedAllocations = assignedScope.map(row => {
@@ -844,7 +854,32 @@
     google.script.run
       .withSuccessHandler(() => {
         showNotification("Success", "Tabular allocation certified successfully.");
-        // Safely trigger full session state refresh to cleanly transition to certified locks
+        
+        // Celebrate successful G-Sheets write immediately with a confetti blast
+        triggerConfetti('gauge-container');
+        
+        hasSubmitted = true;
+        window.lastKnownTimestamp = new Date().toISOString();
+        
+        const dummyAlloc = [{
+          period: currentPeriod,
+          lastUpdatedBy: window.currentUser.email,
+          submissionTimestamp: window.lastKnownTimestamp
+        }];
+        renderLockBanner(true, dummyAlloc, window.currentUser.email);
+        calculateTotals();
+        
+        if (statusEl) {
+          statusEl.innerHTML = '<i class="fas fa-check-circle text-emerald-500 mr-1"></i> Saved';
+          statusEl.className = 'text-[9px] font-bold uppercase tracking-widest text-emerald-400 ml-3';
+          setTimeout(() => {
+            if (statusEl.innerText.includes('Saved')) {
+              statusEl.innerHTML = '';
+            }
+          }, 3000);
+        }
+
+        // Real-align with global state reload to cleanly update HomeProfile banners and allocations
         setTimeout(() => {
           handleReload();
         }, 1500);
@@ -852,11 +887,17 @@
       .withFailureHandler(err => {
         const errMsg = err.message || "";
         
-        // Handle Stale Data specifically
+        if (statusEl) {
+          statusEl.innerHTML = '<i class="fas fa-exclamation-circle text-red-500 mr-1"></i> Save Failed';
+          statusEl.className = 'text-[9px] font-bold uppercase tracking-widest text-red-500 ml-3';
+        }
+
+        // Handle Stale Data specifically (Frictionless Autonomous Self-Healing)
         if (errMsg.includes("STALE_DATA_ERROR")) {
           btn.disabled = false;
           btn.innerText = hasSubmitted ? "Update Allocation" : "Submit Allocation";
-          showStaleDataModal();
+          showNotification("Sync Alert", "Out-of-sync data detected. Automatically refreshing your allocation...", "warning");
+          window.loadAllocationData();
           return;
         }
 
@@ -874,27 +915,5 @@
         }
       })
       .saveUserAllocation(JSON.parse(JSON.stringify(payload)));
-  }
-
-  function showStaleDataModal() {
-    const modalHtml = `
-      <div id="stale-data-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
-        <div class="bg-osttra-black border border-osttra-rubine/30 p-8 rounded-3xl max-w-md w-full shadow-2xl animate-in zoom-in-95 duration-200 ease-out text-center">
-          <div class="w-16 h-16 rounded-full bg-osttra-rubine/10 text-osttra-rubine flex items-center justify-center text-2xl mx-auto mb-4 animate-bounce">
-            <i class="fas fa-exclamation-triangle"></i>
-          </div>
-          <h3 class="text-xl font-black text-white uppercase tracking-wider mb-2">Stale Data Warning</h3>
-          <p class="text-xs text-white/60 mb-8 leading-relaxed uppercase tracking-wider">
-            Your allocation was recently updated by your manager (or in another session) since you loaded this page. 
-            To prevent overwriting active changes, this submission has been rejected. 
-            Please reload the page to load the latest values.
-          </p>
-          <button onclick="handleReload()" class="w-full py-4 osttra-gradient rounded-xl text-xs font-black uppercase text-white hover:brightness-110 hover:scale-[1.03] active:scale-95 transition-all duration-200">
-            Reload Now
-          </button>
-        </div>
-      </div>
-    `;
-    document.body.insertAdjacentHTML('beforeend', modalHtml);
   }
 </script>

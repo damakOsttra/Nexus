@@ -190,7 +190,7 @@ function exportAnupOrgMasterData() {
       // --- 4. FIND REGIONAL HEAD (Functional Head) ---
       let regionalHead = "N/A";
       
-      const topLevelExclusions = ["anup.hariharan@osttra.com", "sanghmitra.khanna@osttra.com", "john.stewart@osttra.com"];
+      const topLevelExclusions = ["anup.hariharan@osttra.com", "sanghmitra.khanna@osttra.com", "john.stewart@osttra.com", "misuzu.fujiwara@osttra.com"];
       if (topLevelExclusions.indexOf(email.toLowerCase().trim()) === -1) {
         // Traverse up the chain to find the lowest Functional Head matching the 6 emails
         for (let i = 0; i < chain.length; i++) {
@@ -223,7 +223,19 @@ function exportAnupOrgMasterData() {
         // Dayforce Data Merge (Enrich Google Payload)
         const dfRecordMatched = dfRecord;
         
+        let personFirstName = person.firstName;
+        let personLastName = person.lastName;
+        let personName = person.name;
         const hrName = dfRecordMatched && dfRecordMatched.hrName ? dfRecordMatched.hrName : `${person.firstName || ""} ${person.lastName || ""}`.trim();
+        let finalHrName = hrName;
+
+        // Strict Email-Based Preferred Name Overrides (Absolute Concurrency/Safety Safeguard)
+        if (email.toLowerCase().trim() === "moiz.khan@osttra.com") {
+          personFirstName = "Moiz";
+          personName = "Moiz Khan";
+          finalHrName = "Moiz Khan";
+        }
+
         const hrStart = dfRecordMatched && dfRecordMatched.hireDate ? String(dfRecordMatched.hireDate).substring(0, 10) : "N/A (Not in HRIS)";
         const hrTerm = dfRecordMatched && dfRecordMatched.termDate ? String(dfRecordMatched.termDate).substring(0, 10) : "Active (No Term Date)";
         const hrStatus = dfRecordMatched ? dfRecordMatched.status : "N/A (Not in HRIS)";
@@ -240,10 +252,10 @@ function exportAnupOrgMasterData() {
 
         allRows.push([
           person.empId, 
-          person.firstName, 
-          person.lastName, 
-          normalizeName(person.name), // Google Chat Full Name (Directory Display Name)
-          normalizeName(hrName),
+          personFirstName, 
+          personLastName, 
+          normalizeName(personName), // Google Chat Full Name (Directory Display Name)
+          normalizeName(finalHrName),
           email, 
           person.photoUrl,
           costCenterValue, 

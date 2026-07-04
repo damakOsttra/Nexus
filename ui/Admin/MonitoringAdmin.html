@@ -84,6 +84,16 @@
           <option value="All">All Regions</option>
         </select>
 
+        <!-- Filter by Direct Manager -->
+        <select id="filter-manager" class="bg-[#1a1a1a]/50 border border-white/5 rounded-xl px-4 py-2.5 text-xs text-white/70 focus:outline-none focus:border-osttra-rubine/40 transition-all cursor-pointer">
+          <option value="All">All Direct Managers</option>
+        </select>
+
+        <!-- Filter by Head of Function -->
+        <select id="filter-head" class="bg-[#1a1a1a]/50 border border-white/5 rounded-xl px-4 py-2.5 text-xs text-white/70 focus:outline-none focus:border-osttra-rubine/40 transition-all cursor-pointer">
+          <option value="All">All Functional Heads</option>
+        </select>
+
         <!-- Filter by Allocation Status -->
         <select id="filter-alloc" class="bg-[#1a1a1a]/50 border border-white/5 rounded-xl px-4 py-2.5 text-xs text-white/70 focus:outline-none focus:border-osttra-rubine/40 transition-all cursor-pointer">
           <option value="All">Allocation: All</option>
@@ -168,7 +178,7 @@
     <div id="monitor-table-wrapper" class="hidden overflow-x-auto rounded-2xl border border-white/5 bg-black/40">
       <table class="w-full text-left border-collapse text-xs">
         <thead>
-          <tr class="bg-white/5 text-[9px] font-black uppercase tracking-widest text-white/40 border-b border-white/5">
+          <tr class="bg-white/5 text-[9px] font-black uppercase tracking-widest text-white/40 border-b border-white/5 whitespace-nowrap">
             <th class="p-4 w-12 text-center">
               <input type="checkbox" id="select-all" onchange="toggleSelectAll(this)" class="accent-osttra-rubine rounded cursor-pointer">
             </th>
@@ -465,6 +475,8 @@
       // Reset all other client-side filter selectors to show full roster on month change
       document.getElementById('monitor-search').value = "";
       document.getElementById('filter-region').value = "All";
+      document.getElementById('filter-manager').value = "All";
+      document.getElementById('filter-head').value = "All";
       document.getElementById('filter-alloc').value = "All";
       document.getElementById('filter-fte').value = "All";
       document.getElementById('filter-weekend').value = "All";
@@ -486,6 +498,30 @@
               regionSelect.innerHTML += `<option value="${r}">${r}</option>`;
             }
           });
+
+          // Seed Direct Manager filter
+          const managers = [...new Set(monitorData.map(e => e.managerName))].sort();
+          const managerSelect = document.getElementById('filter-manager');
+          if (managerSelect) {
+            managerSelect.innerHTML = '<option value="All">All Direct Managers</option>';
+            managers.forEach(m => {
+              if (m && m !== 'N/A' && m !== 'Unknown') {
+                managerSelect.innerHTML += `<option value="${m}">${m}</option>`;
+              }
+            });
+          }
+
+          // Seed Head of Function filter
+          const heads = [...new Set(monitorData.map(e => e.headOfFunction))].sort();
+          const headSelect = document.getElementById('filter-head');
+          if (headSelect) {
+            headSelect.innerHTML = '<option value="All">All Functional Heads</option>';
+            heads.forEach(h => {
+              if (h && h !== 'N/A' && h !== 'Unknown') {
+                headSelect.innerHTML += `<option value="${h}">${h}</option>`;
+              }
+            });
+          }
 
           selectedEmails.clear();
           document.getElementById('select-all').checked = false;
@@ -526,6 +562,8 @@
     window.applyFilters = function() {
       const search = document.getElementById('monitor-search').value.toLowerCase().trim();
       const region = document.getElementById('filter-region').value;
+      const managerFilter = document.getElementById('filter-manager').value;
+      const headFilter = document.getElementById('filter-head').value;
       const allocFilter = document.getElementById('filter-alloc').value;
       const fteFilter = document.getElementById('filter-fte').value;
       const weekendFilter = document.getElementById('filter-weekend').value;
@@ -537,6 +575,8 @@
       const filtered = monitorData.filter(e => {
         const matchesSearch = e.name.toLowerCase().includes(search) || e.email.toLowerCase().includes(search);
         const matchesRegion = region === 'All' || e.region === region;
+        const matchesManager = managerFilter === 'All' || e.managerName === managerFilter;
+        const matchesHead = headFilter === 'All' || e.headOfFunction === headFilter;
         
         const matchesAlloc = allocFilter === 'All' || 
           (allocFilter === 'Submitted' && e.hasAllocation) || 
@@ -568,7 +608,7 @@
           (statusFilter === 'Active' && e.isActive) ||
           (statusFilter === 'Inactive' && !e.isActive);
 
-        return matchesSearch && matchesRegion && matchesAlloc && matchesFte && matchesWeekend && matchesDaysComp && matchesSkills && matchesProducts && matchesStatus;
+        return matchesSearch && matchesRegion && matchesManager && matchesHead && matchesAlloc && matchesFte && matchesWeekend && matchesDaysComp && matchesSkills && matchesProducts && matchesStatus;
       });
 
       renderTable(filtered);
@@ -739,6 +779,8 @@
     window.resetFilters = function() {
       document.getElementById('monitor-search').value = "";
       document.getElementById('filter-region').value = "All";
+      document.getElementById('filter-manager').value = "All";
+      document.getElementById('filter-head').value = "All";
       document.getElementById('filter-alloc').value = "All";
       document.getElementById('filter-fte').value = "All";
       document.getElementById('filter-weekend').value = "All";

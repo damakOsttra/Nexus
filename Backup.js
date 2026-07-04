@@ -36,7 +36,7 @@ function exportSpreadsheetAsXlsx() {
  * @returns {string} - The permanent URL link to the saved file in Google Drive
  */
 function triggerSnapshotAndNotify(triggerType) {
-  const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+  const ss = getSpreadsheet();
   
   // 1. Export the entire spreadsheet as an XLSX file
   const fileBlob = exportSpreadsheetAsXlsx();
@@ -136,7 +136,7 @@ function triggerSnapshotAndNotify(triggerType) {
  * Auto-creates the sheet if it doesn't already exist.
  */
 function logSnapshotEvent(triggerType, fileUrl) {
-  const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+  const ss = getSpreadsheet();
   let sheet = ss.getSheetByName(CONFIG.SHEETS.SNAPSHOT_LOGS);
   if (!sheet) {
     sheet = ss.insertSheet(CONFIG.SHEETS.SNAPSHOT_LOGS);
@@ -159,7 +159,7 @@ function logSnapshotEvent(triggerType, fileUrl) {
 function getSnapshotLogs() {
   validateTier(3); // Admin Only
   try {
-    const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+    const ss = getSpreadsheet();
     const sheet = ss.getSheetByName(CONFIG.SHEETS.SNAPSHOT_LOGS);
     if (!sheet) return [];
     
@@ -197,7 +197,7 @@ function getSnapshotLogs() {
 function deleteSnapshotLog(timestamp) {
   validateTier(3); // Admin Only
   return runWithWriteLock(() => {
-    const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+    const ss = getSpreadsheet();
     const sheet = ss.getSheetByName(CONFIG.SHEETS.SNAPSHOT_LOGS);
     if (!sheet) throw new Error("Snapshot Logs sheet not found.");
     
@@ -262,7 +262,7 @@ function executeAdHocBackup() {
 function executeYearEndPurge() {
   const session = validateTier(3); // Admin Only
   return runWithWriteLock(() => {
-    const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+    const ss = getSpreadsheet();
     const sheet = ss.getSheetByName(CONFIG.SHEETS.ALLOCATION_HISTORICAL);
     if (!sheet) throw new Error("Allocation Historical sheet not found.");
     

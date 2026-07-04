@@ -42,6 +42,14 @@
             <option value="submitted">Submitted First</option>
           </select>
         </div>
+        <!-- Hierarchy Selector -->
+        <div class="flex items-center justify-between gap-2">
+          <label class="text-[8px] font-black text-white/40 uppercase tracking-widest pl-1">Hierarchy</label>
+          <select id="roster-hierarchy" onchange="handleHierarchyChange(this.value)" class="bg-[#1a1a1a]/80 border border-white/5 focus:border-osttra-violet/40 rounded-xl py-1.5 px-3 text-[9px] text-white/70 focus:outline-none transition-all font-semibold cursor-pointer">
+            <option value="all" selected>All in Hierarchy</option>
+            <option value="direct">My Directs Only</option>
+          </select>
+        </div>
       </div>
 
       <div class="glass border border-white/5 rounded-3xl p-4 max-h-[600px] overflow-y-auto no-scrollbar space-y-2" id="emp-list">
@@ -148,6 +156,57 @@
     let showIncompleteOnly = false;
     let searchQuery = ""; // Roster search state
     let sortMode = "pending"; // Roster sort state
+    let hierarchyMode = "all"; // Roster hierarchy state ("all" or "direct")
+    let lastProxyTotalFte = 0;
+
+    function triggerConfetti(containerId) {
+      const particleCount = 60;
+      const colors = ['#FF0061', '#5E17EB', '#FE952D', '#00E6FF', '#10B981', '#EAB308'];
+      const shapes = ['rounded-sm', 'rounded-full'];
+
+      for (let i = 0; i < particleCount; i++) {
+        const flake = document.createElement('div');
+        
+        const sizeW = Math.random() * 6 + 6; // 6px to 12px
+        const sizeH = Math.random() * 10 + 6; // 6px to 16px
+        const color = colors[Math.floor(Math.random() * colors.length)];
+        const shape = shapes[Math.floor(Math.random() * shapes.length)];
+        
+        flake.className = `fixed pointer-events-none z-[100] ${shape} transition-all ease-in`;
+        flake.style.width = `${sizeW}px`;
+        flake.style.height = `${sizeH}px`;
+        flake.style.backgroundColor = color;
+        
+        // Start randomly distributed along the top of the viewport
+        flake.style.left = `${Math.random() * 100}%`;
+        flake.style.top = `-20px`;
+        flake.style.opacity = `${Math.random() * 0.4 + 0.6}`; // 0.6 to 1.0 opacity
+        
+        document.body.appendChild(flake);
+        
+        // Compute destination
+        const fallDuration = Math.random() * 1500 + 1500; // 1.5s to 3s fall time
+        const rotate = Math.random() * 720 - 360; // -360deg to 360deg rotation
+        const driftX = Math.random() * 160 - 80; // -80px to 80px horizontal sway
+        
+        // Force reflow
+        flake.offsetWidth;
+        
+        // Animate downward falling, rotating, and swaying
+        flake.style.transition = `transform ${fallDuration}ms cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity ${fallDuration}ms ease-out`;
+        flake.style.transform = `translateY(110vh) translateX(${driftX}px) rotate(${rotate}deg)`;
+        
+        // Fade out near the bottom
+        setTimeout(() => {
+          flake.style.opacity = '0';
+        }, fallDuration - 600);
+
+        // Clean up DOM
+        setTimeout(() => {
+          flake.remove();
+        }, fallDuration + 50);
+      }
+    }
 
     window.handleSearchChange = function(query) {
       searchQuery = query || "";
@@ -156,6 +215,11 @@
 
     window.handleSortChange = function(mode) {
       sortMode = mode || "pending";
+      renderRoster();
+    };
+
+    window.handleHierarchyChange = function(mode) {
+      hierarchyMode = mode || "all";
       renderRoster();
     };
 
@@ -221,6 +285,7 @@
             name: row.name,
             role: row.role,
             hasReports: row.hasReports,
+            isDirectReport: !!row.isDirectReport,
             isPendingAssignment: row.isPendingAssignment,
             rows: [],
             totalFte: 0,
@@ -236,8 +301,9 @@
             comment: row.comment || "",
             skillLevel: row.skillLevel || "N/A",
             isCurrentSubmission: !!row.isCurrentSubmission,
+            submissionTimestamp: row.submissionTimestamp || "",
             standardWeekdays: parseInt(row.standardWeekdays) || 0,
-            regularDays: parseInt(row.regularDays) || 0,
+            regularDays: parseFloat(row.regularDays) || 0,
             workedWeekend: !!row.workedWeekend,
             weekendDays: parseFloat(row.weekendDays) || 0,
             workingDaysComment: row.workingDaysComment || ""
@@ -261,14 +327,19 @@
         ? employees.filter(e => e.totalFte !== 100)
         : employees;
 
-      // 1. Apply Search Filter
+      // 1. Apply Hierarchy Filter
+      if (hierarchyMode === "direct") {
+        displayEmps = displayEmps.filter(e => e.isDirectReport);
+      }
+
+      // 2. Apply Search Filter
       displayEmps = displayEmps.filter(e => {
         const query = searchQuery.toLowerCase().trim();
         if (!query) return true;
         return String(e.name).toLowerCase().includes(query) || String(e.email).toLowerCase().includes(query);
       });
 
-      // 2. Apply Sorting
+      // 3. Apply Sorting
       displayEmps.sort((a, b) => {
         if (sortMode === 'pending') {
           // Pending (hasSubmitted = false) first, then Alphabetical
@@ -367,14 +438,10 @@
             <div class="space-y-1">
               <div class="flex items-center gap-3">
                 <h3 class="text-xl font-black text-white uppercase">${activeEmp.name}</h3>
+                <span id="auto-save-status" class="text-[9px] font-bold uppercase tracking-widest text-white/30 ml-3"></span>
                 <span class="px-2 py-0.5 bg-white/5 rounded text-[8px] font-mono text-white/40">${activeEmp.email}</span>
               </div>
               <p class="text-[9px] font-bold text-white/40 uppercase tracking-widest">${activeEmp.role} | Reports Audit: ${activeEmp.hasReports ? 'HAS DIRECT REPORTS' : 'INDIVIDUAL CONTRIBUTOR'}</p>
-            </div>
-            <div class="flex gap-2">
-              <button id="btn-unlock" onclick="resetProxyAllocation()" class="px-4 py-2.5 bg-osttra-ochre/10 border border-osttra-ochre/20 text-osttra-ochre hover:bg-osttra-ochre/20 hover:border-osttra-ochre/40 text-[9px] font-black uppercase tracking-widest rounded-xl transition-all shadow-md flex items-center gap-2">
-                <i class="fas fa-unlock"></i> Reset/Unlock Allocation
-              </button>
             </div>
           </div>
 
@@ -382,9 +449,8 @@
           <div id="proxy-status-banner"></div>
 
           <!-- Form Workspace -->
-          <div class="grid grid-cols-1 xl:grid-cols-4 gap-6">
-            <!-- Grid (Left) -->
-            <div class="xl:col-span-3 space-y-6">
+          <div class="space-y-8">
+            <div class="space-y-6">
               <!-- Working Days Capacity Tracking (Progressive Disclosure) -->
               <div class="glass rounded-2xl border border-white/5 p-6 space-y-6">
                 <div class="flex items-center gap-2 border-b border-white/5 pb-3">
@@ -407,13 +473,13 @@
                     <!-- 2. Total Working Days -->
                     <div class="space-y-2">
                       <label class="text-[10px] font-black uppercase tracking-widest text-white/40 block">Total Working Days</label>
-                      <input type="number" id="working-days-total" min="0" oninput="this.value = this.value.replace(/[^0-9.]/g, ''); calculateProxyTotals()" class="w-full bg-white/5 border border-white/10 shadow-inner rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:bg-white/10 focus:border-osttra-rubine focus:ring-1 focus:ring-osttra-rubine/50 transition-all">
+                      <input type="number" id="working-days-total" min="0" step="0.5" oninput="calculateProxyTotals()" class="w-full bg-white/5 border border-white/10 shadow-inner rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:bg-white/10 focus:border-osttra-rubine focus:ring-1 focus:ring-osttra-rubine/50 transition-all">
                     </div>
 
                     <!-- 3. Additional Days (Weekend/OT) -->
                     <div id="working-days-weekend-container" class="space-y-2">
                       <label class="text-[10px] font-black uppercase tracking-widest text-white/40 block">Additional Days (Weekend/OT)</label>
-                      <input type="number" id="working-days-weekend" min="0" max="8" step="0.5" disabled oninput="this.value = this.value.replace(/[^0-9.]/g, ''); calculateProxyTotals()" class="w-full bg-white/5 border border-white/10 shadow-inner rounded-xl px-4 py-2.5 text-xs text-white/30 focus:outline-none focus:bg-white/10 focus:border-osttra-rubine focus:ring-1 focus:ring-osttra-rubine/50 transition-all opacity-50 cursor-not-allowed">
+                      <input type="number" id="working-days-weekend" min="0" max="8" step="0.5" disabled oninput="calculateProxyTotals()" class="w-full bg-white/5 border border-white/10 shadow-inner rounded-xl px-4 py-2.5 text-xs text-white/30 focus:outline-none focus:bg-white/10 focus:border-osttra-rubine focus:ring-1 focus:ring-osttra-rubine/50 transition-all opacity-50 cursor-not-allowed">
                     </div>
                   </div>
 
@@ -455,31 +521,30 @@
                   </tbody>
                 </table>
               </div>
-            </div>
 
-            <!-- Effort Breakdown & Gauge (Right) -->
-            <div class="space-y-6 shrink-0 flex flex-col justify-between">
-              <!-- FTE circular status -->
-              <div class="p-8 glass rounded-3xl border border-white/5 space-y-6 text-center flex flex-col justify-center items-center">
-                <p class="text-[10px] font-black text-white/30 uppercase tracking-[0.3em]">Proxy Balance</p>
-                <div class="relative inline-flex items-center justify-center">
-                  <svg class="w-40 h-32 transform -rotate-90">
-                    <circle cx="80" cy="64" r="58" stroke="currentColor" stroke-width="10" fill="transparent" class="text-white/5"></circle>
-                    <circle id="proxy-fte-progress" cx="80" cy="64" r="58" stroke="currentColor" stroke-width="10" fill="transparent" stroke-dasharray="364.4" stroke-dashoffset="364.4" class="text-osttra-rubine transition-all duration-500"></circle>
-                  </svg>
-                  <div class="absolute flex flex-col items-center">
-                    <span id="proxy-fte-text" class="text-2xl font-black text-white">0%</span>
-                    <span class="text-[9px] font-black text-white/40 uppercase mt-0.5">Allocated</span>
+              <!-- Modern Full-Width Horizontal Progress Bar (Proxy) -->
+              <div class="p-8 glass rounded-[2rem] border border-white/5 space-y-4 shadow-[0_0_20px_rgba(0,0,0,0.2)]">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-2">
+                  <div>
+                    <p class="text-[10px] font-black text-white/30 uppercase tracking-[0.3em]">Proxy Balance</p>
+                    <p id="proxy-status-msg" class="text-xs font-bold text-white/40 uppercase tracking-widest mt-1">No allocation entered</p>
+                  </div>
+                  <div class="flex items-baseline gap-2 shrink-0">
+                    <span id="proxy-fte-text" class="text-4xl font-black text-white">0%</span>
+                    <span class="text-[9px] font-black text-white/40 uppercase tracking-widest font-mono">Allocated</span>
                   </div>
                 </div>
-                <p id="proxy-status-msg" class="text-xs font-bold text-white/40 uppercase tracking-widest">No allocation entered</p>
+                <!-- Linear Progress Bar -->
+                <div class="relative w-full h-4 bg-white/5 rounded-full overflow-hidden border border-white/5 shadow-inner">
+                  <div id="proxy-fte-progress" class="absolute top-0 left-0 h-full bg-osttra-rubine transition-all duration-500 rounded-full" style="width: 0%"></div>
+                </div>
               </div>
 
-              <!-- Actions Panel -->
-              <div class="p-8 glass rounded-3xl border border-white/5 space-y-6 flex-1 flex flex-col justify-between">
+              <!-- Compliance Checklist & Action Panel -->
+              <div class="p-8 glass rounded-3xl border border-white/5 space-y-6 flex flex-col justify-between">
                 <div class="space-y-4">
                   <h4 class="text-xs font-black uppercase tracking-widest text-white/30">Compliance Checklist</h4>
-                  <div class="space-y-3">
+                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div id="check-products" class="flex items-center gap-3 text-xs text-white/40">
                       <i class="fas fa-check-circle text-white/10"></i>
                       <span>Has assigned products</span>
@@ -540,7 +605,7 @@
 
       // Render the table form
       const formBody = document.getElementById('proxy-table-body');
-      const isLocked = activeEmp.hasSubmitted || (window.currentUser.phase1State === "2" || window.currentUser.phase1State === "3");
+      const isLocked = (window.currentUser.phase1State === "2" || window.currentUser.phase1State === "3");
 
       formBody.innerHTML = activeEmp.rows.map((row, index) => {
         const rowTotal = row.bau + row.nbau;
@@ -712,9 +777,7 @@
 
       text.innerText = `${totalFte}%`;
 
-      const circum = 2 * Math.PI * 58;
-      const offset = circum - (Math.min(totalFte, 100) / 100) * circum;
-      progress.style.strokeDashoffset = offset;
+      progress.style.width = `${Math.min(totalFte, 100)}%`;
 
       const isExact = (totalFte === 100);
       updateChecklistIcon('check-hours', isExact);
@@ -723,33 +786,26 @@
       updateChecklistIcon('check-comments', true);
 
       if (isExact) {
-        // 100% Celebration: triggers a bounce/pop pulse on the SVG progress circle
-        progress.style.transform = "scale(1.05)";
-        progress.style.transformOrigin = "center";
-        setTimeout(() => {
-          progress.style.transform = "";
-        }, 350);
-
-        progress.className = "text-emerald-500 transition-all duration-300";
-        text.className = "text-3xl font-black text-emerald-500 transition-all duration-300";
+        progress.className = "absolute top-0 left-0 h-full bg-emerald-500 transition-all duration-500 rounded-full";
+        text.className = "text-4xl font-black text-emerald-500 transition-all duration-300";
         statusMsg.innerText = "Operational Balance Met";
-        statusMsg.className = "text-xs font-bold text-center text-emerald-500 uppercase tracking-widest";
+        statusMsg.className = "text-xs font-bold text-emerald-500 uppercase tracking-widest mt-1";
       } else {
         const isUnder = totalFte < 100;
         progress.className = isUnder 
-          ? "text-osttra-ochre transition-all duration-300" 
-          : "text-osttra-rubine transition-all duration-300";
+          ? "absolute top-0 left-0 h-full bg-osttra-ochre transition-all duration-500 rounded-full" 
+          : "absolute top-0 left-0 h-full bg-osttra-rubine transition-all duration-500 rounded-full";
         text.className = isUnder 
-          ? "text-3xl font-black text-osttra-ochre transition-all duration-300" 
-          : "text-3xl font-black text-osttra-rubine transition-all duration-300";
+          ? "text-4xl font-black text-osttra-ochre transition-all duration-300" 
+          : "text-4xl font-black text-osttra-rubine transition-all duration-300";
         statusMsg.innerText = isUnder ? "Under Capacity" : "Over Capacity";
         statusMsg.className = isUnder 
-          ? "text-xs font-bold text-center text-osttra-ochre uppercase tracking-widest" 
-          : "text-xs font-bold text-center text-osttra-rubine uppercase tracking-widest";
+          ? "text-xs font-bold text-osttra-ochre uppercase tracking-widest mt-1" 
+          : "text-xs font-bold text-osttra-rubine uppercase tracking-widest mt-1";
       }
 
       const saveBtn = document.getElementById('btn-save-allocation');
-      const isLocked = activeEmp.hasSubmitted || (window.currentUser.phase1State === "2" || window.currentUser.phase1State === "3");
+      const isLocked = (window.currentUser.phase1State === "2" || window.currentUser.phase1State === "3");
 
       if (isExact && activeEmp.rows.length > 0 && !isLocked && isWorkingDaysValid && isRegularDaysValid) {
         saveBtn.removeAttribute('disabled');
@@ -758,7 +814,7 @@
       }
 
       if (isLocked) {
-        saveBtn.innerText = activeEmp.hasSubmitted ? "Allocations Certified" : "Submissions Locked";
+        saveBtn.innerText = "Submissions Locked";
         saveBtn.className = "w-full py-5 bg-white/5 border border-white/10 text-white/30 rounded-2xl font-black uppercase tracking-[0.2em] text-xs cursor-not-allowed";
       } else if (!isRegularDaysValid) {
         saveBtn.innerText = workingDaysTotal < 0 ? "Invalid Working Days" : "Regular Days Exceed Baseline";
@@ -772,9 +828,13 @@
           saveBtn.className = "w-full py-5 bg-white/5 border border-osttra-ochre/30 text-osttra-ochre rounded-2xl font-black uppercase tracking-[0.2em] text-xs cursor-not-allowed transition-all";
         }
       } else {
-        saveBtn.innerText = "Submit Allocation";
-        saveBtn.className = "w-full py-5 osttra-gradient text-white rounded-2xl font-black uppercase tracking-[0.2em] text-xs hover:brightness-110 hover:scale-[1.02] active:scale-95 transition-all duration-200 shadow-xl shadow-osttra-rubine/20 disabled:opacity-25 disabled:cursor-not-allowed";
+        saveBtn.innerText = activeEmp.hasSubmitted ? "Update Allocation" : "Submit Allocation";
+        saveBtn.className = activeEmp.hasSubmitted
+          ? "w-full py-5 bg-osttra-ochre hover:brightness-110 shadow-[0_0_20px_rgba(254,149,45,0.3)] text-white rounded-2xl font-black uppercase tracking-[0.2em] text-xs transition-all duration-200"
+          : "w-full py-5 osttra-gradient text-white rounded-2xl font-black uppercase tracking-[0.2em] text-xs hover:brightness-110 hover:scale-[1.02] active:scale-95 transition-all duration-200 shadow-xl shadow-osttra-rubine/20 disabled:opacity-25 disabled:cursor-not-allowed";
       }
+
+      lastProxyTotalFte = totalFte;
     };
 
     function updateChecklistIcon(elementId, pass) {
@@ -841,18 +901,26 @@
     window.saveProxyAllocation = function(retryCount = 0) {
       const currentPeriod = window.currentUser.currentPeriod || "Unknown Period";
       const btn = document.getElementById('btn-save-allocation');
+      const statusEl = document.getElementById('auto-save-status');
+
+      // Celebrate immediately on button click while the save runs in the background
+      if (retryCount === 0) {
+        triggerConfetti('proxy-gauge-container');
+      }
       
       if (btn) {
         btn.disabled = true;
         btn.innerHTML = retryCount > 0 
           ? `<i class="fas fa-spinner animate-spin"></i> Retrying (${retryCount}/3)...`
-          : '<i class="fas fa-spinner animate-spin"></i> Submitting allocation...';
+          : '<i class="fas fa-spinner animate-spin"></i> Submitting...';
       }
-      
-      showLoading(retryCount > 0 
-        ? `Database busy. Retrying (${retryCount}/3)...` 
-        : `Submitting allocation splits for ${activeEmp.name}...`
-      );
+
+      if (statusEl) {
+        statusEl.innerHTML = retryCount > 0 
+          ? `<i class="fas fa-spinner animate-spin text-osttra-rubine mr-1"></i> Retrying (${retryCount}/3)...`
+          : '<i class="fas fa-circle-notch animate-spin text-osttra-rubine mr-1"></i> Saving...';
+        statusEl.className = 'text-[9px] font-bold uppercase tracking-widest text-osttra-rubine animate-pulse ml-3';
+      }
       
       const workedWeekendCheck = document.getElementById('working-days-weekend-check').checked;
       const workingDaysPayload = {
@@ -870,19 +938,50 @@
         bau: row.bau,
         nbau: row.nbau,
         comment: row.comment,
+        skillLevel: row.skillLevel,
         workingDays: workingDaysPayload,
         lastKnownTimestamp: row.submissionTimestamp || ""
       }));
 
       google.script.run
         .withSuccessHandler(msg => {
-          hideLoading();
           if (btn) {
             btn.disabled = false;
-            btn.innerText = "Submit Allocation";
+            btn.innerText = "Update Allocation";
           }
           showNotification('Certification Saved', msg, 'success');
           
+          if (statusEl) {
+            statusEl.innerHTML = '<i class="fas fa-check-circle text-emerald-500 mr-1"></i> Saved';
+            statusEl.className = 'text-[9px] font-bold uppercase tracking-widest text-emerald-400 ml-3';
+            setTimeout(() => {
+              if (statusEl.innerText.includes('Saved')) {
+                statusEl.innerHTML = '';
+              }
+            }, 3000);
+          }
+
+          // Celebrate manager proxy submission immediately with confetti
+          triggerConfetti('proxy-gauge-container');
+
+          // In-memory update
+          activeEmp.hasSubmitted = true;
+          activeEmp.rows.forEach(r => {
+            r.isCurrentSubmission = true;
+            r.standardWeekdays = parseInt(workingDaysPayload.standardWeekdays) || 0;
+            r.regularDays = parseFloat(workingDaysPayload.regularDays) || 0;
+            r.workedWeekend = workingDaysPayload.workedWeekend;
+            r.weekendDays = parseFloat(workingDaysPayload.weekendDays) || 0;
+            r.workingDaysComment = workingDaysPayload.comment;
+          });
+
+          const cachedEmp = employees.find(e => e.email === activeEmp.email);
+          if (cachedEmp) {
+            cachedEmp.hasSubmitted = true;
+            cachedEmp.totalFte = activeEmp.rows.reduce((sum, r) => sum + r.bau + r.nbau, 0);
+            cachedEmp.rows = JSON.parse(JSON.stringify(activeEmp.rows));
+          }
+
           // Flash roster card green on success
           const cardId = `roster-card-${activeEmp.email.replace(/[@.]/g, '-')}`;
           const card = document.getElementById(cardId);
@@ -890,21 +989,33 @@
             card.classList.add('bg-emerald-500/10', 'border-emerald-500');
             setTimeout(() => {
               card.classList.remove('bg-emerald-500/10', 'border-emerald-500');
-            }, 2000);
+            }, 3000);
           }
           
-          loadBulkData();
+          renderRoster();
+          renderProxyBanner();
+          calculateProxyTotals();
+
+          // Re-enable loadBulkData on successful save to guarantee absolute database-to-client token synchronization
+          setTimeout(() => {
+            loadBulkData();
+          }, 1000);
         })
         .withFailureHandler(err => {
           const errMsg = err.message || "";
           
+          if (statusEl) {
+            statusEl.innerHTML = '<i class="fas fa-exclamation-circle text-red-500 mr-1"></i> Save Failed';
+            statusEl.className = 'text-[9px] font-bold uppercase tracking-widest text-red-500 ml-3';
+          }
+
           if (errMsg.includes("STALE_DATA_ERROR")) {
-            hideLoading();
             if (btn) {
               btn.disabled = false;
-              btn.innerText = "Submit Allocation";
+              btn.innerText = activeEmp.hasSubmitted ? "Update Allocation" : "Submit Allocation";
             }
-            showStaleDataModal();
+            showNotification('Sync Warning', 'Out-of-sync data detected. Automatically refreshing roster...', 'warning');
+            loadBulkData();
             return;
           }
 
@@ -915,58 +1026,14 @@
               saveProxyAllocation(retryCount + 1);
             }, delay);
           } else {
-            hideLoading();
             if (btn) {
               btn.disabled = false;
-              btn.innerText = "Submit Allocation";
+              btn.innerText = activeEmp.hasSubmitted ? "Update Allocation" : "Submit Allocation";
             }
             showNotification('Save Failed', errMsg, 'error');
           }
         })
         .saveManagerBulkAllocation(JSON.parse(JSON.stringify(payload)));
-    };
-
-    function showStaleDataModal() {
-      const modalHtml = `
-        <div id="stale-data-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
-          <div class="bg-osttra-black border border-osttra-rubine/30 p-8 rounded-3xl max-w-md w-full shadow-2xl animate-in zoom-in-95 duration-200 ease-out text-center">
-            <div class="w-16 h-16 rounded-full bg-osttra-rubine/10 text-osttra-rubine flex items-center justify-center text-2xl mx-auto mb-4 animate-bounce">
-              <i class="fas fa-exclamation-triangle"></i>
-            </div>
-            <h3 class="text-xl font-black text-white uppercase tracking-wider mb-2">Stale Data Warning</h3>
-            <p class="text-xs text-white/60 mb-8 leading-relaxed uppercase tracking-wider">
-              This employee's allocation splits have been updated by another session or by the employee themselves since you loaded this page. 
-              Please reload the dashboard to view the latest data.
-            </p>
-            <button onclick="loadBulkData(); document.getElementById('stale-data-modal').remove();" class="w-full py-4 osttra-gradient rounded-xl text-xs font-black uppercase text-white hover:brightness-110 hover:scale-[1.03] active:scale-95 transition-all duration-200">
-              Refresh Data
-            </button>
-          </div>
-        </div>
-      `;
-      document.body.insertAdjacentHTML('beforeend', modalHtml);
-    }
-
-    window.resetProxyAllocation = function() {
-      const currentPeriod = window.currentUser.currentPeriod || "Unknown Period";
-      
-      showConfirmModal(
-        `Are you sure you want to RESET and UNLOCK the allocation splits for ${activeEmp.name}?\n\nThis will purge all ${currentPeriod} split entries for this employee, clearing their cache and unlocking their personal tab so they can certify it themselves.`,
-        () => {
-          showLoading(`Resetting and unlocking ${activeEmp.name}'s allocation splits...`);
-          google.script.run
-            .withSuccessHandler(msg => {
-              hideLoading();
-              showNotification('Allocation Unlocked', msg, 'success');
-              loadBulkData();
-            })
-            .withFailureHandler(err => {
-              hideLoading();
-              showNotification('Unlock Failed', err.message, 'error');
-            })
-            .deleteEmployeeAllocation(activeEmp.email, currentPeriod);
-        }
-      );
     };
 
     window.closeConfirmModal = function() {
