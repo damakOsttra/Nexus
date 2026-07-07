@@ -25,6 +25,10 @@ function exportAnupOrgMasterData() {
     console.log("Mapping Manual Data...");
     const manualMaps = getManualDataMaps(ss);
     
+    // NEW: Load Manual Inactive Overrides
+    console.log("Mapping Manual Inactive Overrides...");
+    const manualInactives = getManualInactiveOverrides(ss);
+    
     // 2. PREPARATION: Load Directory
     console.log("Downloading directory...");
     const directoryMap = getCompleteDirectoryMap();
@@ -108,7 +112,6 @@ function exportAnupOrgMasterData() {
 
       if (dfRecord) {
         managerEmpId = dfRecord.managerEmpId || "N/A";
-        managerName = dfRecord.managerName || "N/A";
         
         // Reverse-lookup manager's email in Dayforce Map using manager ID
         if (managerEmpId !== "N/A" && dfEmpMap[managerEmpId]) {
@@ -117,15 +120,24 @@ function exportAnupOrgMasterData() {
       }
 
       // Fallback to Google Directory for direct manager if Dayforce lookup is empty
-      if (managerEmailAddr === "N/A" || managerName === "N/A") {
+      if (managerEmailAddr === "N/A") {
         if (person.managerEmail) {
           managerEmailAddr = person.managerEmail;
-          if (directoryMap[person.managerEmail.toLowerCase()]) {
-            const mgrObj = directoryMap[person.managerEmail.toLowerCase()];
-            if (managerName === "N/A") managerName = mgrObj.name || "N/A";
-            if (managerEmpId === "N/A") managerEmpId = mgrObj.empId || "N/A";
-          }
         }
+      }
+
+      // Resolve manager details: prioritizing Google Chat Full Name (from Google Directory map)
+      if (managerEmailAddr !== "N/A" && directoryMap[managerEmailAddr.toLowerCase()]) {
+        const mgrObj = directoryMap[managerEmailAddr.toLowerCase()];
+        managerName = mgrObj.name || "N/A";
+        if (managerEmpId === "N/A") {
+          managerEmpId = mgrObj.empId || "N/A";
+        }
+      }
+
+      // Fallback to Dayforce manager name if Google Directory lookup yields empty name
+      if (managerName === "N/A" && dfRecord && dfRecord.managerName) {
+        managerName = dfRecord.managerName;
       }
 
       // Build Hierarchy utilizing Dayforce recursion, falling back to Google Directory if needed
@@ -141,23 +153,29 @@ function exportAnupOrgMasterData() {
         let nextMgrName = "N/A";
         let nextMgrEmail = "N/A";
 
-        // Try Dayforce record first
+        // Try Dayforce record first to resolve next manager's email
         if (dayforceMap[mgrKey]) {
           const dfMgr = dayforceMap[mgrKey];
-          nextMgrName = dfMgr.hrName || (dfMgr.firstName + " " + dfMgr.lastName);
-          nextMgrEmail = dfMgr.managerEmail || "N/A";
-          
-          // Reverse-lookup next manager's email if only ID is present
-          if (nextMgrEmail === "N/A" && dfMgr.managerEmpId && dfMgr.managerEmpId !== "N/A" && dfEmpMap[dfMgr.managerEmpId]) {
+          if (dfMgr.managerEmpId && dfMgr.managerEmpId !== "N/A" && dfEmpMap[dfMgr.managerEmpId]) {
             nextMgrEmail = dfEmpMap[dfMgr.managerEmpId].email || "N/A";
           }
         } 
         
-        // Fallback to Google Directory if next manager is not in Dayforce scope
-        if (nextMgrName === "N/A" && directoryMap[mgrKey]) {
+        // Fallback to Google Directory for next manager email
+        if (nextMgrEmail === "N/A" && directoryMap[mgrKey]) {
           const gMgr = directoryMap[mgrKey];
-          nextMgrName = gMgr.name || "N/A";
           nextMgrEmail = gMgr.managerEmail || "N/A";
+        }
+
+        // Always resolve next manager name prioritizing Google Chat Full Name (from Google Directory map)
+        if (directoryMap[mgrKey]) {
+          nextMgrName = directoryMap[mgrKey].name || "N/A";
+        }
+
+        // Fallback to Dayforce HR name if not found in Google Directory
+        if (nextMgrName === "N/A" && dayforceMap[mgrKey]) {
+          const dfMgr = dayforceMap[mgrKey];
+          nextMgrName = dfMgr.hrName || (dfMgr.firstName + " " + dfMgr.lastName);
         }
 
         if (nextMgrName !== "N/A") {
@@ -237,10 +255,17 @@ function exportAnupOrgMasterData() {
         }
 
         const hrStart = dfRecordMatched && dfRecordMatched.hireDate ? String(dfRecordMatched.hireDate).substring(0, 10) : "N/A (Not in HRIS)";
-        const hrTerm = dfRecordMatched && dfRecordMatched.termDate ? String(dfRecordMatched.termDate).substring(0, 10) : "Active (No Term Date)";
-        const hrStatus = dfRecordMatched ? dfRecordMatched.status : "N/A (Not in HRIS)";
+        let hrTerm = dfRecordMatched && dfRecordMatched.termDate ? String(dfRecordMatched.termDate).substring(0, 10) : "Active (No Term Date)";
+        let hrStatus = dfRecordMatched ? dfRecordMatched.status : "N/A (Not in HRIS)";
         const hrPay = dfRecordMatched ? dfRecordMatched.payClass : "N/A (Not in HRIS)";
         const hrLegal = dfRecordMatched ? dfRecordMatched.legalEntity : "N/A (Not in HRIS)";
+        
+        // **NEW: Check Manual Inactive Overrides**
+        const emailLower = email.toLowerCase().trim();
+        if (manualInactives[emailLower]) {
+          hrStatus = "Inactive (Manual Override)";
+          hrTerm = "Manually Overridden";
+        }
         
         // Let's use HR Start Date as a fallback for standard Start Date to heal both columns!
         const legacyStart = (person.startDate && person.startDate !== "N/A") 
@@ -522,4 +547,86 @@ function fetchDayforceData() {
     console.error("Dayforce API Fetch Failed:", e.message);
     return { byEmail: {}, byEmpId: {} };
   }
+}
+
+/**
+ * HELPER: Fetch and parse manual inactive overrides based on the active period
+ */
+function getManualInactiveOverrides(ss) {
+  const sheetName = "App Manual Inactives (Read / Write)";
+  let sheet = ss.getSheetByName(sheetName);
+  const map = {};
+  if (!sheet) {
+    // Gracefully initialize if sheet doesn't exist
+    sheet = ss.insertSheet(sheetName);
+    sheet.appendRow(["Email Address", "Start Month", "End Month", "Reason", "Added By", "Timestamp"]);
+    applyFormatting(sheet);
+    return map;
+  }
+
+  const data = sheet.getDataRange().getValues();
+  if (data.length <= 1) return map;
+
+  const headers = data[0].map(h => String(h || "").trim().toLowerCase());
+  const emailIdx = headers.indexOf("email address");
+  const startIdx = headers.indexOf("start month");
+  const endIdx = headers.indexOf("end month");
+  const reasonIdx = headers.indexOf("reason");
+
+  if (emailIdx === -1) return map;
+
+  const currentPeriod = getActivePeriod();
+
+  for (let i = 1; i < data.length; i++) {
+    const email = String(data[i][emailIdx]).toLowerCase().trim();
+    if (!email) continue;
+
+    const startMonth = String(data[i][startIdx] || "").trim();
+    const endMonth = String(data[i][endIdx] || "").trim();
+
+    let isInactiveNow = false;
+    if (!startMonth && !endMonth) {
+      isInactiveNow = true; // Indefinite exclusion
+    } else {
+      isInactiveNow = isPeriodInOverrideRange(currentPeriod, startMonth, endMonth);
+    }
+
+    if (isInactiveNow) {
+      map[email] = {
+        startMonth: startMonth,
+        endMonth: endMonth,
+        reason: reasonIdx !== -1 ? String(data[i][reasonIdx] || "").trim() : "No reason provided"
+      };
+    }
+  }
+  return map;
+}
+
+/**
+ * HELPER: Checks if the current active period falls chronologically within a start/end month override range.
+ * Period format: "Month Year" (e.g. "February 2026")
+ */
+function isPeriodInOverrideRange(currentPeriod, startMonth, endMonth) {
+  const months = ["january","february","march","april","may","june","july","august","september","october","november","december"];
+  
+  const parsePeriod = (p) => {
+    if (!p) return null;
+    const parts = p.trim().toLowerCase().split(/\s+/);
+    if (parts.length < 2) return null;
+    const mIdx = months.indexOf(parts[0]);
+    const y = parseInt(parts[1], 10);
+    if (mIdx === -1 || isNaN(y)) return null;
+    return new Date(y, mIdx, 1);
+  };
+
+  const current = parsePeriod(currentPeriod);
+  if (!current) return false;
+
+  const start = parsePeriod(startMonth);
+  const end = parsePeriod(endMonth);
+
+  if (start && current < start) return false;
+  if (end && current > end) return false;
+
+  return true;
 }

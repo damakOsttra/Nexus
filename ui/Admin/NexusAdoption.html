@@ -105,41 +105,59 @@
         </div>
       </div>
 
-      <!-- Event Counts Breakdown (Sidebar) -->
-      <div class="p-6 bg-[#222222] border border-white/5 rounded-3xl flex flex-col justify-between">
-        <div class="space-y-6 h-full">
-          <div class="space-y-0.5">
-            <h3 class="text-sm font-black uppercase tracking-wider text-white">Governance & Audit Counters</h3>
-            <p class="text-[10px] text-white/40">Operational actions logged during period</p>
-          </div>
-          
-          <div id="governance-counters" class="space-y-3 overflow-y-auto max-h-[220px] pr-2">
-            <!-- Populated dynamically -->
-          </div>
+      <!-- Event Distribution Chart (Sidebar Revamp) -->
+      <div class="p-6 bg-[#222222] border border-white/5 rounded-3xl space-y-6 flex flex-col justify-between">
+        <div class="space-y-0.5">
+          <h3 class="text-sm font-black uppercase tracking-wider text-white">Action Distribution</h3>
+          <p class="text-[10px] text-white/40">Operational vs Navigation Telemetry spread</p>
+        </div>
+        <div class="relative h-[200px] flex items-center justify-center">
+          <canvas id="adoptionDistributionChart"></canvas>
+        </div>
+        <!-- Simple Legend Panel -->
+        <div id="distribution-legend" class="grid grid-cols-2 gap-2 text-[9px] font-bold uppercase tracking-widest text-white/40 border-t border-white/5 pt-4">
+          <!-- Populated dynamically -->
         </div>
       </div>
 
     </div>
 
-    <!-- Row 3: Admin Activity Terminal (Real-time Live Feed) -->
-    <div class="p-6 bg-[#222222] border border-white/5 rounded-3xl space-y-6">
-      <div class="flex justify-between items-center border-b border-white/5 pb-4">
-        <div class="space-y-0.5">
-          <h3 class="text-sm font-black uppercase tracking-wider text-white">Live Administrator & Roster Feed</h3>
-          <p class="text-[10px] text-white/40">Most recent platform-wide actions and system transactions</p>
-        </div>
-        <div class="flex items-center gap-2">
-          <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-          <span class="text-[9px] font-black uppercase tracking-widest text-emerald-500">Telemetry Live</span>
-        </div>
-      </div>
+    <!-- Row 3: Admin Activity Terminal (Real-time Live Feed) and Analytics Pie Chart -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
       
       <!-- Terminal Window -->
-      <div class="bg-[#1a1a1a] rounded-2xl p-6 font-mono border border-white/5 shadow-inner">
-        <div id="adoption-terminal" class="space-y-3.5 max-h-[300px] overflow-y-auto text-xs leading-relaxed pr-2">
-          <!-- Live events will load here -->
+      <div class="p-6 bg-[#222222] border border-white/5 rounded-3xl lg:col-span-2 space-y-6">
+        <div class="flex justify-between items-center border-b border-white/5 pb-4">
+          <div class="space-y-0.5">
+            <h3 class="text-sm font-black uppercase tracking-wider text-white">Live Administrator & Roster Feed</h3>
+            <p class="text-[10px] text-white/40">Most recent platform-wide actions and system transactions</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span class="text-[9px] font-black uppercase tracking-widest text-emerald-500">Telemetry Live</span>
+          </div>
+        </div>
+        <div class="bg-[#1a1a1a] rounded-2xl p-6 font-mono border border-white/5 shadow-inner">
+          <div id="adoption-terminal" class="space-y-3.5 max-h-[300px] overflow-y-auto text-xs leading-relaxed pr-2">
+            <!-- Live events will load here -->
+          </div>
         </div>
       </div>
+
+      <!-- Analytics Consumption Pie Chart -->
+      <div class="p-6 bg-[#222222] border border-white/5 rounded-3xl space-y-6 flex flex-col justify-between">
+        <div class="space-y-0.5">
+          <h3 class="text-sm font-black uppercase tracking-wider text-white">Analytics Consumption</h3>
+          <p class="text-[10px] text-white/40">Reporting engagement metrics</p>
+        </div>
+        <div class="relative h-[200px] flex items-center justify-center">
+          <canvas id="analyticsPieChart"></canvas>
+        </div>
+        <div id="analytics-legend" class="grid grid-cols-2 gap-2 text-[9px] font-bold uppercase tracking-widest text-white/40 border-t border-white/5 pt-4">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+
     </div>
 
   </div>
@@ -149,6 +167,8 @@
 <script>
   (function() {
     let chartInstance = null;
+    let distributionChartInstance = null;
+    let analyticsChartInstance = null;
 
     window.refreshTelemetryData = function() {
       document.getElementById('telemetry-loading').classList.remove('hidden');
@@ -165,29 +185,14 @@
           document.getElementById('kpi-proxies').innerText = telemetry.eventCounts.MANAGER_PROXY_SUBMITTED || 0;
           document.getElementById('kpi-resets').innerText = telemetry.eventCounts.ALLOCATION_UNLOCKED || 0;
           
-          // 2. Render Sidebar Governance Counters
-          const govContainer = document.getElementById('governance-counters');
-          const govEvents = [
-            { label: 'Database Backups', key: 'DB_BACKUP_EXECUTED', icon: 'fa-hdd', color: 'text-osttra-rubine' },
-            { label: 'Roster Audits Run', key: 'DAYFORCE_AUDIT_RUN', icon: 'fa-users-cog', color: 'text-osttra-ochre' },
-            { label: 'Skill Ratings Set', key: 'SKILL_ASSIGNED', icon: 'fa-user-tag', color: 'text-emerald-500' },
-            { label: 'System States Changed', key: 'SYSTEM_STATE_CHANGED', icon: 'fa-cog', color: 'text-osttra-violet' },
-            { label: 'Bulk Emails Sent', key: 'BULK_EMAILS_SENT', icon: 'fa-envelope', color: 'text-blue-400' },
-            { label: 'Analytics Hub Uploads', key: 'REPORT_PUBLISHED', icon: 'fa-file-upload', color: 'text-pink-400' }
-          ];
-          
-          govContainer.innerHTML = govEvents.map(event => `
-            <div class="flex justify-between items-center py-2.5 px-4 bg-white/5 border border-white/5 rounded-xl hover:border-white/10 transition-colors">
-              <div class="flex items-center gap-3">
-                <i class="fas ${event.icon} text-xs ${event.color}"></i>
-                <span class="text-xs font-bold text-white/80">${event.label}</span>
-              </div>
-              <span class="text-xs font-black text-white font-mono bg-white/5 px-2.5 py-1 rounded-lg">${telemetry.eventCounts[event.key] || 0}</span>
-            </div>
-          `).join('');
-          
-          // 3. Render Chart.js
+          // 2. Render Chart.js DAU Trend Line Chart
           renderDauChart(telemetry.chartData);
+
+          // 3. Render Event Distribution Doughnut Chart
+          renderDistributionChart(telemetry);
+
+          // New: Render Analytics Consumption Pie Chart
+          renderAnalyticsChart(telemetry);
           
           // 4. Render Live Activity Terminal
           renderTerminalFeed(telemetry.recentLogs);
@@ -253,6 +258,114 @@
       });
     }
 
+    function renderDistributionChart(telemetry) {
+      const ctx = document.getElementById('adoptionDistributionChart').getContext('2d');
+      if (distributionChartInstance) {
+        distributionChartInstance.destroy();
+      }
+
+      const counts = telemetry.eventCounts;
+      const dataMapping = [
+        { label: 'Submissions', val: counts.ALLOCATION_SUBMITTED || 0, color: '#10B981' }, // emerald-500
+        { label: 'Overrides', val: counts.MANAGER_PROXY_SUBMITTED || 0, color: '#FE952D' }, // ochre
+        { label: 'Navigation', val: counts.MODULE_ACCESSED || 0, color: '#3B82F6' }, // blue-500
+        { label: 'Audits', val: counts.DAYFORCE_AUDIT_RUN || 0, color: '#8B5CF6' }, // purple-500
+        { label: 'Manual Excl.', val: (counts.MANUAL_OVERRIDE_ADDED || 0) + (counts.MANUAL_OVERRIDE_REMOVED || 0), color: '#EF4444' }, // red-500
+        { label: 'Others', val: (counts.DB_BACKUP_EXECUTED || 0) + (counts.REPORT_PUBLISHED || 0) + (counts.SYSTEM_STATE_CHANGED || 0) + (counts.BULK_EMAILS_SENT || 0), color: '#6B7280' } // gray-500
+      ].filter(x => x.val > 0); // Only show non-zero events in chart
+
+      // Fallback if no data
+      const labels = dataMapping.length > 0 ? dataMapping.map(x => x.label) : ["No Actions Logged"];
+      const values = dataMapping.length > 0 ? dataMapping.map(x => x.val) : [1];
+      const colors = dataMapping.length > 0 ? dataMapping.map(x => x.color) : ['#333333'];
+
+      distributionChartInstance = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: labels,
+          datasets: [{
+            data: values,
+            backgroundColor: colors,
+            borderColor: '#222222',
+            borderWidth: 2,
+            hoverOffset: 4
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false }
+          },
+          cutout: '70%'
+        }
+      });
+
+      // Update manual text legend
+      const legend = document.getElementById('distribution-legend');
+      legend.innerHTML = dataMapping.map(x => `
+        <div class="flex items-center gap-1.5 py-0.5 truncate">
+          <span class="w-1.5 h-1.5 rounded-full shrink-0" style="background-color: ${x.color}"></span>
+          <span class="text-white/60 truncate max-w-[80px]">${x.label}:</span>
+          <span class="text-white font-mono shrink-0">${x.val}</span>
+        </div>
+      `).join('');
+    }
+
+    function renderAnalyticsChart(telemetry) {
+      const ctx = document.getElementById('analyticsPieChart').getContext('2d');
+      if (analyticsChartInstance) {
+        analyticsChartInstance.destroy();
+      }
+
+      const rawDetails = telemetry.detailedAnalytics || {};
+      const dataMapping = [
+        { label: 'Nexus Tracker', val: rawDetails["Nexus Tracker"] || 0, color: '#FF0061' }, // rubine
+        { label: 'Alloc Heatmap', val: rawDetails["Allocation Heatmap"] || 0, color: '#9125BF' }, // violet
+        { label: 'Skills Heatmap', val: rawDetails["Skills Heatmap"] || 0, color: '#10B981' }, // emerald
+        { label: 'Report Directory', val: rawDetails["Report Directory"] || 0, color: '#FE952D' }, // ochre
+        { label: 'Global Headcount', val: rawDetails["Global Headcount"] || 0, color: '#00E1D9' }, // cyan
+        { label: 'Org Chart', val: rawDetails["Org Chart"] || 0, color: '#0061FF' }, // blue
+        { label: 'Looker Links', val: rawDetails["Looker Dashboards"] || 0, color: '#22D3EE' } // cyan-light
+      ].filter(x => x.val > 0);
+
+      // Fallback if no data
+      const labels = dataMapping.length > 0 ? dataMapping.map(x => x.label) : ["No Consumption"];
+      const values = dataMapping.length > 0 ? dataMapping.map(x => x.val) : [1];
+      const colors = dataMapping.length > 0 ? dataMapping.map(x => x.color) : ['#333333'];
+
+      analyticsChartInstance = new Chart(ctx, {
+        type: 'pie',
+        data: {
+          labels: labels,
+          datasets: [{
+            data: values,
+            backgroundColor: colors,
+            borderColor: '#222222',
+            borderWidth: 2,
+            hoverOffset: 4
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false }
+          }
+        }
+      });
+
+      // Update text legend
+      const legend = document.getElementById('analytics-legend');
+      legend.innerHTML = dataMapping.map(x => `
+        <div class="flex items-center gap-1.5 py-0.5 truncate">
+          <span class="w-1.5 h-1.5 rounded-full shrink-0" style="background-color: ${x.color}"></span>
+          <span class="text-white/60 truncate max-w-[80px]">${x.label}:</span>
+          <span class="text-white font-mono shrink-0">${x.val}</span>
+        </div>
+      `).join('');
+    }
+
     function renderTerminalFeed(logs) {
       const terminal = document.getElementById('adoption-terminal');
       
@@ -268,7 +381,10 @@
         MANAGER_PROXY_SUBMITTED: 'bg-osttra-ochre/10 text-osttra-ochre border-osttra-ochre/20',
         ALLOCATION_UNLOCKED: 'bg-osttra-violet/10 text-osttra-violet border-osttra-violet/20',
         DAYFORCE_AUDIT_RUN: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
-        BULK_EMAILS_SENT: 'bg-[#555555]/10 text-white/50 border-[#555555]/20'
+        BULK_EMAILS_SENT: 'bg-[#555555]/10 text-white/50 border-[#555555]/20',
+        MODULE_ACCESSED: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+        MANUAL_OVERRIDE_ADDED: 'bg-red-500/10 text-red-400 border-red-500/20',
+        MANUAL_OVERRIDE_REMOVED: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
       };
 
       terminal.innerHTML = logs.map(log => {

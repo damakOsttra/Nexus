@@ -554,11 +554,17 @@ Nexus Administration</textarea>
         .withSuccessHandler(res => {
           hideLoading();
           if (res.success) {
-            let detailMsg = `Sent: ${res.successCount}. Failed: ${res.failureCount}.`;
-            if (res.failureCount > 0 && res.errors && res.errors.length > 0) {
+            let detailMsg = `Emails: ${res.successCount} sent, ${res.failureCount} failed.`;
+            if (payload.pingChat) {
+              const chatSuccess = res.chatSuccessCount !== undefined ? res.chatSuccessCount : 0;
+              const chatFailure = res.chatFailureCount !== undefined ? res.chatFailureCount : 0;
+              detailMsg += ` Chats: ${chatSuccess} sent, ${chatFailure} failed.`;
+            }
+            const hasFailures = res.failureCount > 0 || (payload.pingChat && (res.chatFailureCount || 0) > 0);
+            if (hasFailures && res.errors && res.errors.length > 0) {
               detailMsg += ` Reason: ${res.errors[0]}`;
             }
-            showNotification('Dispatch Complete', detailMsg, res.failureCount > 0 ? 'warning' : 'success');
+            showNotification('Dispatch Complete', detailMsg, hasFailures ? 'warning' : 'success');
             loadMonitorData(); // Refresh statuses
           }
         })

@@ -12,6 +12,9 @@ const ALLOWED_TELEMETRY_EVENTS = [
   'PRODUCT_SCOPE_ASSIGNED',   // Manager Operational Mapping
   'SKILL_ASSIGNED',           // Manager Skill Rating
   'ANALYTICS_VIEWED',         // User opens a dashboard
+  'MODULE_ACCESSED',          // General navigation telemetry
+  'MANUAL_OVERRIDE_ADDED',    // Admin manually excludes employee
+  'MANUAL_OVERRIDE_REMOVED',  // Admin restores employee
   'FINANCE_REPORT_EXPORTED',  // Admin/Leadership Data Pull
   'DB_BACKUP_EXECUTED',       // System Snapshot
   'REPORT_PUBLISHED',         // Admin Analytics Hub Upload

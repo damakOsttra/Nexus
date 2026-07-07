@@ -59,6 +59,20 @@
       </div>
     </div>
 
+    <!-- Manual Inactives Override Card (New) -->
+    <div onclick="openManualInactivesModal()" class="bg-[#1a1a1a]/30 border border-white/5 p-6 rounded-2xl hover:border-osttra-rubine/50 hover:bg-[#1a1a1a]/40 transition-all cursor-pointer group border-l-4 border-osttra-rubine flex flex-col justify-between">
+      <div>
+        <div class="w-12 h-12 bg-osttra-rubine/10 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+          <i class="fas fa-user-slash text-osttra-rubine text-2xl"></i>
+        </div>
+        <h3 class="text-lg font-bold text-white mb-2 uppercase tracking-widest">Inactive Overrides</h3>
+        <p class="text-xs text-gray-500 leading-relaxed">Manually mark specific employees as inactive for custom month ranges, bypassing standard Dayforce statuses.</p>
+      </div>
+      <div class="mt-4 pt-4 border-t border-white/5 text-[9px] font-black uppercase text-white/40 tracking-widest">
+        Scope: Manual Exclusions
+      </div>
+    </div>
+
 
 
     <!-- Identity Simulation Card (Admin Feature) -->
@@ -189,6 +203,100 @@
       </div>
     </div>
   </div>
+
+  <!-- Manual Inactive Overrides Modal (New) -->
+  <div id="manual-inactives-modal" class="hidden fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+    <div class="glass border border-white/10 w-full max-w-4xl rounded-[2rem] overflow-hidden flex flex-col max-h-[85vh] shadow-2xl animate-in zoom-in duration-300">
+      
+      <!-- Modal Header -->
+      <div class="px-8 py-6 border-b border-white/5 bg-[#1a1a1a]/80 flex justify-between items-center">
+        <div class="space-y-1">
+          <h3 class="text-xl font-black uppercase text-white tracking-tight italic flex items-center gap-2">
+            <i class="fas fa-user-slash text-osttra-rubine"></i> Inactive <span class="text-osttra-rubine">Overrides</span>
+          </h3>
+          <p class="text-[10px] text-white/40 uppercase tracking-widest font-semibold">Exempt specific employees from the Nexus dashboard during target months</p>
+        </div>
+        <button onclick="closeManualInactivesModal()" class="w-8 h-8 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center text-white/50 hover:text-white transition-all">
+          <i class="fas fa-times text-xs"></i>
+        </button>
+      </div>
+
+      <!-- Modal Body (Two Column Split: Add Override + Existing Overrides Table) -->
+      <div class="flex-1 overflow-y-auto p-8 bg-[#151515]/90 grid grid-cols-1 lg:grid-cols-3 gap-8">
+        
+        <!-- Left Column: Add Override Form -->
+        <div class="space-y-4">
+          <h4 class="text-xs font-black uppercase text-white tracking-widest border-b border-white/5 pb-2">Add Override</h4>
+          
+          <div class="space-y-1">
+            <label class="text-[9px] font-black text-white/40 uppercase tracking-widest">Employee Email</label>
+            <input type="email" id="inactive-email" oninput="validateOverrideForm()" placeholder="employee.name@osttra.com" class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:outline-none focus:border-osttra-rubine/50">
+          </div>
+
+          <div class="grid grid-cols-2 gap-4">
+            <div class="space-y-1">
+              <label class="text-[9px] font-black text-white/40 uppercase tracking-widest">Start Month</label>
+              <select id="inactive-start" onchange="validateOverrideForm()" class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:outline-none focus:border-osttra-rubine/50 cursor-pointer">
+                <!-- Populated dynamically -->
+              </select>
+            </div>
+            <div class="space-y-1">
+              <label class="text-[9px] font-black text-white/40 uppercase tracking-widest">End Month</label>
+              <select id="inactive-end" onchange="validateOverrideForm()" class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:outline-none focus:border-osttra-rubine/50 cursor-pointer">
+                <!-- Populated dynamically -->
+              </select>
+            </div>
+          </div>
+          <p class="text-[9px] text-gray-500 leading-relaxed italic">Select a valid month range.</p>
+
+          <div class="space-y-1">
+            <label class="text-[9px] font-black text-white/40 uppercase tracking-widest">Reason / Notes</label>
+            <textarea id="inactive-reason" placeholder="e.g. Sabbatical, Leave of Absence" rows="2" class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:outline-none focus:border-osttra-rubine/50 resize-none"></textarea>
+          </div>
+
+          <button id="btn-save-override" disabled onclick="submitManualInactive()" class="w-full py-3 bg-osttra-rubine/10 hover:bg-osttra-rubine text-osttra-rubine hover:text-white border border-osttra-rubine/20 hover:border-transparent text-[10px] font-black uppercase tracking-widest rounded-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-osttra-rubine/10 disabled:hover:text-osttra-rubine disabled:hover:border-osttra-rubine/20">
+            Save Override
+          </button>
+        </div>
+
+        <!-- Right Column: Current Overrides Table -->
+        <div class="lg:col-span-2 space-y-4">
+          <h4 class="text-xs font-black uppercase text-white tracking-widest border-b border-white/5 pb-2">Active Overrides</h4>
+          
+          <div id="inactive-loading" class="hidden flex flex-col items-center justify-center py-12 gap-4">
+            <i class="fas fa-circle-notch animate-spin text-3xl text-osttra-rubine"></i>
+            <p class="text-[9px] font-black uppercase tracking-widest text-white/30">Loading overrides...</p>
+          </div>
+
+          <div id="inactive-table-wrapper" class="overflow-x-auto rounded-xl border border-white/5 bg-black/40 hidden">
+            <table class="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr class="bg-white/5 text-[9px] font-black uppercase tracking-widest text-white/40 border-b border-white/5">
+                  <th class="p-4">Employee</th>
+                  <th class="p-4">Months / Duration</th>
+                  <th class="p-4">Reason</th>
+                  <th class="p-4 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody id="inactive-tbody" class="divide-y divide-white/5 text-white/70">
+                <!-- Insert overrides dynamically -->
+              </tbody>
+            </table>
+          </div>
+
+          <div id="inactive-empty" class="flex flex-col items-center justify-center py-12 text-center gap-4">
+            <div class="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center text-white/20 text-lg">
+              <i class="fas fa-user-check"></i>
+            </div>
+            <div class="space-y-1">
+              <h4 class="text-xs font-black uppercase text-white">No Inactive Overrides</h4>
+              <p class="text-[10px] text-white/40 max-w-sm">All employees are currently subject to standard Dayforce active/inactive rules.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -236,6 +344,165 @@
 
   window.closeFinanceExportModal = function() {
     document.getElementById('finance-export-modal').classList.add('hidden');
+  };
+
+  // ==========================================
+  // INACTIVE OVERRIDES MODAL AND CONTROLS
+  // ==========================================
+
+  function populateMonthDropdowns() {
+    const selects = [document.getElementById('inactive-start'), document.getElementById('inactive-end')];
+    const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+    
+    let optionsHtml = '<option value="" class="bg-black text-white">Select Month...</option>';
+    const d = new Date();
+    d.setFullYear(d.getFullYear() - 1); // Start 1 year ago
+    d.setDate(1);
+
+    for (let i = 0; i < 36; i++) { // 3 years of options
+      const m = months[d.getMonth()];
+      const y = d.getFullYear();
+      const val = `${m} ${y}`;
+      optionsHtml += `<option value="${val}" class="bg-black text-white">${val}</option>`;
+      d.setMonth(d.getMonth() + 1);
+    }
+
+    selects.forEach(sel => {
+      if(sel) sel.innerHTML = optionsHtml;
+    });
+  }
+
+  window.validateOverrideForm = function() {
+    const email = document.getElementById('inactive-email').value.trim();
+    const start = document.getElementById('inactive-start').value.trim();
+    const end = document.getElementById('inactive-end').value.trim();
+    const btn = document.getElementById('btn-save-override');
+    
+    if (email && start && end) {
+      btn.disabled = false;
+    } else {
+      btn.disabled = true;
+    }
+  };
+
+  window.openManualInactivesModal = function() {
+    document.getElementById('manual-inactives-modal').classList.remove('hidden');
+    populateMonthDropdowns();
+    loadManualInactives();
+    validateOverrideForm(); // Set initial disabled state
+  };
+
+  window.closeManualInactivesModal = function() {
+    document.getElementById('manual-inactives-modal').classList.add('hidden');
+  };
+
+  window.loadManualInactives = function() {
+    document.getElementById('inactive-loading').classList.remove('hidden');
+    document.getElementById('inactive-table-wrapper').classList.add('hidden');
+    document.getElementById('inactive-empty').classList.add('hidden');
+
+    google.script.run
+      .withSuccessHandler(data => {
+        document.getElementById('inactive-loading').classList.add('hidden');
+        
+        const tbody = document.getElementById('inactive-tbody');
+        tbody.innerHTML = "";
+
+        if (!data || data.length === 0) {
+          document.getElementById('inactive-empty').classList.remove('hidden');
+          return;
+        }
+
+        document.getElementById('inactive-table-wrapper').classList.remove('hidden');
+
+        data.forEach(row => {
+          // Normalize key lookups due to case differences (e.g. Email Address vs email address)
+          const getVal = (obj, keyName) => {
+            const targetClean = keyName.toLowerCase().replace(/[^a-z0-9]/g, '');
+            const k = Object.keys(obj).find(x => x.toLowerCase().replace(/[^a-z0-9]/g, '') === targetClean) || keyName;
+            return obj[k];
+          };
+
+          const email = getVal(row, "Email Address");
+          if (!email) return;
+
+          const start = getVal(row, "Start Month") || "Indefinite";
+          const end = getVal(row, "End Month") || "Indefinite";
+          const reason = getVal(row, "Reason") || "N/A";
+          
+          let duration = "Indefinitely Inactive";
+          if (start !== "Indefinite" || end !== "Indefinite") {
+            duration = `${start} to ${end}`;
+          }
+
+          const rowHtml = `
+            <tr class="hover:bg-white/5 transition-colors">
+              <td class="p-4 font-bold text-white uppercase tracking-tight">${email}</td>
+              <td class="p-4 text-[10px] font-mono text-white/60">${duration}</td>
+              <td class="p-4 text-[10px] text-white/40 italic truncate max-w-[150px]">${reason}</td>
+              <td class="p-4 text-right">
+                <button onclick="deleteManualInactive('${email}')" class="px-2 py-1 bg-red-500/10 hover:bg-red-500/20 text-red-400 text-[9px] font-bold uppercase rounded-lg border border-red-500/20 transition-all">
+                  Revoke
+                </button>
+              </td>
+            </tr>
+          `;
+          tbody.insertAdjacentHTML('beforeend', rowHtml);
+        });
+      })
+      .withFailureHandler(err => {
+        document.getElementById('inactive-loading').classList.add('hidden');
+        showNotification("Failed to Load Inactives", err.message, "error");
+      })
+      .getManualInactivesData();
+  };
+
+  window.submitManualInactive = function() {
+    const email = document.getElementById('inactive-email').value.trim();
+    const start = document.getElementById('inactive-start').value.trim();
+    const end = document.getElementById('inactive-end').value.trim();
+    const reason = document.getElementById('inactive-reason').value.trim();
+
+    if (!email || !start || !end) {
+      showNotification("Validation Error", "Email, Start Month, and End Month are required.", "warning");
+      return;
+    }
+
+    showLoading("Saving manual override...");
+    google.script.run
+      .withSuccessHandler(msg => {
+        hideLoading();
+        showNotification("Success", msg, "success");
+        // Clear inputs and re-disable save
+        document.getElementById('inactive-email').value = "";
+        document.getElementById('inactive-start').value = "";
+        document.getElementById('inactive-end').value = "";
+        document.getElementById('inactive-reason').value = "";
+        validateOverrideForm();
+        loadManualInactives();
+      })
+      .withFailureHandler(err => {
+        hideLoading();
+        showNotification("Save Failed", err.message, "error");
+      })
+      .addManualInactiveRecord({ email, startMonth: start, endMonth: end, reason });
+  };
+
+  window.deleteManualInactive = function(email) {
+    if (!confirm(`Are you sure you want to revoke the inactive override for ${email}?`)) return;
+
+    showLoading("Revoking override...");
+    google.script.run
+      .withSuccessHandler(msg => {
+        hideLoading();
+        showNotification("Success", msg, "success");
+        loadManualInactives();
+      })
+      .withFailureHandler(err => {
+        hideLoading();
+        showNotification("Revoke Failed", err.message, "error");
+      })
+      .removeManualInactiveRecord(email);
   };
 
   /**

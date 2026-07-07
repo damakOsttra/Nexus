@@ -4,6 +4,9 @@
  */
 
 const CONFIG = {
+  // Environment Flag (Gates telemetry logging: PROD/UAT/DEV)
+  ENVIRONMENT: 'PROD',
+
   // Master Spreadsheet ID
   SPREADSHEET_ID: '1lZJ2B5HVJ_SYwaPY_3Ga6-oCC8CJJViOyzvD5rbVi34',
   
@@ -19,7 +22,8 @@ const CONFIG = {
     SYSTEM_LOGS: "App System Logs (Read / Write)",
     ANALYTICAL_HUB: "App Analytical Hub (Read / Write)",
     DATA_AUDIT: "App Audit: Discrepancies (Reference)",
-    SNAPSHOT_LOGS: "App Snapshot Logs (Read / Write)"
+    SNAPSHOT_LOGS: "App Snapshot Logs (Read / Write)",
+    MANUAL_INACTIVES: "App Manual Inactives (Read / Write)"
   },
 
   // Google Drive Folder Configuration

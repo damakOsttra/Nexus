@@ -101,14 +101,6 @@
           <option value="Pending">Pending (🔴)</option>
         </select>
 
-        <!-- Filter by FTE Validation -->
-        <select id="filter-fte" class="bg-[#1a1a1a]/50 border border-white/5 rounded-xl px-4 py-2.5 text-xs text-white/70 focus:outline-none focus:border-osttra-rubine/40 transition-all cursor-pointer">
-          <option value="All">FTE: All</option>
-          <option value="Valid">Valid (1.00 FTE) (🟢)</option>
-          <option value="Pending">Pending (0.00 FTE) (⚪)</option>
-          <option value="Invalid">Discrepancy (🔴)</option>
-        </select>
-
         <!-- Filter by Weekend Work -->
         <select id="filter-weekend" class="bg-[#1a1a1a]/50 border border-white/5 rounded-xl px-4 py-2.5 text-xs text-white/70 focus:outline-none focus:border-osttra-rubine/40 transition-all cursor-pointer">
           <option value="All">Weekend Work: All</option>
@@ -178,19 +170,19 @@
     <div id="monitor-table-wrapper" class="hidden overflow-x-auto rounded-2xl border border-white/5 bg-black/40">
       <table class="w-full text-left border-collapse text-xs">
         <thead>
-          <tr class="bg-white/5 text-[9px] font-black uppercase tracking-widest text-white/40 border-b border-white/5 whitespace-nowrap">
+          <tr class="bg-white/5 text-[9px] font-black uppercase tracking-widest text-white/40 border-b border-white/5 whitespace-nowrap select-none">
             <th class="p-4 w-12 text-center">
               <input type="checkbox" id="select-all" onchange="toggleSelectAll(this)" class="accent-osttra-rubine rounded cursor-pointer">
             </th>
-            <th class="p-4">Employee</th>
-            <th class="p-4">Direct Manager</th>
-            <th class="p-4 text-center">Allocation Submitted</th>
-            <th class="p-4 text-center">FTE Validation</th>
-            <th class="p-4 text-center">Weekdays Worked</th>
-            <th class="p-4 text-center">Weekends Worked</th>
-            <th class="p-4 text-center">Skills Certified</th>
-            <th class="p-4 text-center">Products Mapped</th>
-            <th class="p-4 text-right">Region</th>
+            <th onclick="sortMonitorTable('name')" class="p-4 cursor-pointer hover:text-white">Employee <span id="sort-icon-name" class="ml-1 text-osttra-rubine"></span></th>
+            <th onclick="sortMonitorTable('manager')" class="p-4 cursor-pointer hover:text-white">Direct Manager <span id="sort-icon-manager" class="ml-1 text-osttra-rubine"></span></th>
+            <th onclick="sortMonitorTable('alloc')" class="p-4 text-center cursor-pointer hover:text-white">Allocation Submitted <span id="sort-icon-alloc" class="ml-1 text-osttra-rubine"></span></th>
+            <th onclick="sortMonitorTable('fte')" class="p-4 text-center cursor-pointer hover:text-white">FTE Validation <span id="sort-icon-fte" class="ml-1 text-osttra-rubine"></span></th>
+            <th onclick="sortMonitorTable('weekdays')" class="p-4 text-center cursor-pointer hover:text-white">Weekdays Worked <span id="sort-icon-weekdays" class="ml-1 text-osttra-rubine"></span></th>
+            <th onclick="sortMonitorTable('weekend')" class="p-4 text-center cursor-pointer hover:text-white">Weekends Worked <span id="sort-icon-weekend" class="ml-1 text-osttra-rubine"></span></th>
+            <th onclick="sortMonitorTable('skills')" class="p-4 text-center cursor-pointer hover:text-white">Skills Certified <span id="sort-icon-skills" class="ml-1 text-osttra-rubine"></span></th>
+            <th onclick="sortMonitorTable('products')" class="p-4 text-center cursor-pointer hover:text-white">Products Mapped <span id="sort-icon-products" class="ml-1 text-osttra-rubine"></span></th>
+            <th onclick="sortMonitorTable('region')" class="p-4 text-right cursor-pointer hover:text-white">Region <span id="sort-icon-region" class="ml-1 text-osttra-rubine"></span></th>
           </tr>
         </thead>
         <tbody id="monitor-tbody" class="divide-y divide-white/5 text-white/70">
@@ -305,6 +297,18 @@
   (function() {
     let monitorData = [];
     let selectedEmails = new Set();
+    let monitorSortCol = "name";
+    let monitorSortAsc = true;
+
+    window.sortMonitorTable = function(col) {
+      if (monitorSortCol === col) {
+        monitorSortAsc = !monitorSortAsc;
+      } else {
+        monitorSortCol = col;
+        monitorSortAsc = true;
+      }
+      applyFilters();
+    };
 
     window.toggleSelectAll = function(selectAllCb) {
       const checkboxes = document.querySelectorAll('.user-checkbox');
@@ -367,9 +371,10 @@
 
       // Populate custom subject and body defaults based on type
       if (currentNotificationType === 'ALLOCATION') {
+        const periodVal = document.getElementById('filter-period').value;
         titleEl.innerHTML = '<i class="fas fa-calendar-alt text-osttra-rubine mr-2"></i>Compose Monthly Allocation Notification';
         subjEl.value = 'Action Required: Complete Your Nexus Monthly Allocation';
-        bodyEl.value = 'Hello Team,\n\nThis is a friendly reminder that you have pending monthly FTE allocations in the Nexus portal. Please submit them as soon as possible.';
+        bodyEl.value = `Hello,\n\nThis is an administrative reminder that your Monthly Allocation is currently pending for the ${periodVal} period.`;
         if (ccManagersGroup) ccManagersGroup.classList.remove('hidden');
         
         // Populate the recipient table for ALLOCATION (Employees as primary TO, Managers as CC)
@@ -387,7 +392,7 @@
         monitorData.forEach(e => {
           if (selectedEmails.has(e.email)) {
             html += `
-              <tr class="recipient-row" data-original-email="${e.email}">
+              <tr class="recipient-row" data-original-email="${e.email}" data-has-allocation="${e.hasAllocation}">
                 <td class="py-2 pr-2 w-1/2">
                   <input type="text" class="recipient-to w-full bg-[#1a1a1a]/50 border border-white/5 rounded px-2 py-1 text-xs text-white" value="${e.email}">
                 </td>
@@ -478,7 +483,6 @@
       document.getElementById('filter-manager').value = "All";
       document.getElementById('filter-head').value = "All";
       document.getElementById('filter-alloc').value = "All";
-      document.getElementById('filter-fte').value = "All";
       document.getElementById('filter-weekend').value = "All";
       document.getElementById('filter-days-comp').value = "All";
       document.getElementById('filter-skills').value = "All";
@@ -565,7 +569,6 @@
       const managerFilter = document.getElementById('filter-manager').value;
       const headFilter = document.getElementById('filter-head').value;
       const allocFilter = document.getElementById('filter-alloc').value;
-      const fteFilter = document.getElementById('filter-fte').value;
       const weekendFilter = document.getElementById('filter-weekend').value;
       const daysCompFilter = document.getElementById('filter-days-comp').value;
       const skillsFilter = document.getElementById('filter-skills').value;
@@ -581,11 +584,6 @@
         const matchesAlloc = allocFilter === 'All' || 
           (allocFilter === 'Submitted' && e.hasAllocation) || 
           (allocFilter === 'Pending' && !e.hasAllocation);
-          
-        const matchesFte = fteFilter === 'All' ||
-          (fteFilter === 'Valid' && e.fteStatus === 'Valid') ||
-          (fteFilter === 'Pending' && e.fteStatus === 'Pending') ||
-          (fteFilter === 'Invalid' && e.fteStatus === 'Invalid');
           
         const matchesWeekend = weekendFilter === 'All' ||
           (weekendFilter === 'Worked' && e.workedWeekend) ||
@@ -608,7 +606,43 @@
           (statusFilter === 'Active' && e.isActive) ||
           (statusFilter === 'Inactive' && !e.isActive);
 
-        return matchesSearch && matchesRegion && matchesManager && matchesHead && matchesAlloc && matchesFte && matchesWeekend && matchesDaysComp && matchesSkills && matchesProducts && matchesStatus;
+        return matchesSearch && matchesRegion && matchesManager && matchesHead && matchesAlloc && matchesWeekend && matchesDaysComp && matchesSkills && matchesProducts && matchesStatus;
+      });
+
+      // Apply Sorting
+      filtered.sort((a, b) => {
+        let valA, valB;
+        switch (monitorSortCol) {
+          case 'name': valA = a.name; valB = b.name; break;
+          case 'manager': valA = a.managerName; valB = b.managerName; break;
+          case 'alloc': valA = a.hasAllocation ? 1 : 0; valB = b.hasAllocation ? 1 : 0; break;
+          case 'fte': valA = a.totalAllocPct || 0; valB = b.totalAllocPct || 0; break;
+          case 'weekdays': valA = a.weekdaysWorked || 0; valB = b.weekdaysWorked || 0; break;
+          case 'weekend': valA = a.weekendDaysWorked || 0; valB = b.weekendDaysWorked || 0; break;
+          case 'skills': valA = a.hasSkills ? 1 : 0; valB = b.hasSkills ? 1 : 0; break;
+          case 'products': valA = a.hasProductScope ? 1 : 0; valB = b.hasProductScope ? 1 : 0; break;
+          case 'region': valA = a.region; valB = b.region; break;
+          default: valA = a.name; valB = b.name;
+        }
+
+        if (typeof valA === 'string') {
+          return monitorSortAsc ? valA.localeCompare(valB) : valB.localeCompare(valA);
+        } else {
+          return monitorSortAsc ? valA - valB : valB - valA;
+        }
+      });
+
+      // Update Sort Icons in headers
+      const cols = ['name', 'manager', 'alloc', 'fte', 'weekdays', 'weekend', 'skills', 'products', 'region'];
+      cols.forEach(c => {
+        const icon = document.getElementById(`sort-icon-${c}`);
+        if (icon) {
+          if (monitorSortCol === c) {
+            icon.innerText = monitorSortAsc ? "↑" : "↓";
+          } else {
+            icon.innerText = "";
+          }
+        }
       });
 
       renderTable(filtered);
@@ -720,10 +754,12 @@
         if (currentNotificationType === 'ALLOCATION') {
           const ccVal = row.querySelector('.recipient-cc').value.trim();
           const originalEmail = row.getAttribute('data-original-email');
+          const hasAllocation = row.getAttribute('data-has-allocation') === 'true';
           selectedUsersList.push({
             email: toVal,
             managerEmail: ccVal,
-            originalEmail: originalEmail
+            originalEmail: originalEmail,
+            hasAllocation: hasAllocation
           });
         } else {
           const managerName = row.getAttribute('data-manager-name');
@@ -761,11 +797,17 @@
         .withSuccessHandler(res => {
           hideLoading();
           if (res.success) {
-            let detailMsg = `Sent: ${res.successCount}. Failed: ${res.failureCount}.`;
-            if (res.failureCount > 0 && res.errors && res.errors.length > 0) {
+            let detailMsg = `Emails: ${res.successCount} sent, ${res.failureCount} failed.`;
+            if (payload.pingChat) {
+              const chatSuccess = res.chatSuccessCount !== undefined ? res.chatSuccessCount : 0;
+              const chatFailure = res.chatFailureCount !== undefined ? res.chatFailureCount : 0;
+              detailMsg += ` Chats: ${chatSuccess} sent, ${chatFailure} failed.`;
+            }
+            const hasFailures = res.failureCount > 0 || (payload.pingChat && (res.chatFailureCount || 0) > 0);
+            if (hasFailures && res.errors && res.errors.length > 0) {
               detailMsg += ` Reason: ${res.errors[0]}`;
             }
-            showNotification('Dispatch Complete', detailMsg, res.failureCount > 0 ? 'warning' : 'success');
+            showNotification('Dispatch Complete', detailMsg, hasFailures ? 'warning' : 'success');
             loadMonitorData(); // Refresh statuses
           }
         })
@@ -782,7 +824,6 @@
       document.getElementById('filter-manager').value = "All";
       document.getElementById('filter-head').value = "All";
       document.getElementById('filter-alloc').value = "All";
-      document.getElementById('filter-fte').value = "All";
       document.getElementById('filter-weekend').value = "All";
       document.getElementById('filter-days-comp').value = "All";
       document.getElementById('filter-skills').value = "All";

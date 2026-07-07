@@ -855,9 +855,6 @@
       .withSuccessHandler(() => {
         showNotification("Success", "Tabular allocation certified successfully.");
         
-        // Celebrate successful G-Sheets write immediately with a confetti blast
-        triggerConfetti('gauge-container');
-        
         hasSubmitted = true;
         window.lastKnownTimestamp = new Date().toISOString();
         

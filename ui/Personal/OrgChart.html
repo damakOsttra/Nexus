@@ -73,6 +73,9 @@
     }
 
     function loadOrgChartData() {
+      // Log telemetry for Org Chart view
+      Telemetry.log("ANALYTICS_VIEWED", "Organization Chart", "Viewed");
+
       const loader = document.getElementById('orgchart-loader');
       if (loader) loader.classList.remove('hidden');
 

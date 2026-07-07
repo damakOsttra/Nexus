@@ -35,6 +35,7 @@ function getCurrentUserSession() {
   const empMap = {};
   const managerMap = {}; // managerId -> count of direct reports
   const directManagerMap = {}; // directManagerName -> count of reports
+  const directMgrEmailMap = {}; // directManagerEmail -> count of reports
   const regionalHeads = new Set();
 
   allEmployees.forEach(emp => {
@@ -46,6 +47,9 @@ function getCurrentUserSession() {
     
     const directMgrName = String(emp["Direct Manager Name"] || "").toLowerCase().trim();
     if (directMgrName) directManagerMap[directMgrName] = (directManagerMap[directMgrName] || 0) + 1;
+
+    const directMgrEmail = String(emp["Direct Manager Email"] || "").toLowerCase().trim();
+    if (directMgrEmail) directMgrEmailMap[directMgrEmail] = (directMgrEmailMap[directMgrEmail] || 0) + 1;
     
     const regHead = String(emp["Regional Head/Head of function"] || "").toLowerCase().trim();
     if (regHead) regionalHeads.add(regHead);
@@ -71,9 +75,10 @@ function getCurrentUserSession() {
     const managerIdStr = empId;
     const userNameLower = name.toLowerCase();
 
-    // Tier 2: Manager Check (Check ID or Direct Manager Name)
+    // Tier 2: Manager Check (Check ID, Direct Manager Name, or Direct Manager Email as primary)
     hasReports = (managerMap[managerIdStr] || 0) > 0 || 
-                 (directManagerMap[userNameLower] || 0) > 0;
+                 (directManagerMap[userNameLower] || 0) > 0 ||
+                 (directMgrEmailMap[activeEmail] || 0) > 0;
     if (hasReports) tier = 2;
 
   } else if (getAdminEmails().includes(activeEmail)) {

@@ -1703,7 +1703,7 @@ function getUtilizationData(managerName) {
   // 2. Fetch Employee Roster
   let roster = getSheetData(CONFIG.SHEETS.EMPLOYEES);
   if (managerName && managerName !== 'All') {
-    roster = roster.filter(e => String(e["Direct Manager Name"]) === managerName);
+    roster = roster.filter(e => String(e["Direct Manager Name"]) === managerName || String(e["Direct Manager Email"]).toLowerCase() === managerName.toLowerCase());
   }
 
   const teamMetrics = roster.filter(e => e["Email Address"]).map(e => {
@@ -1913,6 +1913,11 @@ function cascadeEmailUpdate(oldEmail, newEmail) {
  * Helper: Logs system and governance events to the System Logs sheet.
  */
 function logSystemEvent(actor, target, action, sheetName, before, after) {
+  // EXCLUDE TELEMETRY FROM DEV/UAT ENVIRONMENTS
+  if (CONFIG.ENVIRONMENT && CONFIG.ENVIRONMENT.toUpperCase() !== 'PROD') {
+    console.log(`[TELEMETRY BYPASS] Action "${action}" suppressed in ${CONFIG.ENVIRONMENT} environment.`);
+    return;
+  }
   const ss = getSpreadsheet();
   let logSheet = ss.getSheetByName(CONFIG.SHEETS.SYSTEM_LOGS);
   if (!logSheet) {
@@ -3632,7 +3637,9 @@ function getAdminMonitorData(period) {
 function sendBulkNotifications(payload) {
   validateTier(3); // Admin Only
   
-  const { notificationType, selectedUsers, subject, customMessage, ccManagers, pingChat, globalCc, globalBcc } = payload;
+  const notificationType = payload.notificationType || "ALLOCATION";
+  const customMessage = payload.customMessage || payload.body || "";
+  const { selectedUsers, subject, ccManagers, pingChat, globalCc, globalBcc } = payload;
   if (!selectedUsers || selectedUsers.length === 0) {
     throw new Error("No users selected for notification.");
   }
@@ -3644,6 +3651,8 @@ function sendBulkNotifications(payload) {
 
   let successCount = 0;
   let failureCount = 0;
+  let chatSuccessCount = 0;
+  let chatFailureCount = 0;
   const errors = [];
 
   const parseEmails = (str) => {
@@ -3694,7 +3703,6 @@ function sendBulkNotifications(payload) {
           </div>
           <div class="footer">
             <p>© ${new Date().getFullYear()} OSTTRA Group. All rights reserved.</p>
-            <p>The home of <strong>MarkitServ, Traiana, TriOptima & Reset</strong></p>
           </div>
         </div>
       </body>
@@ -3721,12 +3729,12 @@ function sendBulkNotifications(payload) {
       let textBody = "";
 
       if (notificationType === "ALLOCATION") {
-        const customBlock = customMessage ? `<div class="custom-msg">${customMessage.replace(/\n/g, "<br>")}</div>` : "";
+        const introBlock = customMessage 
+          ? customMessage.replace(/\n/g, "<br>")
+          : `Hello,<br><br>This is an administrative reminder that your Monthly Allocation is currently pending for the <strong>${payload.period || "current"}</strong> period.`;
         
         htmlBody = getEmailHtml("Action Required: Complete Your Monthly Allocation", `
-          <p class="body-text">Hello,</p>
-          <p class="body-text">This is an administrative reminder that your Monthly FTE Allocation is currently pending for the <strong>${payload.period || "current"}</strong> period.</p>
-          ${customBlock}
+          <p class="body-text">${introBlock}</p>
           <p class="body-text">Keeping these records accurate is critical for resource visibility and delivery reporting. Please complete your submission in the portal immediately.</p>
           
           <table>
@@ -3739,9 +3747,9 @@ function sendBulkNotifications(payload) {
             </thead>
             <tbody>
               <tr>
-                <td><strong>Monthly FTE Allocation</strong></td>
+                <td><strong>Monthly Allocation</strong></td>
                 <td>Personal &gt; My Allocations</td>
-                <td><span class="badge badge-pending">Pending</span></td>
+                <td>${user.hasAllocation ? '<span class="badge badge-submitted">Submitted</span>' : '<span class="badge badge-pending">Pending</span>'}</td>
               </tr>
             </tbody>
           </table>
@@ -3757,10 +3765,13 @@ function sendBulkNotifications(payload) {
           </div>
         `);
 
-        textBody = `Action Required: Complete Your Monthly Allocation\n\nHello,\n\nYour FTE Allocation is pending for ${payload.period || "current"}.\n\nAccess Nexus: ${prodUrl}\nSupport: ${supportUrl}\nTutorial: ${videoUrl}`;
+        const plainIntro = customMessage || `Hello,\n\nThis is an administrative reminder that your Monthly Allocation is currently pending for the ${payload.period || "current"} period.`;
+        textBody = `Action Required: Complete Your Monthly Allocation\n\n${plainIntro}\n\nAccess Nexus: ${prodUrl}\nSupport: ${supportUrl}\nTutorial: ${videoUrl}`;
 
       } else if (notificationType === "SKILLS") {
-        const customBlock = customMessage ? `<div class="custom-msg">${customMessage.replace(/\n/g, "<br>")}</div>` : "";
+        const introBlock = customMessage 
+          ? customMessage.replace(/\n/g, "<br>")
+          : `This is a reminder that the following direct reports on your team have pending product mappings or skill certifications in the Nexus database.<br><br>Please review and update their assignments in the Teams interface immediately to ensure compliance.`;
         
         let reportRows = "";
         user.employees.forEach(emp => {
@@ -3785,10 +3796,8 @@ function sendBulkNotifications(payload) {
         });
 
         htmlBody = getEmailHtml("Action Required: Team Product & Skills Mapping", `
-          <p class="body-text">Dear Manager (${user.managerName || "Manager"}),</p>
-          <p class="body-text">This is a reminder that the following direct reports on your team have pending product mappings or skill certifications in the Nexus database.</p>
-          ${customBlock}
-          <p class="body-text">Please review and update their assignments in the Teams interface immediately to ensure compliance.</p>
+          <p class="body-text">dear Manager (${user.managerName || "Manager"}),</p>
+          <p class="body-text">${introBlock}</p>
           
           <table>
             <thead>
@@ -3836,26 +3845,26 @@ function sendBulkNotifications(payload) {
       // Simultaneous Google Chat Group Ping
       if (pingChat) {
         try {
-          const memberships = [{ member: { name: 'users/' + to } }];
+          const memberships = [{ member: { name: 'users/' + to, type: 'HUMAN' } }];
           finalCcList.forEach(cc => {
-            memberships.push({ member: { name: 'users/' + cc } });
+            memberships.push({ member: { name: 'users/' + cc, type: 'HUMAN' } });
           });
           
-          // Setup Group Chat space with the Bot, Employee, and Manager
+          // Setup Space with the Bot: dynamically switches to DIRECT_MESSAGE if no CCs are present (exactly 1 human membership)
+          // Note: displayName is not allowed for GROUP_CHAT spaceType.
           const space = Chat.Spaces.setup({
             space: {
-              spaceType: 'GROUP_CHAT',
-              displayName: 'Nexus Compliance Alert'
+              spaceType: memberships.length > 1 ? 'GROUP_CHAT' : 'DIRECT_MESSAGE'
             },
             memberships: memberships
           });
           
           // Send the message into the newly setup group chat
           let chatMessage = `*${subject}*\n\n`;
-          if (customMessage) chatMessage += `_${customMessage}_\n\n`;
+          if (customMessage) chatMessage += `${customMessage}\n\n`;
           
           if (notificationType === "ALLOCATION") {
-            chatMessage += `Your FTE Allocation is pending for *${payload.period || "current"}*. Please complete it immediately.\n\n`;
+            chatMessage += `Your Allocation is pending for *${payload.period || "current"}*. Please complete it immediately.\n\n`;
           } else {
             chatMessage += `The following direct reports have pending product mappings or skill certifications:\n`;
             user.employees.forEach(emp => {
@@ -3863,12 +3872,14 @@ function sendBulkNotifications(payload) {
             });
             chatMessage += `\nPlease update their assignments in the Teams interface.\n\n`;
           }
-          chatMessage += `*Portal Link:* ${prodUrl}\n*Support:* ${supportUrl}\n*Tutorial:* ${videoUrl}`;
+          chatMessage += `*Portal Link:* ${prodUrl}\n\n*Support:* ${supportUrl}\n\n*Tutorial:* ${videoUrl}`;
           
           Chat.Spaces.Messages.create({ text: chatMessage }, space.name);
+          chatSuccessCount++;
         } catch (chatErr) {
           console.error(`Google Chat Ping failed for ${to}: ${chatErr.message}`);
           errors.push(`Chat Ping Error (${to}): ${chatErr.message}`);
+          chatFailureCount++;
         }
       }
 
@@ -3903,6 +3914,8 @@ function sendBulkNotifications(payload) {
     success: true,
     successCount,
     failureCount,
+    chatSuccessCount,
+    chatFailureCount,
     errors
   };
 }
@@ -3973,6 +3986,9 @@ function getSystemTelemetry() {
     PRODUCT_SCOPE_ASSIGNED: 0,
     SKILL_ASSIGNED: 0,
     ANALYTICS_VIEWED: 0,
+    MODULE_ACCESSED: 0,
+    MANUAL_OVERRIDE_ADDED: 0,
+    MANUAL_OVERRIDE_REMOVED: 0,
     FINANCE_REPORT_EXPORTED: 0,
     DB_BACKUP_EXECUTED: 0,
     REPORT_PUBLISHED: 0,
@@ -3984,6 +4000,15 @@ function getSystemTelemetry() {
   
   const uniqueUsers = new Set();
   const recentLogs = [];
+  const detailedAnalytics = {
+    "Nexus Tracker": 0,
+    "Allocation Heatmap": 0,
+    "Skills Heatmap": 0,
+    "Report Directory": 0,
+    "Global Headcount": 0,
+    "Org Chart": 0,
+    "Looker Dashboards": 0
+  };
   
   // Parse rows
   rawLogs.forEach(row => {
@@ -4014,6 +4039,37 @@ function getSystemTelemetry() {
       if (eventCounts[action] !== undefined) {
         eventCounts[action]++;
       }
+
+      // ACCUMULATE GRANULAR ANALYTICS CONSUMPTION
+      if (action === "ANALYTICS_VIEWED") {
+        const targetClean = String(row["Target Email"] || row["Target"] || "N/A").trim();
+        const targetLower = targetClean.toLowerCase();
+        
+        if (targetLower.includes("nexus tracker") || targetLower.includes("finance")) {
+          detailedAnalytics["Nexus Tracker"]++;
+        } else if (targetLower.includes("allocation heatmap") || targetLower.includes("heatmap")) {
+          detailedAnalytics["Allocation Heatmap"]++;
+        } else if (targetLower.includes("skills heatmap")) {
+          detailedAnalytics["Skills Heatmap"]++;
+        } else if (targetLower.includes("report directory") || targetLower.includes("looker directory")) {
+          detailedAnalytics["Report Directory"]++;
+        } else if (targetLower.includes("global headcount") || targetLower.includes("headcount")) {
+          detailedAnalytics["Global Headcount"]++;
+        } else if (targetLower.includes("organization chart") || targetLower.includes("org chart")) {
+          detailedAnalytics["Org Chart"]++;
+        } else if (targetLower.includes("looker")) {
+          detailedAnalytics["Looker Dashboards"]++;
+        } else {
+          // Fallback based on page Name passed in old telemetry
+          if (targetLower.includes("execanalytics")) {
+            detailedAnalytics["Nexus Tracker"]++;
+          } else if (targetLower.includes("analyticshub")) {
+            detailedAnalytics["Report Directory"]++;
+          } else if (targetLower.includes("orgchart")) {
+            detailedAnalytics["Org Chart"]++;
+          }
+        }
+      }
     }
     
     // Collect the 50 most recent events for live feed
@@ -4040,7 +4096,98 @@ function getSystemTelemetry() {
   return JSON.parse(JSON.stringify({
     activeUserCount30D: uniqueUsers.size,
     eventCounts: eventCounts,
+    detailedAnalytics: detailedAnalytics,
     chartData: chartData,
     recentLogs: finalRecentLogs
   }));
+}
+
+/**
+ * ADMIN: Get Manual Inactive Overrides
+ */
+function getManualInactivesData() {
+  validateTier(3); // Admin only
+  const data = getSheetData(CONFIG.SHEETS.MANUAL_INACTIVES);
+  return JSON.parse(JSON.stringify(data));
+}
+
+/**
+ * ADMIN: Add Manual Inactive Override
+ */
+function addManualInactiveRecord(payload) {
+  const session = validateTier(3); // Admin only
+  const { email, startMonth, endMonth, reason } = payload;
+  if (!email) throw new Error("Email Address is required.");
+
+  const ss = getSpreadsheet();
+  const tz = ss.getSpreadsheetTimeZone();
+  let sheet = ss.getSheetByName(CONFIG.SHEETS.MANUAL_INACTIVES);
+  
+  if (!sheet) {
+    sheet = ss.insertSheet(CONFIG.SHEETS.MANUAL_INACTIVES);
+    sheet.appendRow(["Email Address", "Start Month", "End Month", "Reason", "Added By", "Timestamp"]);
+  }
+
+  // Remove existing entry for this email if it exists
+  let data = sheet.getDataRange().getValues();
+  if (data.length > 1) {
+    const emailIdx = data[0].findIndex(h => String(h).trim().toLowerCase() === "email address");
+    if (emailIdx !== -1) {
+      for (let i = data.length - 1; i >= 1; i--) {
+        if (String(data[i][emailIdx]).toLowerCase().trim() === email.toLowerCase().trim()) {
+          sheet.deleteRow(i + 1);
+        }
+      }
+    }
+  }
+
+  // Append new record
+  sheet.appendRow([
+    email.toLowerCase().trim(),
+    startMonth || "",
+    endMonth || "",
+    reason || "",
+    session.realEmail || session.email,
+    Utilities.formatDate(new Date(), tz, "yyyy-MM-dd HH:mm:ss")
+  ]);
+
+  clearSheetCache(CONFIG.SHEETS.MANUAL_INACTIVES);
+  logSystemEvent(session.realEmail || session.email, email, "MANUAL_OVERRIDE_ADDED", CONFIG.SHEETS.MANUAL_INACTIVES, "", `Start: ${startMonth}, End: ${endMonth}`);
+  
+  return "Successfully added manual inactive override.";
+}
+
+/**
+ * ADMIN: Remove Manual Inactive Override
+ */
+function removeManualInactiveRecord(email) {
+  const session = validateTier(3); // Admin only
+  if (!email) throw new Error("Email Address is required.");
+
+  const ss = getSpreadsheet();
+  let sheet = ss.getSheetByName(CONFIG.SHEETS.MANUAL_INACTIVES);
+  if (!sheet) return "Sheet not found.";
+
+  let data = sheet.getDataRange().getValues();
+  let deleted = false;
+
+  if (data.length > 1) {
+    const emailIdx = data[0].findIndex(h => String(h).trim().toLowerCase() === "email address");
+    if (emailIdx !== -1) {
+      for (let i = data.length - 1; i >= 1; i--) {
+        if (String(data[i][emailIdx]).toLowerCase().trim() === email.toLowerCase().trim()) {
+          sheet.deleteRow(i + 1);
+          deleted = true;
+        }
+      }
+    }
+  }
+
+  if (deleted) {
+    clearSheetCache(CONFIG.SHEETS.MANUAL_INACTIVES);
+    logSystemEvent(session.realEmail || session.email, email, "MANUAL_OVERRIDE_REMOVED", CONFIG.SHEETS.MANUAL_INACTIVES, "Overridden", "Active");
+    return "Successfully removed manual inactive override.";
+  } else {
+    throw new Error("Email not found in the manual overrides list.");
+  }
 }

@@ -251,14 +251,6 @@
               <option value="Pending">Pending (🔴)</option>
             </select>
 
-            <!-- Filter by FTE Validation -->
-            <select id="nexus-filter-fte" onchange="applyNexusTrackerFilters()" class="bg-[#1a1a1a]/50 border border-white/5 rounded-xl px-4 py-2.5 text-xs text-white/70 focus:outline-none focus:border-osttra-rubine/40 transition-all cursor-pointer">
-              <option value="All">FTE: All</option>
-              <option value="Valid">Valid (1.00 FTE) (🟢)</option>
-              <option value="Pending">Pending (0.00 FTE) (⚪)</option>
-              <option value="Invalid">Discrepancy (🔴)</option>
-            </select>
-
             <!-- Filter by Weekend Work -->
             <select id="nexus-filter-weekend" onchange="applyNexusTrackerFilters()" class="bg-[#1a1a1a]/50 border border-white/5 rounded-xl px-4 py-2.5 text-xs text-white/70 focus:outline-none focus:border-[#FE952D]/40 transition-all cursor-pointer">
               <option value="All">Weekend Work: All</option>
@@ -308,15 +300,15 @@
         <div id="nexus-tracker-table-wrapper" class="hidden overflow-x-auto rounded-2xl border border-white/5 bg-black/40">
           <table class="w-full text-left border-collapse text-xs">
             <thead>
-              <tr class="bg-white/5 text-[9px] font-black uppercase tracking-widest text-white/40 border-b border-white/5 whitespace-nowrap">
-                <th class="p-4">Employee</th>
-                <th class="p-4">Direct Manager</th>
-                <th class="p-4 text-center">Allocation Submitted</th>
-                <th class="p-4 text-center">FTE Validation</th>
-                <th class="p-4 text-center">Weekends Worked</th>
-                <th class="p-4 text-center">Skills Certified</th>
-                <th class="p-4 text-center">Products Mapped</th>
-                <th class="p-4 text-right">Region</th>
+              <tr class="bg-white/5 text-[9px] font-black uppercase tracking-widest text-white/40 border-b border-white/5 whitespace-nowrap select-none">
+                <th onclick="sortTrackerTable('name')" class="p-4 cursor-pointer hover:text-white">Employee <span id="sort-icon-name" class="ml-1 text-[#FE952D]"></span></th>
+                <th onclick="sortTrackerTable('manager')" class="p-4 cursor-pointer hover:text-white">Direct Manager <span id="sort-icon-manager" class="ml-1 text-[#FE952D]"></span></th>
+                <th onclick="sortTrackerTable('alloc')" class="p-4 text-center cursor-pointer hover:text-white">Allocation Submitted <span id="sort-icon-alloc" class="ml-1 text-[#FE952D]"></span></th>
+                <th onclick="sortTrackerTable('fte')" class="p-4 text-center cursor-pointer hover:text-white">FTE Validation <span id="sort-icon-fte" class="ml-1 text-[#FE952D]"></span></th>
+                <th onclick="sortTrackerTable('weekend')" class="p-4 text-center cursor-pointer hover:text-white">Weekends Worked <span id="sort-icon-weekend" class="ml-1 text-[#FE952D]"></span></th>
+                <th onclick="sortTrackerTable('skills')" class="p-4 text-center cursor-pointer hover:text-white">Skills Certified <span id="sort-icon-skills" class="ml-1 text-[#FE952D]"></span></th>
+                <th onclick="sortTrackerTable('products')" class="p-4 text-center cursor-pointer hover:text-white">Products Mapped <span id="sort-icon-products" class="ml-1 text-[#FE952D]"></span></th>
+                <th onclick="sortTrackerTable('region')" class="p-4 text-right cursor-pointer hover:text-white">Region <span id="sort-icon-region" class="ml-1 text-[#FE952D]"></span></th>
               </tr>
             </thead>
             <tbody id="nexus-monitor-tbody" class="divide-y divide-white/5 text-white/70">
@@ -511,6 +503,13 @@
     let pendSortAsc = true;
 
     window.showAnalyticsTab = function(tabName) {
+      // Log telemetry for granular tab view inside Exec Analytics
+      let tabTitle = tabName;
+      if (tabName === 'finance') tabTitle = 'Nexus Tracker';
+      else if (tabName === 'heatmap') tabTitle = 'Allocation Heatmap';
+      else if (tabName === 'skills') tabTitle = 'Skills Heatmap';
+      Telemetry.log("ANALYTICS_VIEWED", "Exec Analytics - " + tabTitle, "Tab Changed");
+
       // Hide all contents
       document.querySelectorAll('.analytics-tab-content').forEach(el => el.classList.add('hidden'));
       document.querySelectorAll('[id^="tab-"]').forEach(el => {
@@ -668,6 +667,18 @@
        TAB 3: NEXUS TRACKER (REBRANDED AND MODIFIED FROM MONITORING ADMIN)
        ========================================================================= */
     let nexusTrackerData = [];
+    let trackerSortCol = "name";
+    let trackerSortAsc = true;
+
+    window.sortTrackerTable = function(col) {
+      if (trackerSortCol === col) {
+        trackerSortAsc = !trackerSortAsc;
+      } else {
+        trackerSortCol = col;
+        trackerSortAsc = true;
+      }
+      applyNexusTrackerFilters();
+    };
 
     // Global CSV Downloader Helper
     window.downloadCSV = function(headers, rows, filename) {
@@ -796,7 +807,6 @@
       const managerFilter = document.getElementById('nexus-filter-manager')?.value || 'All';
       const headFilter = document.getElementById('nexus-filter-head')?.value || 'All';
       const allocFilter = document.getElementById('nexus-filter-alloc')?.value || 'All';
-      const fteFilter = document.getElementById('nexus-filter-fte')?.value || 'All';
       const weekendFilter = document.getElementById('nexus-filter-weekend')?.value || 'All';
       const skillsFilter = document.getElementById('nexus-filter-skills')?.value || 'All';
       const productsFilter = document.getElementById('nexus-filter-products')?.value || 'All';
@@ -811,11 +821,6 @@
         const matchesAlloc = allocFilter === 'All' || 
           (allocFilter === 'Submitted' && e.hasAllocation) || 
           (allocFilter === 'Pending' && !e.hasAllocation);
-          
-        const matchesFte = fteFilter === 'All' ||
-          (fteFilter === 'Valid' && e.fteStatus === 'Valid') ||
-          (fteFilter === 'Pending' && e.fteStatus === 'Pending') ||
-          (fteFilter === 'Invalid' && e.fteStatus === 'Invalid');
           
         const matchesWeekend = weekendFilter === 'All' ||
           (weekendFilter === 'Worked' && e.workedWeekend) ||
@@ -833,7 +838,42 @@
           (statusFilter === 'Active' && e.isActive) ||
           (statusFilter === 'Inactive' && !e.isActive);
 
-        return matchesSearch && matchesRegion && matchesManager && matchesHead && matchesAlloc && matchesFte && matchesWeekend && matchesSkills && matchesProducts && matchesStatus;
+        return matchesSearch && matchesRegion && matchesManager && matchesHead && matchesAlloc && matchesWeekend && matchesSkills && matchesProducts && matchesStatus;
+      });
+
+      // Apply Sorting
+      filtered.sort((a, b) => {
+        let valA, valB;
+        switch (trackerSortCol) {
+          case 'name': valA = a.name; valB = b.name; break;
+          case 'manager': valA = a.managerName; valB = b.managerName; break;
+          case 'alloc': valA = a.hasAllocation ? 1 : 0; valB = b.hasAllocation ? 1 : 0; break;
+          case 'fte': valA = a.totalAllocPct || 0; valB = b.totalAllocPct || 0; break;
+          case 'weekend': valA = a.weekendDaysWorked || 0; valB = b.weekendDaysWorked || 0; break;
+          case 'skills': valA = a.hasSkills ? 1 : 0; valB = b.hasSkills ? 1 : 0; break;
+          case 'products': valA = a.hasProductScope ? 1 : 0; valB = b.hasProductScope ? 1 : 0; break;
+          case 'region': valA = a.region; valB = b.region; break;
+          default: valA = a.name; valB = b.name;
+        }
+        
+        if (typeof valA === 'string') {
+          return trackerSortAsc ? valA.localeCompare(valB) : valB.localeCompare(valA);
+        } else {
+          return trackerSortAsc ? valA - valB : valB - valA;
+        }
+      });
+
+      // Update Sort Icons in headers
+      const cols = ['name', 'manager', 'alloc', 'fte', 'weekend', 'skills', 'products', 'region'];
+      cols.forEach(c => {
+        const icon = document.getElementById(`sort-icon-${c}`);
+        if (icon) {
+          if (trackerSortCol === c) {
+            icon.innerText = trackerSortAsc ? "↑" : "↓";
+          } else {
+            icon.innerText = "";
+          }
+        }
       });
 
       renderNexusTrackerTable(filtered);
@@ -950,7 +990,6 @@
       const managerFilter = document.getElementById('nexus-filter-manager')?.value || 'All';
       const headFilter = document.getElementById('nexus-filter-head')?.value || 'All';
       const allocFilter = document.getElementById('nexus-filter-alloc')?.value || 'All';
-      const fteFilter = document.getElementById('nexus-filter-fte')?.value || 'All';
       const weekendFilter = document.getElementById('nexus-filter-weekend')?.value || 'All';
       const skillsFilter = document.getElementById('nexus-filter-skills')?.value || 'All';
       const productsFilter = document.getElementById('nexus-filter-products')?.value || 'All';
@@ -965,11 +1004,6 @@
         const matchesAlloc = allocFilter === 'All' || 
           (allocFilter === 'Submitted' && e.hasAllocation) || 
           (allocFilter === 'Pending' && !e.hasAllocation);
-          
-        const matchesFte = fteFilter === 'All' ||
-          (fteFilter === 'Valid' && e.fteStatus === 'Valid') ||
-          (fteFilter === 'Pending' && e.fteStatus === 'Pending') ||
-          (fteFilter === 'Invalid' && e.fteStatus === 'Invalid');
           
         const matchesWeekend = weekendFilter === 'All' ||
           (weekendFilter === 'Worked' && e.workedWeekend) ||
@@ -987,18 +1021,16 @@
           (statusFilter === 'Active' && e.isActive) ||
           (statusFilter === 'Inactive' && !e.isActive);
 
-        return matchesSearch && matchesRegion && matchesManager && matchesHead && matchesAlloc && matchesFte && matchesWeekend && matchesSkills && matchesProducts && matchesStatus;
+        return matchesSearch && matchesRegion && matchesManager && matchesHead && matchesAlloc && matchesWeekend && matchesSkills && matchesProducts && matchesStatus;
       });
 
-      const headers = ["Employee Name", "Employee Email", "Direct Manager", "Manager Email", "Allocation Submitted", "FTE Status", "FTE %", "Weekends Worked", "Skills Certified", "Products Mapped", "Region"];
+      const headers = ["Employee Name", "Employee Email", "Direct Manager", "Manager Email", "Allocation Submitted", "Weekends Worked", "Skills Certified", "Products Mapped", "Region"];
       const rows = filtered.map(e => [
         e.name,
         e.email,
         e.managerName,
         e.managerEmail,
         e.hasAllocation ? "Yes" : "No",
-        e.fteStatus,
-        e.totalAllocPct + "%",
         e.weekendDaysWorked,
         e.hasSkills ? "Yes" : "No",
         e.hasProductScope ? "Yes" : "No",

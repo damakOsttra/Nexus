@@ -244,6 +244,12 @@
     };
 
     window.showAnalyticsTab = function(tabName) {
+      // Log telemetry for granular tab view inside Analytics Hub
+      let tabTitle = tabName;
+      if (tabName === 'looker') tabTitle = 'Report Directory';
+      else if (tabName === 'headcount') tabTitle = 'Global Headcount';
+      Telemetry.log("ANALYTICS_VIEWED", "Analytics Hub - " + tabTitle, "Tab Changed");
+
       // Hide all contents
       document.querySelectorAll('.analytics-tab-content').forEach(el => el.classList.add('hidden'));
       document.querySelectorAll('[id^="tab-"]').forEach(el => {
@@ -453,7 +459,7 @@
                         <span>By: <span class="text-white/60">${r["Created By"] || 'Admin'}</span></span>
                         <span>Freshness: <span class="text-white/60">${r["Data Freshness"] || 'Daily'}</span></span>
                       </div>
-                      <a href="${r["Link URL"]}" target="_blank" class="block w-full text-center py-3 bg-white/5 hover:bg-osttra-rubine rounded-xl text-white text-[9px] font-black uppercase tracking-widest transition-all">
+                      <a href="${r["Link URL"]}" target="_blank" onclick="Telemetry.log('ANALYTICS_VIEWED', 'Looker - ${r['Report Name'].replace(/'/g, "\\\\'")}', 'Report Launched')" class="block w-full text-center py-3 bg-white/5 hover:bg-osttra-rubine rounded-xl text-white text-[9px] font-black uppercase tracking-widest transition-all">
                         <i class="fas fa-external-link-alt mr-1.5"></i> Launch looker Dashboard
                       </a>
                     </div>
@@ -494,7 +500,7 @@
                       <span>By: <span class="text-white/60">${r["Created By"] || 'Admin'}</span></span>
                       <span>Freshness: <span class="text-white/60">${r["Data Freshness"] || 'Daily'}</span></span>
                     </div>
-                    <a href="${r["Link URL"]}" target="_blank" class="block w-full text-center py-3 bg-white/5 hover:bg-osttra-rubine rounded-xl text-white text-[9px] font-black uppercase tracking-widest transition-all">
+                    <a href="${r["Link URL"]}" target="_blank" onclick="Telemetry.log('ANALYTICS_VIEWED', 'Looker - ${r['Report Name'].replace(/'/g, "\\\\'")}', 'Report Launched')" class="block w-full text-center py-3 bg-white/5 hover:bg-osttra-rubine rounded-xl text-white text-[9px] font-black uppercase tracking-widest transition-all">
                       <i class="fas fa-external-link-alt mr-1.5"></i> Launch looker Dashboard
                     </a>
                   </div>
