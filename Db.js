@@ -1159,7 +1159,7 @@ function getRegionalHeatmapData(filters) {
   });
 
   // 4. Filter employees matching criteria
-  const filteredEmployees = applyGlobalFilters(employees, filters, true);
+  const filteredEmployees = applyGlobalFilters(employees, filters, true).filter(e => isActiveEmployee(e));
 
   // Sets to collect rows and columns
   const productsSet = new Set();
