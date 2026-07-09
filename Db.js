@@ -149,6 +149,38 @@ function clearSheetCache(sheetName) {
 }
 
 /**
+ * ADMIN: Clears all system-wide caches including product catalogs, sheets data, and configurations.
+ */
+function flushSystemCaches() {
+  const session = validateTier(3); // Admin only
+  
+  try {
+    const cache = CacheService.getScriptCache();
+    
+    // Clear product catalog cache
+    cache.remove("product_catalog");
+    
+    // Clear sheet read caches for master tables (products, employees, config, skill levels)
+    clearSheetCache(CONFIG.SHEETS.PRODUCTS);
+    clearSheetCache(CONFIG.SHEETS.EMPLOYEES);
+    clearSheetCache(CONFIG.SHEETS.SKILL_LEVELS);
+    clearSheetCache(CONFIG.SHEETS.CONFIG);
+    
+    // Clear system config cache
+    cache.remove("system_config");
+    
+    // Clear global filters metadata
+    cache.remove("filter_metadata_v6");
+    
+    logSystemEvent(session.email, "GLOBAL", "Flushed System Caches", "N/A", "Caches Active", "All Cleared");
+    return { success: true, message: "System caches successfully flushed! The latest data will be retrieved directly from Google Sheets." };
+  } catch (e) {
+    console.error("Failed to flush system caches:", e);
+    throw new Error("Cache flush failed: " + e.message);
+  }
+}
+
+/**
  * Utility: Fetches sheet data as an array of objects with chunked ScriptCache caching.
  */
 function getSheetData(sheetName) {

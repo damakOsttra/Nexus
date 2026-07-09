@@ -95,6 +95,21 @@
         </div>
       </div>
     </div>
+
+    <!-- System Caches Card (New Admin Action) -->
+    <div onclick="triggerFlushCaches()" class="bg-[#1a1a1a]/30 border border-white/5 p-6 rounded-2xl hover:border-osttra-ochre/50 hover:bg-[#1a1a1a]/40 transition-all cursor-pointer group border-l-4 border-osttra-ochre flex flex-col justify-between">
+      <div>
+        <div class="w-12 h-12 bg-osttra-ochre/10 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+          <i class="fas fa-eraser text-osttra-ochre text-2xl"></i>
+        </div>
+        <h3 class="text-lg font-bold text-white mb-2 uppercase tracking-widest">System Caches</h3>
+        <p class="text-xs text-gray-500 leading-relaxed">Instantly clear cached product catalogs, metadata, and sheet reads. Use after manual Google Sheet updates.</p>
+      </div>
+      <div class="mt-4 pt-4 border-t border-white/5 text-[9px] font-black uppercase text-white/40 tracking-widest flex justify-between items-center">
+        <span>Bypass 6-Hour Cache</span>
+        <span class="text-osttra-ochre group-hover:underline">Flush Caches &rarr;</span>
+      </div>
+    </div>
   </div>
 
   <!-- System Diagnostic Info -->
@@ -626,6 +641,30 @@
         showNotification("Error", err.message, "error");
       })
       .updateSystemConfig("PHASE_1_STATE", state);
+  }
+
+  /**
+   * Flushes all system-wide caches
+   */
+  window.triggerFlushCaches = function() {
+    if (!confirm("Are you sure you want to flush all system-wide caches?\n\nThis will force the application to fetch fresh product catalogs, filters, and configuration data directly from the Google Sheets upon next load.")) {
+      return;
+    }
+    showLoading('Flushing System Caches...');
+    google.script.run
+      .withSuccessHandler(res => {
+        hideLoading();
+        if (res && res.success) {
+          showNotification("Caches Flushed", res.message || "All system caches have been successfully invalidated.", "success");
+        } else {
+          showNotification("Flush Failed", "Server returned an unsuccessful response.", "error");
+        }
+      })
+      .withFailureHandler(err => {
+        hideLoading();
+        showNotification("Cache Flush Error", err.message, "error");
+      })
+      .flushSystemCaches();
   }
 
   // ==========================================
