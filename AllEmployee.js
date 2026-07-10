@@ -73,6 +73,35 @@ function exportAnupOrgMasterData() {
     const dfEmpMap = dayforceData.byEmpId || {};
     const dayforceByNameMap = dayforceData.byName || {};
 
+    // Build resolved maps for robust Google-to-Dayforce and employee ID-to-email correlation
+    const resolvedDayforceByGoogleEmail = {};
+    const empIdToGoogleEmail = {};
+
+    allEmails.forEach(gEmail => {
+      const person = directoryMap[gEmail];
+      let dfRec = dayforceMap[gEmail.toLowerCase().trim()];
+      
+      if (!dfRec && person.empId && person.empId !== "N/A" && dfEmpMap[person.empId]) {
+        dfRec = dfEmpMap[person.empId];
+      }
+      
+      if (!dfRec && person.name) {
+        const sanitizedName = String(person.name).toLowerCase().replace(/[^a-z0-9]/g, '');
+        if (dayforceByNameMap[sanitizedName]) {
+          dfRec = dayforceByNameMap[sanitizedName];
+        }
+      }
+      
+      if (dfRec) {
+        resolvedDayforceByGoogleEmail[gEmail.toLowerCase().trim()] = dfRec;
+        dfRec.googleEmail = gEmail.toLowerCase().trim(); // Link Dayforce record to canonical Google email
+      }
+
+      if (person.empId && person.empId !== "N/A") {
+        empIdToGoogleEmail[String(person.empId).trim()] = gEmail.toLowerCase().trim();
+      }
+    });
+
     const isoToCountry = {
       "IN": "India",
       "US": "United States",
@@ -96,13 +125,11 @@ function exportAnupOrgMasterData() {
 
     allEmails.forEach(email => {
       const person = directoryMap[email];
-      let dfRecord = dayforceMap[email.toLowerCase().trim()];
-      if (!dfRecord && person && person.name) {
-        const sanitizedName = String(person.name).toLowerCase().replace(/[^a-z0-9]/g, '');
-        if (dayforceByNameMap[sanitizedName]) {
-          dfRecord = dayforceByNameMap[sanitizedName];
-          console.log(`[DAYFORCE_RESOLVER] Email mismatch resolved by name-match for ${email} -> ${dfRecord.hrName}`);
-        }
+      let dfRecord = resolvedDayforceByGoogleEmail[email.toLowerCase().trim()];
+      
+      // Keep logging consistent with original implementation
+      if (dfRecord && dfRecord.email !== email.toLowerCase().trim()) {
+        console.log(`[DAYFORCE_RESOLVER] Email mismatch resolved for ${email} -> ${dfRecord.hrName}`);
       }
       
       // Resolve Manager Info & Hierarchy strictly from Dayforce, falling back to Google Workspace Directory
@@ -113,9 +140,12 @@ function exportAnupOrgMasterData() {
       if (dfRecord) {
         managerEmpId = dfRecord.managerEmpId || "N/A";
         
-        // Reverse-lookup manager's email in Dayforce Map using manager ID
+        // Reverse-lookup manager's email using manager ID, prioritizing canonical Google email
         if (managerEmpId !== "N/A" && dfEmpMap[managerEmpId]) {
-          managerEmailAddr = dfEmpMap[managerEmpId].email || "N/A";
+          const dfMgr = dfEmpMap[managerEmpId];
+          managerEmailAddr = dfMgr.googleEmail || dfMgr.email || "N/A";
+        } else if (managerEmpId !== "N/A" && empIdToGoogleEmail[managerEmpId]) {
+          managerEmailAddr = empIdToGoogleEmail[managerEmpId];
         }
       }
 
@@ -154,10 +184,13 @@ function exportAnupOrgMasterData() {
         let nextMgrEmail = "N/A";
 
         // Try Dayforce record first to resolve next manager's email
-        if (dayforceMap[mgrKey]) {
-          const dfMgr = dayforceMap[mgrKey];
+        const dfMgr = resolvedDayforceByGoogleEmail[mgrKey] || dayforceMap[mgrKey];
+        if (dfMgr) {
           if (dfMgr.managerEmpId && dfMgr.managerEmpId !== "N/A" && dfEmpMap[dfMgr.managerEmpId]) {
-            nextMgrEmail = dfEmpMap[dfMgr.managerEmpId].email || "N/A";
+            const nextMgrRec = dfEmpMap[dfMgr.managerEmpId];
+            nextMgrEmail = nextMgrRec.googleEmail || nextMgrRec.email || "N/A";
+          } else if (dfMgr.managerEmpId && dfMgr.managerEmpId !== "N/A" && empIdToGoogleEmail[dfMgr.managerEmpId]) {
+            nextMgrEmail = empIdToGoogleEmail[dfMgr.managerEmpId];
           }
         } 
         
@@ -173,9 +206,9 @@ function exportAnupOrgMasterData() {
         }
 
         // Fallback to Dayforce HR name if not found in Google Directory
-        if (nextMgrName === "N/A" && dayforceMap[mgrKey]) {
-          const dfMgr = dayforceMap[mgrKey];
-          nextMgrName = dfMgr.hrName || (dfMgr.firstName + " " + dfMgr.lastName);
+        if (nextMgrName === "N/A" && (resolvedDayforceByGoogleEmail[mgrKey] || dayforceMap[mgrKey])) {
+          const dfMgrRec = resolvedDayforceByGoogleEmail[mgrKey] || dayforceMap[mgrKey];
+          nextMgrName = dfMgrRec.hrName || (dfMgrRec.firstName + " " + dfMgrRec.lastName);
         }
 
         if (nextMgrName !== "N/A") {
