@@ -119,7 +119,7 @@ function exportAnupOrgMasterData() {
       "Photo URL", "Cost Center", 
       "Regional Head/Head of function",
       "Direct Manager Name", "Direct Manager Email", "Manager ID", 
-      "Management Line (Hierarchy)", "Profile", "Start Date",
+      "Management Line (Hierarchy)", "Profile", "HR Job Role", "Start Date",
       "HR Start Date", "HR Termination Date", "HR Employment Status", "HR Pay Class", "HR Legal Entity"
     ]);
 
@@ -305,8 +305,20 @@ function exportAnupOrgMasterData() {
           ? person.startDate 
           : (hrStart !== "N/A (Not in HRIS)" ? hrStart : "N/A");
 
-        // Profile/Role mapped from Google Workspace Directory (Google Chat Title)
-        const hrProfile = person.title || "N/A";
+        // HR Job Role from Dayforce
+        const hrJobRole = dfRecordMatched ? (dfRecordMatched.jobTitle || "N/A") : "N/A";
+        let extractedProfile = "N/A";
+        if (hrJobRole !== "N/A") {
+          const underscoreIndex = hrJobRole.indexOf('_');
+          if (underscoreIndex !== -1) {
+            extractedProfile = hrJobRole.substring(underscoreIndex + 1).trim();
+          } else {
+            extractedProfile = hrJobRole.trim();
+          }
+        }
+
+        // Profile mapped from Dayforce Job_ShortName (excluding region), fallback to Google Workspace Directory (Google Chat Title)
+        const hrProfile = (extractedProfile !== "N/A" && extractedProfile !== "") ? extractedProfile : (person.title || "N/A");
 
         allRows.push([
           person.empId, 
@@ -322,7 +334,8 @@ function exportAnupOrgMasterData() {
           managerEmailAddr,
           managerEmpId,
           managementLine, 
-          hrProfile, // This maps to "Profile" (derived from Dayforce HR)
+          hrProfile, // This maps to "Profile" (derived from Dayforce HR, region-stripped)
+          hrJobRole, // This maps to "HR Job Role"
           legacyStart,
           hrStart,
           hrTerm,
