@@ -18,7 +18,7 @@ function normalizeName(name) {
 }
 
 function exportAnupOrgMasterData() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
   
   try {
     // 1. PREPARATION: Load Manual Data
@@ -120,7 +120,8 @@ function exportAnupOrgMasterData() {
       "Regional Head/Head of function",
       "Direct Manager Name", "Direct Manager Email", "Manager ID", 
       "Management Line (Hierarchy)", "Profile", "HR Job Role", "Start Date",
-      "HR Start Date", "HR Termination Date", "HR Employment Status", "HR Pay Class", "HR Legal Entity"
+      "HR Start Date", "HR Termination Date", "HR Employment Status", "HR Pay Class", "HR Legal Entity",
+      "is_tpm"
     ]);
 
     allEmails.forEach(email => {
@@ -258,6 +259,9 @@ function exportAnupOrgMasterData() {
       const isJohnStewart = email.toLowerCase().trim() === "john.stewart@osttra.com";
       const isInAnupOrg = chain.some(item => item.email === "anup.hariharan@osttra.com") || email.toLowerCase().trim() === "anup.hariharan@osttra.com" || isJohnStewart;
       const hasCostCenter = costCenterValue !== "N/A";
+      
+      // Auto-calculate TPM status if they roll up to Jack Jeffreys (or are Jack himself)
+      const isTpmCalculated = chain.some(item => item.email === "jack.jeffreys@osttra.com") ? "yes" : "no";
 
       if (isInAnupOrg && hasCostCenter && (person.empId !== "N/A" || person.title !== "") && dfRecord) {
         // DB CASCADE: Detect Email Address changes and trigger cascading updates
@@ -341,7 +345,8 @@ function exportAnupOrgMasterData() {
           hrTerm,
           hrStatus,
           hrPay,
-          hrLegal
+          hrLegal,
+          isTpmCalculated
         ]);
       }
     });

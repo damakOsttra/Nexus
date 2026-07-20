@@ -123,8 +123,43 @@ function getCurrentUserSession() {
     }
   }
 
-  console.log(`User: ${activeEmail} | Identity Tier: ${identityTier} | Effective Tier: ${tier} | Executive View: ${isExecutiveView}`);
+  // Dynamic Hierarchy & Tagging Check for TPM Access (Jack Jeffreys' Org)
+  let isTpmUser = false;
+  let isTpmManager = false;
   
+  if (getAdminEmails().includes(activeEmail) || activeEmail === 'jack.jeffreys@osttra.com' || activeEmail === 'nicholas.allcock@osttra.com') {
+    isTpmUser = true;
+    isTpmManager = true;
+  } else {
+    // 1. Check dynamic hierarchy (Does this person roll up to Jack?)
+    let current = activeEmail;
+    let depth = 0;
+    const visited = new Set();
+    while (current && depth <= 6) {
+      if (current === 'jack.jeffreys@osttra.com') {
+        isTpmUser = true;
+        if (hasReports) isTpmManager = true;
+        break;
+      }
+      visited.add(current);
+      const rec = empMap[current];
+      const nextMgr = rec ? String(rec["Direct Manager Email"] || "").trim().toLowerCase() : "";
+      if (!nextMgr || nextMgr === current || visited.has(nextMgr)) break;
+      current = nextMgr;
+      depth++;
+    }
+    
+    // 2. Fallback to manual spreadsheet tagging if not in Jack's hierarchy
+    if (!isTpmUser && userRecord) {
+      const isTpmVal = String(userRecord["is_tpm"] || userRecord["Is_TPM"] || userRecord["IS_TPM"] || "").trim().toLowerCase();
+      if (["yes", "true", "y", "1"].includes(isTpmVal)) {
+        isTpmUser = true;
+        if (hasReports) isTpmManager = true;
+      }
+    }
+  }
+
+  console.log(`User: ${activeEmail} | Identity Tier: ${identityTier} | Effective Tier: ${tier} | Executive View: ${isExecutiveView} | TPM User: ${isTpmUser} | TPM Mgr: ${isTpmManager}`);
   const currentPeriod = getActivePeriod();
   
   _cachedUserSession = {
@@ -142,7 +177,9 @@ function getCurrentUserSession() {
     phase1State: getSystemConfig()["PHASE_1_STATE"] || "1",
     hasReports: hasReports,
     currentPeriod: currentPeriod,
-    isExecutiveView: isExecutiveView
+    isExecutiveView: isExecutiveView,
+    isTpmUser: isTpmUser,
+    isTpmManager: isTpmManager
   };
   
   return _cachedUserSession;

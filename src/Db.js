@@ -1999,6 +1999,20 @@ function initializeDatabaseSchema() {
     {
       name: CONFIG.SHEETS.DATA_AUDIT,
       headers: ["Timestamp", "Employee Email", "Employee Name", "Discrepancy Field", "Google Value", "Dayforce Value", "Severity", "Action Status"]
+    },
+    {
+      name: CONFIG.SHEETS.TPM_JIRA_CACHE,
+      headers: [
+        "Key", "Issue_Type", "Parent_Key", "Assignee_Email", "Secondary_Assignee_Email", "Account_Name", "Summary", "Status",
+        "Go Live & Onboarding EE", "Project start date", "Go-live date",
+        "UAT Estimate", "Effort Estimate (Effort days)", "Expected Go Live Date",
+        "UAT start date", "Project Sizing", "Expected UAT start date",
+        "Expected project start date", "Created", "Updated", "Technical go-live date", "Opportunity Close Date"
+      ]
+    },
+    {
+      name: CONFIG.SHEETS.TPM_TIMESHEET_LOGS,
+      headers: ["Log_ID", "User_Email", "Jira_Key", "Date_Logged", "Hours_Logged", "Created_Timestamp", "UAT_Hours", "Int_Hours", "Other_Hours", "Jira_Status"]
     }
   ];
   
@@ -2821,7 +2835,6 @@ function getManagerProductAllocation(email) {
       subProduct: r["Sub-Product"] || ""
     }));
 
-  // Auto-inject Mgmt/Mgmt product for Managers
   const employees = getSheetData(CONFIG.SHEETS.EMPLOYEES);
   const emp = employees.find(e => String(e["Email Address"] || "").toLowerCase().trim() === String(email).toLowerCase().trim());
   const empName = emp ? (emp["Google Chat Full Name"] || emp["HR Name"] || `${emp["First Name"] || ""} ${emp["Last Name"] || ""}`).trim().toLowerCase() : "";
@@ -2834,6 +2847,7 @@ function getManagerProductAllocation(email) {
   
   const hasReports = empName ? allManagers.has(empName) : false;
   
+  // 1. Auto-inject Mgmt/Mgmt product for standard Managers
   if (hasReports) {
     const hasMgmt = results.some(r => String(r.product).trim().toLowerCase() === "mgmt" && String(r.subProduct).trim().toLowerCase() === "mgmt");
     if (!hasMgmt) {
@@ -2841,7 +2855,72 @@ function getManagerProductAllocation(email) {
     }
   }
 
+  // 2. Auto-inject OOO/OOO and Mgmt/Mgmt for TPM Users/Managers based on TPM credentials
+  const empMap = {};
+  employees.forEach(e => {
+    const emailKey = String(e["Email Address"] || "").toLowerCase().trim();
+    if (emailKey) empMap[emailKey] = e;
+  });
+
+  const isTpmUser = isTpmUserByEmail(email, employees, empMap);
+  const isTpmManager = isTpmUser && hasReports;
+
+  if (isTpmUser) {
+    // Auto-inject OOO/OOO for all TPM users (Time Off)
+    const hasOoo = results.some(r => String(r.product).trim().toLowerCase() === "ooo" && String(r.subProduct).trim().toLowerCase() === "ooo");
+    if (!hasOoo) {
+      results.push({ product: "OOO", subProduct: "OOO" });
+    }
+
+    // Auto-inject Admin/Admin for all TPM users (Non-project)
+    const hasAdmin = results.some(r => String(r.product).trim().toLowerCase() === "admin" && String(r.subProduct).trim().toLowerCase() === "admin");
+    if (!hasAdmin) {
+      results.push({ product: "Admin", subProduct: "Admin" });
+    }
+
+    // Auto-inject BAU/BAU for all TPM users (Jira Epic hours)
+    const hasBau = results.some(r => String(r.product).trim().toLowerCase() === "bau" && String(r.subProduct).trim().toLowerCase() === "bau");
+    if (!hasBau) {
+      results.push({ product: "BAU", subProduct: "BAU" });
+    }
+    
+    // Auto-inject Mgmt/Mgmt for TPM Managers (even if they weren't caught by the standard manager lookup)
+    if (isTpmManager) {
+      const hasMgmt = results.some(r => String(r.product).trim().toLowerCase() === "mgmt" && String(r.subProduct).trim().toLowerCase() === "mgmt");
+      if (!hasMgmt) {
+        results.push({ product: "Mgmt", subProduct: "Mgmt" });
+      }
+    }
+  }
+
   return JSON.parse(JSON.stringify(results));
+}
+
+/**
+ * HELPER: Verify if an employee is a TPM user dynamically (spreadsheet column or Jack Jeffreys hierarchy rollup)
+ */
+function isTpmUserByEmail(email, employees, empMap) {
+  const emp = employees.find(e => String(e["Email Address"] || "").toLowerCase().trim() === String(email).toLowerCase().trim());
+  if (!emp) return false;
+
+  const isTpmVal = String(emp["is_tpm"] || emp["Is_TPM"] || emp["IS_TPM"] || "").trim().toLowerCase();
+  if (["yes", "true", "y", "1"].includes(isTpmVal)) return true;
+
+  const managerEmail = "jack.jeffreys@osttra.com";
+  const userEmail = String(email).toLowerCase().trim();
+  if (userEmail === managerEmail) return true;
+
+  let current = userEmail;
+  const visited = new Set();
+  while (current) {
+    visited.add(current);
+    const rec = empMap[current];
+    const nextMgr = rec ? String(rec["Direct Manager Email"] || "").trim().toLowerCase() : "";
+    if (nextMgr === managerEmail) return true;
+    if (!nextMgr || nextMgr === current || visited.has(nextMgr)) break;
+    current = nextMgr;
+  }
+  return false;
 }
 
 /**

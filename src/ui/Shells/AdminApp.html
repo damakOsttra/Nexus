@@ -75,7 +75,7 @@
             <p id="user-name" class="font-bold text-white uppercase tracking-tight text-sm whitespace-normal">
               <span class="skeleton block h-5 w-32 rounded"></span>
             </p>
-            <p id="user-role" class="text-[10px] font-bold text-white/30 uppercase tracking-widest whitespace-normal leading-relaxed">
+            <p id="user-role" class="text-[10px] font-bold text-white/60 uppercase tracking-widest whitespace-normal leading-tight">
               <span class="skeleton block h-3 w-24 rounded mt-1"></span>
             </p>
             <p id="user-region" class="text-[9px] font-bold text-white/30 uppercase tracking-widest whitespace-normal leading-tight">
@@ -85,10 +85,11 @@
         </div>
 
         <!-- Navigation -->
-        <nav class="flex-1 overflow-y-auto no-scrollbar pr-2 space-y-8 flex flex-col justify-between">
-          <div class="space-y-8">
+        <nav class="flex-1 overflow-y-auto no-scrollbar pr-2 space-y-6 flex flex-col justify-between">
+          <div class="space-y-6">
+            <!-- PERSONAL CATEGORY -->
             <div class="space-y-1">
-              <p class="px-2 text-[9px] font-black text-white/20 uppercase tracking-[0.2em] mb-3 sidebar-text">Workspace</p>
+              <p class="px-2 text-[9px] font-black text-white/30 uppercase tracking-[0.2em] mb-2 sidebar-text">Personal</p>
               <button id="nav-Profile" onclick="loadPage('Profile')" title="Profile" class="nav-link group">
                 <i class="fas fa-user-circle text-sm w-5 group-hover:scale-110 transition-transform duration-200 shrink-0"></i>
                 <span class="text-xs font-bold uppercase tracking-widest sidebar-text">Profile</span>
@@ -97,16 +98,21 @@
                 <i class="fas fa-edit text-sm w-5 group-hover:scale-110 transition-transform duration-200 shrink-0"></i>
                 <span class="text-xs font-bold uppercase tracking-widest sidebar-text">My Allocations</span>
               </button>
+            </div>
+
+            <!-- ANALYTICS CATEGORY -->
+            <div class="space-y-1">
+              <p class="px-2 text-[9px] font-black text-white/30 uppercase tracking-[0.2em] mb-2 sidebar-text">Analytics & BI</p>
               <button id="nav-AnalyticsHub" onclick="loadPage('AnalyticsHub')" title="Analytics Hub" class="nav-link group">
                 <i class="fas fa-chart-bar text-sm w-5 group-hover:scale-110 transition-transform duration-200 shrink-0"></i>
                 <span class="text-xs font-bold uppercase tracking-widest sidebar-text">Analytics Hub</span>
               </button>
               <button id="nav-OrganizationChart" onclick="loadPage('OrganizationChart')" title="Organization Chart" class="nav-link group">
                 <i class="fas fa-sitemap text-sm w-5 group-hover:scale-110 transition-transform duration-200 shrink-0"></i>
-                <span class="text-xs font-bold uppercase tracking-widest sidebar-text">Organization Chart</span>
+                <span class="text-xs font-bold uppercase tracking-widest sidebar-text">Org Chart</span>
               </button>
             </div>
-            <div class="space-y-1 phase-req" data-phase="1">
+            <div class="space-y-1 tier-req phase-req" data-tier="2" data-phase="1">
               <p class="px-2 text-[9px] font-black text-white/20 uppercase tracking-[0.2em] mb-3 sidebar-text">Management</p>
               <button id="nav-ExecAnalytics" onclick="loadPage('ExecAnalytics')" title="Executive Analytics" class="nav-link group">
                 <i class="fas fa-chart-pie text-sm w-5 group-hover:scale-110 transition-transform duration-200 shrink-0"></i>
@@ -117,7 +123,6 @@
                 <i class="fas fa-cubes text-sm w-5 group-hover:scale-110 transition-transform duration-200 shrink-0"></i>
                 <span class="text-xs font-bold uppercase tracking-widest sidebar-text">Assign Product</span>
               </button>
-              <!-- AssignSkill.html defines Product Proficiencies and contains the Skill levels -->
               <button id="nav-AssignSkill" onclick="loadPage('AssignSkill')" title="Assign Skill Matrix" class="nav-link group">
                 <i class="fas fa-user-tag text-sm w-5 group-hover:scale-110 transition-transform duration-200 shrink-0"></i>
                 <span class="text-xs font-bold uppercase tracking-widest sidebar-text">Assign Skill Matrix</span>
@@ -127,6 +132,58 @@
                 <span class="text-xs font-bold uppercase tracking-widest sidebar-text">Team Allocations</span>
               </button>
             </div>
+
+            <!-- TECHNICAL DELIVERY CATEGORY (TPM) -->
+            <div id="section-tpm" class="space-y-1 hidden">
+              <p class="px-2 text-[9px] font-black text-white/30 uppercase tracking-[0.2em] mb-2 sidebar-text">Technical Delivery</p>
+              <button id="nav-TpmTimesheet" onclick="loadPage('TpmTimesheet')" title="TPM Timesheet" class="nav-link group">
+                <i class="fas fa-clock text-sm w-5 group-hover:scale-110 transition-transform duration-200 shrink-0"></i>
+                <span class="text-xs font-bold uppercase tracking-widest sidebar-text">TPM Timesheet</span>
+              </button>
+              <button id="nav-TpmDashboard" onclick="loadPage('TpmDashboard')" title="TPM Dashboard" class="nav-link hidden group">
+                <i class="fas fa-calendar-check text-sm w-5 group-hover:scale-110 transition-transform duration-200 shrink-0"></i>
+                <span class="text-xs font-bold uppercase tracking-widest sidebar-text">TPM Compliance</span>
+              </button>
+              <button id="nav-TpmPortfolio" onclick="loadPage('TpmPortfolio')" title="TPM Portfolio" class="nav-link hidden group">
+                <i class="fas fa-folder-open text-sm w-5 group-hover:scale-110 transition-transform duration-200 shrink-0"></i>
+                <span class="text-xs font-bold uppercase tracking-widest sidebar-text">TPM Portfolio</span>
+              </button>
+            </div>
+
+            <!-- SYSTEM ADMIN CATEGORY -->
+            <div class="space-y-1 tier-req" data-tier="3">
+              <p class="px-2 text-[9px] font-black text-white/30 uppercase tracking-[0.2em] mb-2 sidebar-text">System Admin</p>
+              <button id="nav-SystemSettings" onclick="loadPage('SystemSettings')" title="System Settings" class="nav-link group">
+                <i class="fas fa-cog text-sm w-5 group-hover:scale-110 transition-transform duration-200 shrink-0"></i>
+                <span class="text-xs font-bold uppercase tracking-widest sidebar-text">System Settings</span>
+              </button>
+              <button id="nav-ReportHubAdmin" onclick="loadPage('ReportHubAdmin')" title="Manage Report Hub" class="nav-link group">
+                <i class="fas fa-chart-line text-sm w-5 group-hover:scale-110 transition-transform duration-200 shrink-0"></i>
+                <span class="text-xs font-bold uppercase tracking-widest sidebar-text">Manage Report Hub</span>
+              </button>
+              <button id="nav-NexusAdoption" onclick="loadPage('NexusAdoption')" title="Nexus Adoption" class="nav-link group">
+                <i class="fas fa-chart-pie text-sm w-5 group-hover:scale-110 transition-transform duration-200 shrink-0"></i>
+                <span class="text-xs font-bold uppercase tracking-widest sidebar-text">Nexus Adoption</span>
+              </button>
+              <button id="nav-MonitoringAdmin" onclick="loadPage('MonitoringAdmin')" title="Monitoring" class="nav-link group">
+                <i class="fas fa-users-cog text-sm w-5 group-hover:scale-110 transition-transform duration-200 shrink-0"></i>
+                <span class="text-xs font-bold uppercase tracking-widest sidebar-text">Monitoring</span>
+              </button>
+              <button id="nav-BackupAdmin" onclick="loadPage('BackupAdmin')" title="Database Backups" class="nav-link group">
+                <i class="fas fa-hdd text-sm w-5 group-hover:scale-110 transition-transform duration-200 shrink-0"></i>
+                <span class="text-xs font-bold uppercase tracking-widest sidebar-text">Database Backups</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Simulated Identity Notice -->
+          <div id="simulated-notice" class="hidden shrink-0 p-4 bg-[#FF0061]/10 border border-[#FF0061]/20 rounded-2xl space-y-2 mb-4">
+            <p class="text-[9px] font-black text-[#FF0061] uppercase tracking-[0.2em] flex items-center gap-1.5">
+              <i class="fas fa-user-secret"></i> Simulated
+            </p>
+            <button onclick="resetSimulation()" class="w-full text-center py-2 rounded-xl bg-[#FF0061] text-black text-[9px] font-black uppercase tracking-widest hover:brightness-110 transition-all flex items-center justify-center gap-2">
+              <i class="fas fa-sign-out-alt"></i> Exit Sim
+            </button>
           </div>
 
           <div class="pt-4 border-t border-white/5 space-y-1">
@@ -149,7 +206,7 @@
       <!-- Footer -->
       <div class="pt-6 shrink-0 border-t border-white/5">
         <div id="sidebar-footer-block" class="p-4 bg-white/5 rounded-2xl border border-white/5 flex justify-between items-center transition-all duration-300">
-           <p class="text-[9px] font-bold text-white/30 uppercase tracking-widest sidebar-text">v1.7.0-MGR</p>
+           <p class="text-[9px] font-bold text-white/30 uppercase tracking-widest sidebar-text">v1.7.0</p>
            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 opacity-50 shrink-0"></span>
         </div>
       </div>
@@ -177,16 +234,9 @@
               <i class="fas fa-layer-group text-2xl text-white/40 animate-pulse"></i>
             </div>
           </div>
-          <div class="text-center space-y-3 min-w-[200px]">
+          <div class="text-center space-y-1">
             <p class="text-[10px] font-black uppercase tracking-[0.3em] text-white/50 animate-pulse">Initializing</p>
             <p class="text-[9px] font-bold uppercase tracking-widest text-osttra-rubine animate-pulse">NEXUS</p>
-            
-            <!-- Progressive Boot Steps (Mono Typography) -->
-            <div id="boot-steps" class="pt-4 flex flex-col items-start mx-auto w-max gap-2 text-[8px] font-mono text-white/30 uppercase tracking-widest">
-              <div id="step-1" class="flex items-center gap-2 text-osttra-rubine"><i class="fas fa-circle-notch animate-spin"></i> Verifying Credentials...</div>
-              <div id="step-2" class="hidden items-center gap-2"><i class="far fa-circle"></i> Preloading Layouts...</div>
-              <div id="step-3" class="hidden items-center gap-2"><i class="far fa-circle"></i> Syncing Caches...</div>
-            </div>
           </div>
         </div>
       </div>
@@ -270,6 +320,38 @@
         }
       }
 
+      function simulateUser(email) {
+        showLoading(`Simulating Identity: ${email}`);
+        google.script.run
+          .withSuccessHandler(() => handleReload())
+          .withFailureHandler(err => {
+            hideLoading();
+            alert("Simulation Failed: " + err.message);
+          })
+          .setSimulatedUser(email);
+      }
+
+      function simulateCustomUser() {
+        const emailEl = document.getElementById('custom-simulate-email');
+        const email = emailEl ? emailEl.value.trim() : '';
+        if (!email) {
+          alert("Please enter a valid email address.");
+          return;
+        }
+        simulateUser(email);
+      }
+
+      function resetSimulation() {
+        showLoading('Restoring Real Identity');
+        google.script.run
+          .withSuccessHandler(() => handleReload())
+          .withFailureHandler(err => {
+            hideLoading();
+            alert("Reset Failed: " + err.message);
+          })
+          .clearSimulatedUser();
+      }
+
       function renderSidebar(user) {
         const photoContainer = document.getElementById('user-photo-container');
         if (photoContainer) {
@@ -285,12 +367,31 @@
         const regionEl = document.getElementById('user-region');
         if (regionEl) regionEl.innerText = user.region || '';
 
+        // Simulation Logic: If simulating, use the identityTier for UI visibility.
+        // If not simulating, use the effective tier.
+        const displayTier = user.isSimulated ? user.identityTier : user.tier;
+
+        // Role-Based Navigation: Hide sections based on tier requirement
+        document.querySelectorAll('.tier-req').forEach(el => {
+          const reqTier = parseInt(el.dataset.tier, 10);
+          if (displayTier < reqTier) {
+            el.classList.add('hidden');
+          } else {
+            el.classList.remove('hidden');
+          }
+        });
+
         // Phase-Based Navigation: Hide sections if Phase 1 is in Maintenance (State 3)
         document.querySelectorAll('.phase-req').forEach(el => {
           const reqPhase = el.dataset.phase;
           if (reqPhase === "1" && user.phase1State === "3") {
             el.classList.add('hidden');
           } else {
+            // Respect tier requirements when unhiding
+            if (el.classList.contains('tier-req')) {
+              const reqTier = parseInt(el.dataset.tier, 10);
+              if (displayTier < reqTier) return; // Keep hidden
+            }
             el.classList.remove('hidden');
           }
         });
@@ -304,67 +405,39 @@
             execNav.classList.add('hidden');
           }
         }
+
+        // Hide/Show TPM Navigation Section strictly based on isTpmUser
+        const tpmSection = document.getElementById('section-tpm');
+        if (tpmSection) {
+          if (user.isTpmUser) {
+            tpmSection.classList.remove('hidden');
+          } else {
+            tpmSection.classList.add('hidden');
+          }
+        }
+
+        // Hide/Show TPM Dashboard strictly based on isTpmManager
+        const tpmDashNav = document.getElementById('nav-TpmDashboard');
+        if (tpmDashNav) {
+          if (user.isTpmManager) {
+            tpmDashNav.classList.remove('hidden');
+          } else {
+            tpmDashNav.classList.add('hidden');
+          }
+        }
+
+        // Toggle simulated notice banner
+        const simNotice = document.getElementById('simulated-notice');
+        if (simNotice) {
+          if (user.isSimulated) {
+            simNotice.classList.remove('hidden');
+          } else {
+            simNotice.classList.add('hidden');
+          }
+        }
       }
 
       window.nexusState = null;
-
-      /**
-       * Runs the progressive boot step animation to guide the user through initialization.
-       */
-      function startBootAnimation() {
-        const s1 = document.getElementById('step-1');
-        const s2 = document.getElementById('step-2');
-        const s3 = document.getElementById('step-3');
-        
-        // Transition Step 1 -> Step 2 (600ms)
-        const t1 = setTimeout(() => {
-          if (s1) s1.innerHTML = '<i class="fas fa-check-circle text-emerald-500"></i> Verifying Credentials...';
-          if (s1) s1.classList.remove('text-osttra-rubine');
-          if (s1) s1.classList.add('text-white/40');
-          if (s2) {
-            s2.classList.remove('hidden');
-            s2.classList.add('flex', 'text-osttra-ochre');
-            s2.innerHTML = '<i class="fas fa-circle-notch animate-spin"></i> Preloading Layouts...';
-          }
-        }, 600);
-        
-        // Transition Step 2 -> Step 3 (1200ms)
-        const t2 = setTimeout(() => {
-          if (s2) s2.innerHTML = '<i class="fas fa-check-circle text-emerald-500"></i> Preloading Layouts...';
-          if (s2) s2.classList.remove('text-osttra-ochre');
-          if (s2) s2.classList.add('text-white/40');
-          if (s3) {
-            s3.classList.remove('hidden');
-            s3.classList.add('flex', 'text-osttra-violet');
-            s3.innerHTML = '<i class="fas fa-circle-notch animate-spin"></i> Syncing Caches...';
-          }
-        }, 1200);
-
-        // Helper to complete the final transition cleanly when backend payload arrives
-        window.finishBootSequence = function(callback) {
-          clearTimeout(t1);
-          clearTimeout(t2);
-          
-          if (s1) s1.innerHTML = '<i class="fas fa-check-circle text-emerald-500"></i> Verifying Credentials...';
-          if (s1) s1.classList.remove('text-osttra-rubine');
-          if (s1) s1.classList.add('text-white/40');
-          
-          if (s2) {
-            s2.classList.remove('hidden');
-            s2.classList.add('flex', 'text-white/40');
-            s2.innerHTML = '<i class="fas fa-check-circle text-emerald-500"></i> Preloading Layouts...';
-          }
-          
-          if (s3) {
-            s3.classList.remove('hidden');
-            s3.classList.add('flex', 'text-white/40');
-            s3.innerHTML = '<i class="fas fa-check-circle text-emerald-500"></i> Syncing Caches...';
-          }
-          
-          // Complete transition with a brief polish pause
-          setTimeout(callback, 400);
-        };
-      }
 
       function initSession(bootPayload) {
         window.nexusState = bootPayload;
@@ -395,41 +468,30 @@
           } catch (e) {
             console.error("Failed to parse cached session:", e);
           }
-        } else {
-          // No cache: start the progressive boot loader animation!
-          startBootAnimation();
         }
 
         google.script.run
           .withSuccessHandler(bootPayload => { 
             sessionStorage.setItem('nexus_session', JSON.stringify(bootPayload));
             
-            const runInit = () => {
-              if (!window.nexusState) {
-                initSession(bootPayload);
-              } else {
-                window.nexusState = bootPayload;
-                window.currentUser = bootPayload.session;
-                if (bootPayload.session.preloadedViews) {
-                  window.viewCache = bootPayload.session.preloadedViews;
-                }
-                
-                // Environment Detection Banner Trigger (Sync check)
-                if (bootPayload.isUAT) {
-                  const banner = document.getElementById('uat-banner');
-                  const btn = document.getElementById('uat-prod-btn');
-                  if (banner) banner.classList.remove('hidden');
-                  if (btn && bootPayload.prodUrl) btn.href = bootPayload.prodUrl;
-                }
-                
-                renderSidebar(bootPayload.session);
-              }
-            };
-            
-            if (typeof window.finishBootSequence === 'function') {
-              window.finishBootSequence(runInit);
+            if (!window.nexusState) {
+              initSession(bootPayload);
             } else {
-              runInit();
+              window.nexusState = bootPayload;
+              window.currentUser = bootPayload.session;
+              if (bootPayload.session.preloadedViews) {
+                window.viewCache = bootPayload.session.preloadedViews;
+              }
+              
+              // Environment Detection Banner Trigger (Sync check)
+              if (bootPayload.isUAT) {
+                const banner = document.getElementById('uat-banner');
+                const btn = document.getElementById('uat-prod-btn');
+                if (banner) banner.classList.remove('hidden');
+                if (btn && bootPayload.prodUrl) btn.href = bootPayload.prodUrl;
+              }
+              
+              renderSidebar(bootPayload.session);
             }
           })
           .withFailureHandler(err => {

@@ -1,0 +1,1440 @@
+<!-- ui/Admin/TpmDashboard.html -->
+<style>
+  /* Prevent horizontal page scroll */
+  body {
+    overflow-x: hidden !important;
+  }
+  .chevron-transition {
+    transition: transform 0.2s ease-in-out;
+  }
+</style>
+
+<div class="p-8 space-y-8 max-w-7xl mx-auto animate-in fade-in duration-300">
+  <!-- Header & Navigation -->
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-6 border-b border-white/5 pb-6">
+    <div class="space-y-1">
+      <h2 class="text-2xl font-black uppercase tracking-tighter text-white flex items-center gap-3">
+        <i class="fas fa-users-cog text-osttra-rubine"></i> TPM Compliance Dashboard
+      </h2>
+      <p class="text-xs font-bold text-white/40 uppercase tracking-widest">Technical Project Management Team Center</p>
+    </div>
+    
+    <div class="flex flex-wrap items-center gap-3">
+      <!-- Custom Date Range Picker -->
+      <div class="flex items-center gap-2.5 bg-white/5 p-1.5 rounded-2xl border border-white/5 text-[9px] font-black uppercase tracking-widest text-white/50">
+        <span class="pl-2">From</span>
+        <input type="date" id="start-date-picker" onchange="handleCustomDateRangeChange()" class="bg-[#1e1e1e] border border-white/10 rounded-xl px-2.5 py-1.5 text-xs text-white outline-none focus:border-osttra-rubine transition-all font-mono" />
+        <span>To</span>
+        <input type="date" id="end-date-picker" onchange="handleCustomDateRangeChange()" class="bg-[#1e1e1e] border border-white/10 rounded-xl px-2.5 py-1.5 text-xs text-white outline-none focus:border-osttra-rubine transition-all font-mono" />
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= TAB 1: TEAM COMPLIANCE & CAPACITY ================= -->
+  <div id="tab-compliance" class="space-y-8 animate-in fade-in duration-300">
+    
+    <!-- Guidelines & Metrics Reference (Collapsible Accordion) -->
+    <div class="bg-white/[0.02] border border-white/5 rounded-2xl shadow-md overflow-hidden">
+      <button onclick="document.getElementById('dashboard-guidelines-content').classList.toggle('hidden'); document.getElementById('dashboard-guidelines-chevron').classList.toggle('rotate-180');" class="w-full p-4 flex items-center justify-between text-left hover:bg-white/[0.04] transition-colors focus:outline-none">
+        <div class="flex items-center gap-3">
+          <i class="fas fa-info-circle text-osttra-rubine text-sm"></i>
+          <span class="text-[10px] font-bold text-white/80 uppercase tracking-wider">Compliance Dashboard Guidelines & Charter</span>
+        </div>
+        <i id="dashboard-guidelines-chevron" class="fas fa-chevron-down text-white/40 text-xs transition-transform duration-200"></i>
+      </button>
+      <div id="dashboard-guidelines-content" class="hidden p-6 pt-2 border-t border-white/5 space-y-6 text-[11px] text-white/70 leading-relaxed bg-[#1c1c1c]">
+        
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <!-- Panel A: Compliance Scoring System -->
+          <div class="space-y-3.5 bg-white/[0.01] p-5 rounded-2xl border border-white/5 pr-6">
+            <h4 class="text-osttra-rubine font-black uppercase tracking-widest text-[9px] flex items-center gap-2 border-b border-white/5 pb-1.5 pr-2">
+              <i class="fas fa-user-check text-osttra-rubine"></i> 1. Compliance Scoring System
+            </h4>
+            <ul class="list-disc pl-4 space-y-2 pr-2">
+              <li><strong class="text-white font-bold">Compliant 🟢:</strong> Time logged (>0h) or marked OOO for every past weekday in selected range.</li>
+              <li><strong class="text-white font-bold">Incomplete 🔴:</strong> Missing entries on one or more past weekdays. Hover badge for list of missed dates.</li>
+              <li><strong class="text-white font-bold">In Progress 🟡:</strong> Completed all past weekdays; range extends into today/future.</li>
+              <li><strong class="text-white font-bold">Exemptions:</strong> Saturday/Sunday, future dates, and OOO days are automatically excluded from penalties.</li>
+            </ul>
+          </div>
+          
+          <!-- Panel B: Workload Target Calculations -->
+          <div class="space-y-3.5 bg-white/[0.01] p-5 rounded-2xl border border-white/5 pr-6">
+            <h4 class="text-osttra-rubine font-black uppercase tracking-widest text-[9px] flex items-center gap-2 border-b border-white/5 pb-1.5 pr-2">
+              <i class="fas fa-calculator text-osttra-rubine"></i> 2. Workload Target Model
+            </h4>
+            <div class="font-mono text-[8px] text-osttra-ochre font-black bg-[#141414] p-2 rounded border border-white/5 text-center leading-normal">
+              Target Hours = (FTE % / 100) * (Weekdays - OOO Days) * 8h
+            </div>
+            <ul class="list-disc pl-4 space-y-1.5 pt-1 pr-2">
+              <li><strong class="text-white font-bold">Balanced:</strong> Logged hours are <strong class="text-white">80% to 115%</strong> of target capacity.</li>
+              <li><strong class="text-white font-bold">Underburdened:</strong> Hours are <strong class="text-white">< 80%</strong> (under-allocated or incomplete logs).</li>
+              <li><strong class="text-white font-bold">Overburdened:</strong> Hours are <strong class="text-white">>= 115%</strong> (burnout warning).</li>
+            </ul>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Summary Grid & Donut Chart -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <!-- Stat Cards -->
+      <div class="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="p-6 bg-[#222222] border border-white/5 rounded-3xl flex flex-col justify-between h-40 shadow-xl relative overflow-hidden group">
+          <div class="absolute -right-4 -bottom-4 text-white/[0.02] text-8xl group-hover:scale-110 transition-transform duration-500">
+            <i class="fas fa-users"></i>
+          </div>
+          <p class="text-[10px] font-black text-white/40 uppercase tracking-widest">Total Team Members</p>
+          <h3 id="stat-total" class="text-5xl font-black text-white tracking-tighter">0</h3>
+          <p class="text-[10px] font-bold text-white/30 uppercase tracking-widest mt-2">Active TPM hierarchy</p>
+        </div>
+
+        <div class="p-6 bg-[#222222] border border-white/5 rounded-3xl flex flex-col justify-between h-40 shadow-xl relative overflow-hidden group">
+          <div class="absolute -right-4 -bottom-4 text-white/[0.02] text-8xl group-hover:scale-110 transition-transform duration-500">
+            <i class="fas fa-check-circle"></i>
+          </div>
+          <p class="text-[10px] font-black text-emerald-500 uppercase tracking-widest">Compliant This Week</p>
+          <h3 id="stat-compliant" class="text-5xl font-black text-emerald-500 tracking-tighter">0</h3>
+          <p class="text-[10px] font-bold text-emerald-500/50 uppercase tracking-widest mt-2">Logged daily hours or marked OOO</p>
+        </div>
+
+        <div class="p-6 bg-[#222222] border border-white/5 rounded-3xl flex flex-col justify-between h-40 shadow-xl relative overflow-hidden group">
+          <div class="absolute -right-4 -bottom-4 text-white/[0.02] text-8xl group-hover:scale-110 transition-transform duration-500">
+            <i class="fas fa-exclamation-triangle"></i>
+          </div>
+          <p class="text-[10px] font-black text-osttra-rubine uppercase tracking-widest">Non-Compliant</p>
+          <h3 id="stat-noncompliant" class="text-5xl font-black text-osttra-rubine tracking-tighter">0</h3>
+          <p class="text-[10px] font-bold text-osttra-rubine/50 uppercase tracking-widest mt-2">Missing entries on one or more days</p>
+        </div>
+
+        <!-- NEW WORKLOAD saturation Alert Card -->
+        <div class="p-6 bg-[#222222] border border-white/5 rounded-3xl flex flex-col justify-between h-40 shadow-xl relative overflow-hidden group">
+          <div class="absolute -right-4 -bottom-4 text-white/[0.02] text-8xl group-hover:scale-110 transition-transform duration-500">
+            <i class="fas fa-fire text-osttra-rubine"></i>
+          </div>
+          <p class="text-[10px] font-black text-osttra-ochre uppercase tracking-widest">Overburden Alerts</p>
+          <h3 id="stat-overburden" class="text-5xl font-black text-osttra-ochre tracking-tighter">0</h3>
+          <p class="text-[10px] font-bold text-white/30 uppercase tracking-widest mt-2">Utilization Ratio is &ge; 115% of FTE target</p>
+        </div>
+      </div>
+
+      <!-- Chart Card -->
+      <div class="p-6 bg-[#222222] border border-white/5 rounded-3xl shadow-xl flex flex-col items-center justify-center relative">
+        <h3 class="text-[10px] font-black text-white/40 uppercase tracking-widest mb-4 self-start">Compliance Breakdown</h3>
+        <div class="w-48 h-48 relative">
+          <canvas id="compliance-chart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Collapsible Help Card & Definitions -->
+    <div class="bg-white/[0.02] border border-white/5 rounded-2xl shadow-md overflow-hidden">
+      <button onclick="toggleHelpCard()" class="w-full p-4 flex items-center justify-between text-left hover:bg-white/[0.04] transition-colors focus:outline-none">
+        <div class="flex items-center gap-3">
+          <i class="fas fa-info-circle text-osttra-rubine text-sm"></i>
+          <span class="text-[10px] font-bold text-white/80 uppercase tracking-wider">Workload Balance & Utilization Definitions</span>
+        </div>
+        <i id="help-chevron" class="fas fa-chevron-right text-white/40 text-xs transition-transform duration-200 chevron-transition"></i>
+      </button>
+      
+      <div id="help-content-card" class="hidden p-6 pt-2 border-t border-white/5 bg-[#1c1c1c]">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 text-[11px] leading-relaxed text-white/70">
+          <div class="space-y-1.5 p-4.5 bg-white/[0.01] border border-white/5 rounded-2xl pr-6">
+            <p class="font-black text-emerald-500 uppercase tracking-widest text-[9px] flex items-center gap-2 border-b border-white/5 pb-1 pr-2">
+              <i class="fas fa-balance-scale"></i> Balanced (80% - 115%)
+            </p>
+            <ul class="list-disc pl-4 space-y-1 mt-2 pr-2">
+              <li>Logged weekly effort matches allocation target baseline.</li>
+              <li>Shows sustainable workload of 32h to 46h (based on a 1.0 FTE).</li>
+            </ul>
+          </div>
+          <div class="space-y-1.5 p-4.5 bg-white/[0.01] border border-white/5 rounded-2xl pr-6">
+            <p class="font-black text-osttra-ochre uppercase tracking-widest text-[9px] flex items-center gap-2 border-b border-white/5 pb-1 pr-2">
+              <i class="fas fa-fire"></i> Overburdened (&ge; 115%)
+            </p>
+            <ul class="list-disc pl-4 space-y-1 mt-2 pr-2">
+              <li>Effort significantly exceeds target baseline.</li>
+              <li>Indicates high burnout risk. (Logged > 46 hours on 1.0 FTE).</li>
+            </ul>
+          </div>
+          <div class="space-y-1.5 p-4.5 bg-white/[0.01] border border-white/5 rounded-2xl pr-6">
+            <p class="font-black text-blue-400 uppercase tracking-widest text-[9px] flex items-center gap-2 border-b border-white/5 pb-1 pr-2">
+              <i class="fas fa-bed"></i> Underburdened (&lt; 80%)
+            </p>
+            <ul class="list-disc pl-4 space-y-1 mt-2 pr-2">
+              <li>Effort is well below allocation baseline.</li>
+              <li>Implies bench capacity or incomplete logging (< 32h on 1.0 FTE).</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Advanced Operational Filters & Action Bar -->
+    <div class="p-4 bg-[#222222] border border-white/5 rounded-2xl flex flex-wrap items-center gap-4 text-[10px] font-black uppercase tracking-widest text-white/40">
+      
+      <!-- Live Member Search -->
+      <div class="flex items-center gap-2 bg-white/5 p-1.5 rounded-xl border border-white/5 flex-1 min-w-[200px]">
+        <i class="fas fa-search pl-2 text-white/30"></i>
+        <input type="text" id="compliance-search" oninput="filterRosterGrid()" placeholder="Search Teammate Name, Email..." class="w-full bg-transparent border-none text-white text-[9px] uppercase font-black tracking-widest placeholder-white/30 outline-none" />
+      </div>
+
+      <!-- 1. Compliance Status Filter -->
+      <div class="flex items-center gap-2 bg-white/5 p-1.5 rounded-xl border border-white/5">
+        <label for="compliance-status-filter" class="pl-2">Compliance:</label>
+        <select id="compliance-status-filter" onchange="filterRosterGrid()" class="bg-[#222222] border border-white/10 rounded-lg px-2 py-1 text-white outline-none focus:border-osttra-rubine transition-all">
+          <option value="ALL" class="bg-[#222222] text-white">All Members</option>
+          <option value="COMPLIANT" class="bg-[#222222] text-white">Compliant Only</option>
+          <option value="INCOMPLETE" class="bg-[#222222] text-white">Incomplete Only</option>
+        </select>
+      </div>
+
+      <!-- 2. Workload Balance Filter -->
+      <div class="flex items-center gap-2 bg-white/5 p-1.5 rounded-xl border border-white/5">
+        <label for="compliance-workload-filter" class="pl-2">Workload:</label>
+        <select id="compliance-workload-filter" onchange="filterRosterGrid()" class="bg-[#222222] border border-white/10 rounded-lg px-2 py-1 text-white outline-none focus:border-osttra-rubine transition-all">
+          <option value="ALL" class="bg-[#222222] text-white">All Loads</option>
+          <option value="BALANCED" class="bg-[#222222] text-white">Balanced Only</option>
+          <option value="OVERBURDENED" class="bg-[#222222] text-white">Overburdened Only</option>
+          <option value="UNDERBURDENED" class="bg-[#222222] text-white">Underburdened Only</option>
+        </select>
+      </div>
+
+      <!-- 3. Automated Email Nudge Button -->
+      <button id="btn-email-nudges" onclick="triggerEmailNudges()" class="px-4 py-2 rounded-xl bg-osttra-rubine hover:brightness-110 text-white text-[9px] font-black uppercase tracking-widest active:scale-95 transition-all flex items-center gap-2 ml-auto shadow-md shadow-osttra-rubine/10">
+        <i class="fas fa-paper-plane"></i> 📩 Nudge Incomplete Members
+      </button>
+    </div>
+
+    <!-- Compliance Matrix Card -->
+    <div class="space-y-4">
+      <h3 class="text-[10px] font-black text-white/40 uppercase tracking-widest">Compliance Roster Detail</h3>
+      
+      <div class="bg-[#222222] border border-white/5 rounded-3xl overflow-hidden shadow-2xl">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse">
+            <thead>
+              <tr class="border-b border-white/5 bg-white/[0.02]">
+                <th class="p-4 text-[10px] font-black uppercase tracking-widest text-white/40 pl-6 w-[320px]">TPM Team Member</th>
+                <th class="p-4 text-[10px] font-black uppercase tracking-widest text-white/40 text-center w-40">Total Hours Logged</th>
+                <th class="p-4 text-[10px] font-black uppercase tracking-widest text-white/40 text-center w-56">Compliance Status</th>
+                <th class="p-4 text-[10px] font-black uppercase tracking-widest text-white/40 text-center w-36 pr-6">Workload Balance</th>
+              </tr>
+            </thead>
+            <tbody id="compliance-matrix-body">
+              <!-- Populated dynamically -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= TAB 2: PROJECT PORTFOLIO & MILESTONES ================= -->
+  <div id="tab-portfolio" class="hidden space-y-8 animate-in fade-in duration-300">
+    <!-- Collapsible Portfolio Help Card & Definitions -->
+    <div class="bg-white/[0.02] border border-white/5 rounded-2xl shadow-md overflow-hidden">
+      <button onclick="togglePortfolioHelpCard()" class="w-full p-4 flex items-center justify-between text-left hover:bg-white/[0.04] transition-colors focus:outline-none">
+        <div class="flex items-center gap-3">
+          <i class="fas fa-info-circle text-blue-400 text-sm"></i>
+          <span class="text-[10px] font-bold text-white/80 uppercase tracking-wider">Project Portfolio & Risk Definitions</span>
+        </div>
+        <i id="portfolio-help-chevron" class="fas fa-chevron-right text-white/40 text-xs transition-transform duration-200 chevron-transition"></i>
+      </button>
+      
+      <div id="portfolio-help-content" class="hidden p-6 pb-6 pr-6 px-6 pt-2 border-t border-white/5 bg-[#1c1c1c]">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 text-[11px] leading-relaxed text-white/70">
+          <div class="space-y-1.5 p-6 bg-white/[0.01] border border-white/5 rounded-3xl pr-6">
+            <p class="font-black text-osttra-rubine uppercase tracking-widest text-[9px] flex items-center gap-2 border-b border-white/5 pb-1 pr-2">
+              <i class="fas fa-exclamation-triangle"></i> At Risk Projects
+            </p>
+            <ul class="list-disc pl-4 space-y-1 mt-2 pr-2">
+              <li>UAT Start Date is starting or active within the next 14 days.</li>
+              <li>Total logged hours is less than 30% of approved estimate.</li>
+            </ul>
+          </div>
+          <div class="space-y-1.5 p-4.5 bg-white/[0.01] border border-white/5 rounded-3xl pr-6">
+            <p class="font-black text-osttra-ochre uppercase tracking-widest text-[9px] flex items-center gap-2 border-b border-white/5 pb-1 pr-2">
+              <i class="fas fa-hourglass-half"></i> Over Estimate Projects
+            </p>
+            <ul class="list-disc pl-4 space-y-1 mt-2 pr-2">
+              <li>Total timesheet hours logged exceeds approved Jira Effort Estimate.</li>
+              <li>Estimate standard workday conversion: **1 Day = 8 Hours** (synchronized).</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Advanced Portfolio Filters Bar with Live Search -->
+    <div class="p-4 bg-[#222222] border border-white/5 rounded-2xl flex flex-wrap items-center gap-4 text-[10px] font-black uppercase tracking-widest text-white/40">
+      
+      <!-- Live Search Bar -->
+      <div class="flex items-center gap-2 bg-white/5 p-1.5 rounded-xl border border-white/5 flex-1 min-w-[200px]">
+        <i class="fas fa-search pl-2 text-white/30"></i>
+        <input type="text" id="portfolio-search" oninput="renderPortfolioGrid()" placeholder="Search Epic Key, Summary, Client..." class="w-full bg-transparent border-none text-white text-[9px] uppercase font-black tracking-widest placeholder-white/30 outline-none" />
+      </div>
+
+      <!-- 1. Epic Status Filter (Dynamic actual Jira Status) -->
+      <div class="flex items-center gap-2 bg-white/5 p-1.5 rounded-xl border border-white/5">
+        <label for="portfolio-status-filter" class="pl-2">Status:</label>
+        <select id="portfolio-status-filter" onchange="renderPortfolioGrid()" class="bg-[#222222] border border-white/10 rounded-lg px-2 py-1 text-white outline-none focus:border-osttra-rubine transition-all">
+          <option value="ALL" class="bg-[#222222] text-white">All Statuses</option>
+        </select>
+      </div>
+
+      <!-- 2. Owner Filter (Dynamic) -->
+      <div class="flex items-center gap-2 bg-white/5 p-1.5 rounded-xl border border-white/5">
+        <label for="portfolio-owner-filter" class="pl-2">Owner:</label>
+        <select id="portfolio-owner-filter" onchange="renderPortfolioGrid()" class="bg-[#222222] border border-white/10 rounded-lg px-2 py-1 text-white outline-none focus:border-osttra-rubine transition-all">
+          <option value="ALL" class="bg-[#222222] text-white">All Owners</option>
+        </select>
+      </div>
+
+      <!-- 3. Account Filter (Dynamic) -->
+      <div class="flex items-center gap-2 bg-white/5 p-1.5 rounded-xl border border-white/5">
+        <label for="portfolio-account-filter" class="pl-2">Account:</label>
+        <select id="portfolio-account-filter" onchange="renderPortfolioGrid()" class="bg-[#222222] border border-white/10 rounded-lg px-2 py-1 text-white outline-none focus:border-osttra-rubine transition-all">
+          <option value="ALL" class="bg-[#222222] text-white">All Accounts</option>
+        </select>
+      </div>
+
+      <!-- 4. Project Sizing Filter -->
+      <div class="flex items-center gap-2 bg-white/5 p-1.5 rounded-xl border border-white/5">
+        <label for="portfolio-sizing-filter" class="pl-2">Sizing:</label>
+        <select id="portfolio-sizing-filter" onchange="renderPortfolioGrid()" class="bg-[#222222] border border-white/10 rounded-lg px-2 py-1 text-white outline-none focus:border-osttra-rubine transition-all">
+          <option value="ALL" class="bg-[#222222] text-white">All Sizes</option>
+          <option value="Large" class="bg-[#222222] text-white">Large</option>
+          <option value="Medium" class="bg-[#222222] text-white">Medium</option>
+          <option value="Small" class="bg-[#222222] text-white">Small</option>
+          <option value="N/A" class="bg-[#222222] text-white">N/A</option>
+        </select>
+      </div>
+
+      <!-- 5. At Risk Toggle Card -->
+      <button id="btn-filter-at-risk" onclick="toggleAtRiskFilter()" class="px-3 py-2 bg-white/5 border border-white/5 rounded-xl text-white/60 hover:bg-white/10 flex items-center gap-1.5 transition-all">
+        <i class="fas fa-exclamation-triangle text-osttra-rubine"></i> At Risk
+      </button>
+
+      <!-- 6. Over Estimate Toggle Card -->
+      <button id="btn-filter-over-budget" onclick="toggleOverBudgetFilter()" class="px-3 py-2 bg-white/5 border border-white/5 rounded-xl text-white/60 hover:bg-white/10 flex items-center gap-1.5 transition-all">
+        <i class="fas fa-hourglass-half text-osttra-ochre"></i> Over Estimate
+      </button>
+    </div>
+
+    <!-- Epic Cards Grid -->
+    <div id="portfolio-cards-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <!-- Generated dynamically -->
+    </div>
+  </div>
+</div>
+
+<script>
+  var complianceChart = null;
+  var globalData = null; // Store fetched data globally for multi-tab rendering
+  var activeTab = 'compliance';
+  
+  // Advanced Filter States
+  var filterAtRisk = false;
+  var filterOverBudget = false;
+  var helpCardExpanded = false;
+  var portfolioHelpExpanded = false;
+  var currentStartStr = null; // State variable for active start date
+  var currentEndStr = null; // State variable for active end date
+
+  function getErrorMessage(err) {
+    if (!err) return "An unknown server-side error occurred.";
+    if (typeof err === 'string') return err;
+    if (err.message) return err.message;
+    if (err.details) return err.details;
+    return JSON.stringify(err);
+  }
+
+  function countWeekdays(dates) {
+    if (!dates || !Array.isArray(dates)) return 0;
+    let count = 0;
+    dates.forEach(dateStr => {
+      const parts = dateStr.split('-');
+      const d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+      const dayOfWeek = d.getDay();
+      if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+        count++;
+      }
+    });
+    return count;
+  }
+
+  // Initialize view
+  (function() {
+    function initTpmDashboard() {
+      const startPicker = document.getElementById('start-date-picker');
+      const endPicker = document.getElementById('end-date-picker');
+      
+      // Self-healing yield check: if elements aren't painted in DOM yet, wait 100ms and try again
+      if (!startPicker || !endPicker) {
+        setTimeout(initTpmDashboard, 100);
+        return;
+      }
+
+      const d = new Date();
+      const day = d.getDay();
+      const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Monday
+      const monday = new Date(d.setDate(diff));
+      
+      const sunday = new Date(monday);
+      sunday.setDate(sunday.getDate() + 6);
+
+      currentStartStr = formatDateString(monday);
+      currentEndStr = formatDateString(sunday);
+
+      startPicker.value = currentStartStr;
+      endPicker.value = currentEndStr;
+
+      loadDashboardData(currentStartStr, currentEndStr);
+    }
+    
+    initTpmDashboard();
+  })();
+
+  function formatDateString(date) {
+    const yyyy = date.getFullYear();
+    const mm = String(date.getMonth() + 1).padStart(2, '0');
+    const dd = String(date.getDate()).padStart(2, '0');
+    return yyyy + '-' + mm + '-' + dd;
+  }
+
+  function formatDateFriendly(dateStr) {
+    if (!dateStr) return 'N/A';
+    const parts = dateStr.split('-');
+    if (parts.length !== 3) return dateStr;
+    const year = parts[0].substring(2); // "26"
+    const monthIdx = parseInt(parts[1], 10) - 1;
+    const day = parseInt(parts[2], 10);
+    const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    return day + '-' + months[monthIdx] + '-' + year;
+  }
+
+  function handleCustomDateRangeChange() {
+    const startVal = document.getElementById('start-date-picker').value;
+    const endVal = document.getElementById('end-date-picker').value;
+    if (!startVal || !endVal) return;
+
+    if (startVal > endVal) {
+      showNotification('warning', 'Invalid Date Range', 'Start Date cannot be after End Date. Auto-adjusting...');
+      document.getElementById('end-date-picker').value = startVal;
+      currentStartStr = startVal;
+      currentEndStr = startVal;
+    } else {
+      currentStartStr = startVal;
+      currentEndStr = endVal;
+    }
+
+    loadDashboardData(currentStartStr, currentEndStr);
+  }
+
+  function toggleHelpCard() {
+    helpCardExpanded = !helpCardExpanded;
+    const content = document.getElementById('help-content-card');
+    const icon = document.getElementById('help-chevron');
+    if (helpCardExpanded) {
+      content.classList.remove('hidden');
+      content.classList.add('grid');
+      icon.classList.add('rotate-90');
+    } else {
+      content.classList.add('hidden');
+      content.classList.remove('grid');
+      icon.classList.remove('rotate-90');
+    }
+  }
+
+  function togglePortfolioHelpCard() {
+    portfolioHelpExpanded = !portfolioHelpExpanded;
+    const content = document.getElementById('portfolio-help-content');
+    const icon = document.getElementById('portfolio-help-chevron');
+    if (portfolioHelpExpanded) {
+      content.classList.remove('hidden');
+      content.classList.add('grid');
+      icon.classList.add('rotate-90');
+    } else {
+      content.classList.add('hidden');
+      content.classList.remove('grid');
+      icon.classList.remove('rotate-90');
+    }
+  }
+
+  function switchTab(tabId) {
+    activeTab = tabId;
+    const tab1 = document.getElementById('tab-compliance');
+    const tab2 = document.getElementById('tab-portfolio');
+    const btn1 = document.getElementById('btn-tab-compliance');
+    const btn2 = document.getElementById('btn-tab-portfolio');
+    
+    if (tabId === 'compliance') {
+      tab1.classList.remove('hidden');
+      tab2.classList.add('hidden');
+      btn1.className = 'px-4 py-2 rounded-xl bg-osttra-rubine text-white text-[10px] font-black uppercase tracking-widest active:scale-95 transition-all flex items-center gap-2';
+      btn2.className = 'px-4 py-2 rounded-xl bg-transparent text-white/60 text-[10px] font-black uppercase tracking-widest active:scale-95 transition-all flex items-center gap-2';
+      if (globalData) {
+        renderComplianceChart(globalData.complianceStats);
+        renderComplianceMatrix(globalData.matrix);
+      }
+    } else {
+      tab1.classList.add('hidden');
+      tab2.classList.remove('hidden');
+      btn1.className = 'px-4 py-2 rounded-xl bg-transparent text-white/60 text-[10px] font-black uppercase tracking-widest active:scale-95 transition-all flex items-center gap-2';
+      btn2.className = 'px-4 py-2 rounded-xl bg-osttra-rubine text-white text-[10px] font-black uppercase tracking-widest active:scale-95 transition-all flex items-center gap-2';
+      if (globalData) {
+        renderPortfolioGrid();
+      }
+    }
+  }
+
+  function toggleAtRiskFilter() {
+    filterAtRisk = !filterAtRisk;
+    const btn = document.getElementById('btn-filter-at-risk');
+    if (filterAtRisk) {
+      btn.className = 'px-3 py-2 bg-osttra-rubine text-white border border-osttra-rubine/20 rounded-xl flex items-center gap-1.5 transition-all';
+    } else {
+      btn.className = 'px-3 py-2 bg-white/5 border border-white/5 rounded-xl text-white/60 hover:bg-white/10 flex items-center gap-1.5 transition-all';
+    }
+    renderPortfolioGrid();
+  }
+
+  function toggleOverBudgetFilter() {
+    filterOverBudget = !filterOverBudget;
+    const btn = document.getElementById('btn-filter-over-budget');
+    if (filterOverBudget) {
+      btn.className = 'px-3 py-2 bg-osttra-ochre text-black border border-osttra-ochre/20 rounded-xl flex items-center gap-1.5 transition-all';
+    } else {
+      btn.className = 'px-3 py-2 bg-white/5 border border-white/5 rounded-xl text-white/60 hover:bg-white/10 flex items-center gap-1.5 transition-all';
+    }
+    renderPortfolioGrid();
+  }
+
+  function loadDashboardData(startDateStr, endDateStr, forceRefresh = false) {
+    showLoading('Fetching compliance analytics...');
+    google.script.run
+      .withSuccessHandler(data => {
+        hideLoading();
+        globalData = data;
+        updateDashboardStats(data.complianceStats);
+        updateUnassignedBadge(data.unassignedEpics ? data.unassignedEpics.length : 0);
+        
+        // Calculate dynamic alerts and counts
+        calculateWorkloadAlerts(data.matrix);
+
+        // Dynamically populate filters based on unique data values in cache
+        populateDynamicFilters();
+
+        if (activeTab === 'compliance') {
+          try {
+            renderComplianceChart(data.complianceStats);
+          } catch (chartError) {
+            console.error("Failed to render compliance chart:", chartError);
+          }
+          renderComplianceMatrix(data.matrix);
+        } else {
+          renderPortfolioGrid();
+        }
+      })
+      .withFailureHandler(err => {
+        hideLoading();
+        showNotification('error', 'Dashboard Load Failed', err.message);
+      })
+      .getTpmDashboardData(startDateStr, endDateStr, forceRefresh);
+  }
+
+  function calculateWorkloadAlerts(matrix) {
+    let overburdenCount = 0;
+    const weekdaysInRange = countWeekdays(globalData.weekDates);
+    
+    matrix.forEach(member => {
+      const oooDaysInRange = member.oooDates.filter(d => globalData.weekDates.includes(d)).length;
+      const targetHours = (member.allocatedFte / 100) * (weekdaysInRange - oooDaysInRange) * 8;
+      const ratio = targetHours > 0 ? (member.total / targetHours) * 100 : 0;
+      if (ratio >= 115) {
+        overburdenCount++;
+      }
+    });
+    document.getElementById('stat-overburden').innerText = overburdenCount;
+  }
+
+  function populateDynamicFilters() {
+    if (!globalData || !globalData.allEpics) return;
+
+    // 1. Dynamic Unique Epic Statuses
+    const statuses = [...new Set(globalData.allEpics.map(e => e["Status"]).filter(Boolean))];
+    const statusSelect = document.getElementById('portfolio-status-filter');
+    statusSelect.innerHTML = '<option value="ALL" class="bg-[#222222] text-white">All Statuses</option>';
+    statuses.forEach(s => {
+      statusSelect.innerHTML += '<option value="' + s + '" class="bg-[#222222] text-white">' + s + '</option>';
+    });
+
+    // 2. Unique Owners (Filter out unassigned/empty)
+    const owners = [...new Set(globalData.allEpics.map(e => e["Assignee_Email"]).filter(Boolean))];
+    const ownerSelect = document.getElementById('portfolio-owner-filter');
+    ownerSelect.innerHTML = '<option value="ALL" class="bg-[#222222] text-white">All Owners</option>';
+    owners.forEach(email => {
+      ownerSelect.innerHTML += '<option value="' + email + '" class="bg-[#222222] text-white">' + email + '</option>';
+    });
+
+    // 3. Unique Accounts
+    const accounts = [...new Set(globalData.allEpics.map(e => e["Account_Name"] || e["Account Name"]).filter(Boolean))];
+    const accountSelect = document.getElementById('portfolio-account-filter');
+    accountSelect.innerHTML = '<option value="ALL" class="bg-[#222222] text-white">All Accounts</option>';
+    accounts.forEach(acc => {
+      accountSelect.innerHTML += '<option value="' + acc + '" class="bg-[#222222] text-white">' + acc + '</option>';
+    });
+  }
+
+  function updateUnassignedBadge(count) {
+    const badge = document.getElementById('unassigned-epics-badge');
+    const countSpan = document.getElementById('unassigned-epics-count');
+    if (badge && countSpan) {
+      countSpan.innerText = count;
+      if (count > 0) {
+        badge.classList.remove('hidden');
+        badge.classList.add('flex');
+      } else {
+        badge.classList.add('hidden');
+        badge.classList.remove('flex');
+      }
+    }
+  }
+
+  function updateDashboardStats(stats) {
+    document.getElementById('stat-total').innerText = stats.total;
+    document.getElementById('stat-compliant').innerText = stats.compliant;
+    document.getElementById('stat-noncompliant').innerText = stats.nonCompliant;
+    const rateEl = document.getElementById('stat-rate');
+    if (rateEl) {
+      rateEl.innerText = stats.percentage + '%';
+    }
+  }
+
+  function renderComplianceChart(stats) {
+    if (typeof Chart === 'undefined') {
+      console.warn("Chart.js is not fully loaded from CDN yet. Skipping chart rendering.");
+      return;
+    }
+    const canvas = document.getElementById('compliance-chart');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    
+    if (complianceChart) {
+      try {
+        complianceChart.destroy();
+      } catch (e) {
+        console.warn("Failed to destroy previous chart instance:", e);
+      }
+    }
+
+    complianceChart = new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels: ['Compliant', 'Non-Compliant'],
+        datasets: [{
+          data: [stats.compliant, stats.nonCompliant],
+          backgroundColor: ['#10B981', '#FF0061'],
+          borderWidth: 0,
+          hoverOffset: 4
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            display: false
+          },
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                return ' ' + context.label + ': ' + context.raw + ' members';
+              }
+            }
+          }
+        },
+        cutout: '75%'
+      }
+    });
+  }
+
+  // Frontend Dynamic filtering for the Compliance Roster (Tab 1)
+  function filterRosterGrid() {
+    if (!globalData || !globalData.matrix) return;
+    renderComplianceMatrix(globalData.matrix);
+  }
+
+  function renderComplianceMatrix(matrix) {
+    const tbody = document.getElementById('compliance-matrix-body');
+    tbody.innerHTML = '';
+
+    if (matrix.length === 0) {
+      const tr = document.createElement('tr');
+      const td = document.createElement('td');
+      td.colSpan = 4;
+      td.className = 'p-12 text-center text-white/40 text-xs font-bold uppercase tracking-widest leading-relaxed';
+      td.textContent = 'No TPM hierarchy members detected under your reporting structure.';
+      tr.appendChild(td);
+      tbody.appendChild(tr);
+      return;
+    }
+
+    // Capture dynamic filter values
+    const query = document.getElementById('compliance-search').value.toLowerCase().trim();
+    const compFilter = document.getElementById('compliance-status-filter').value;
+    const loadFilter = document.getElementById('compliance-workload-filter').value;
+
+    const filteredMatrix = matrix.filter(member => {
+      const name = String(member.name || "").toLowerCase();
+      const email = String(member.email || "").toLowerCase();
+      const isCompliant = member.isCompliant;
+      
+      const weekdaysInRange = countWeekdays(globalData.weekDates);
+      const oooDaysInRange = member.oooDates.filter(d => globalData.weekDates.includes(d)).length;
+      const targetHours = (member.allocatedFte / 100) * (weekdaysInRange - oooDaysInRange) * 8;
+      
+      const ratio = targetHours > 0 ? (member.total / targetHours) * 100 : 0;
+      
+      let loadState = 'BALANCED';
+      if (ratio >= 115) loadState = 'OVERBURDENED';
+      else if (ratio < 80) loadState = 'UNDERBURDENED';
+
+      // 1. Search Query filter
+      if (query && !name.includes(query) && !email.includes(query)) return false;
+
+      // 2. Compliance status filter
+      if (compFilter === "COMPLIANT" && !isCompliant) return false;
+      if (compFilter === "INCOMPLETE" && isCompliant) return false;
+
+      // 3. Workload balance filter
+      if (loadFilter !== "ALL" && loadState !== loadFilter) return false;
+
+      return true;
+    });
+
+    // Dynamically update Nudge Button indicator count
+    const nudgeBtn = document.getElementById('btn-email-nudges');
+    const incompleteTeammates = filteredMatrix.filter(m => !m.isCompliant);
+    nudgeBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Nudge ' + incompleteTeammates.length + ' Incomplete Members';
+    if (incompleteTeammates.length === 0) {
+      nudgeBtn.disabled = true;
+      nudgeBtn.style.opacity = '0.3';
+      nudgeBtn.style.cursor = 'not-allowed';
+    } else {
+      nudgeBtn.disabled = false;
+      nudgeBtn.style.opacity = '1';
+      nudgeBtn.style.cursor = 'pointer';
+    }
+
+    if (filteredMatrix.length === 0) {
+      const tr = document.createElement('tr');
+      const td = document.createElement('td');
+      td.colSpan = 4;
+      td.className = 'p-12 text-center text-white/40 text-xs font-bold uppercase tracking-widest leading-relaxed flex flex-col items-center justify-center gap-2 bg-[#222222] border border-white/5 rounded-3xl';
+      td.innerHTML = '<i class="fas fa-filter text-3xl mb-1 opacity-25"></i> No roster members match your active search or workload filters.';
+      tr.appendChild(td);
+      tbody.appendChild(tr);
+      return;
+    }
+
+    const todayStr = formatDateString(new Date());
+    const weekdaysInRange = countWeekdays(globalData.weekDates);
+
+    filteredMatrix.forEach((row, rowIndex) => {
+      const totalHours = row.total;
+      const detailsRowId = 'details-row-' + rowIndex;
+      const chevronId = 'chevron-' + rowIndex;
+
+      // Calculate Workload balance based on standard 8-hour target minus OOO
+      const oooDaysInRange = row.oooDates.filter(d => globalData.weekDates.includes(d)).length;
+      const targetHours = (row.allocatedFte / 100) * (weekdaysInRange - oooDaysInRange) * 8;
+      const utilRatio = targetHours > 0 ? (totalHours / targetHours) * 100 : 0;
+
+      let loadBadgeHtml = '';
+      if (utilRatio >= 115) {
+        loadBadgeHtml = '<span class="px-2.5 py-1 rounded-full text-[8px] font-black uppercase tracking-wider border border-red-500/25 text-osttra-rubine bg-osttra-rubine/10 shadow-lg shadow-osttra-rubine/5 cursor-help" title="Effort exceeds allocation baseline (Risk of Burnout)">Overburdened (' + Math.round(utilRatio) + '%)</span>';
+      } else if (utilRatio < 80) {
+        loadBadgeHtml = '<span class="px-2.5 py-1 rounded-full text-[8px] font-black uppercase tracking-wider border border-blue-500/25 text-blue-400 bg-blue-500/10 cursor-help" title="Under-allocated effort or incomplete logs">Underburdened (' + Math.round(utilRatio) + '%)</span>';
+      } else {
+        loadBadgeHtml = '<span class="px-2.5 py-1 rounded-full text-[8px] font-black uppercase tracking-wider border border-emerald-500/25 text-emerald-500 bg-emerald-500/10 cursor-help" title="Effort matches allocated FTE target baseline">Balanced (' + Math.round(utilRatio) + '%)</span>';
+      }
+
+      // Build main row (tr)
+      const tr = document.createElement('tr');
+      tr.className = 'hover:bg-white/[0.01] transition-colors border-b border-white/5 cursor-pointer';
+      tr.addEventListener('click', () => {
+        const rowEl = document.getElementById(detailsRowId);
+        const iconEl = document.getElementById(chevronId);
+        if (rowEl) {
+          rowEl.classList.toggle('hidden');
+          iconEl.classList.toggle('rotate-90');
+        }
+      });
+
+      // Column 1: Member Info
+      const tdInfo = document.createElement('td');
+      tdInfo.className = 'p-4 pl-6 border-b border-white/5 flex items-center gap-3';
+      
+      const toggleBtn = document.createElement('div');
+      toggleBtn.className = 'w-6 h-6 rounded-md bg-white/5 border border-white/5 text-[10px] text-white flex items-center justify-center shrink-0';
+      
+      const chevronIcon = document.createElement('i');
+      chevronIcon.id = chevronId;
+      chevronIcon.className = 'fas fa-chevron-right chevron-transition';
+      toggleBtn.appendChild(chevronIcon);
+      
+      const textContainer = document.createElement('div');
+      const nameP = document.createElement('p');
+      nameP.className = 'text-xs font-bold text-white';
+      nameP.textContent = row.name;
+      
+      const emailP = document.createElement('p');
+      emailP.className = 'text-[9px] text-white/40 font-mono mt-0.5';
+      emailP.textContent = row.email;
+      
+      textContainer.appendChild(nameP);
+      textContainer.appendChild(emailP);
+      
+      tdInfo.appendChild(toggleBtn);
+      tdInfo.appendChild(textContainer);
+      tr.appendChild(tdInfo);
+
+      // Column 2: Capacity Fraction (X logged / Y target)
+      const tdTotal = document.createElement('td');
+      tdTotal.className = 'p-4 text-center border-b border-white/5 font-mono';
+      tdTotal.innerHTML = '<span class="text-xs font-black text-white">' + totalHours.toFixed(1) + 'h</span>' +
+                          '<span class="text-white/20 mx-1">/</span>' +
+                          '<span class="text-[10px] text-white/40 font-bold" title="Capacity target based on standard 8-hour weekdays minus OOO days">' + targetHours.toFixed(1) + 'h</span>';
+      tr.appendChild(tdTotal);
+
+      // Column 3: Single Unified Compliance Status Badge (Option B: Range-Bounded)
+      const missedDays = [];
+      globalData.weekDates.forEach(dateStr => {
+        const parts = dateStr.split('-');
+        const dateObj = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+        const dayOfWeek = dateObj.getDay();
+        const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+        
+        if (!isWeekend && dateStr <= todayStr && !row.oooDates.includes(dateStr)) {
+          // Check if hours were logged for this day
+          const dayIdx = globalData.weekDates.indexOf(dateStr);
+          const hoursLogged = dayIdx !== -1 ? row.dailyHours[dayIdx] : 0;
+          if (hoursLogged <= 0) {
+            missedDays.push(formatDateFriendly(dateStr));
+          }
+        }
+      });
+
+      const tdCompliant = document.createElement('td');
+      tdCompliant.className = 'p-4 text-center border-b border-white/5';
+      
+      const compliantSpan = document.createElement('span');
+      if (missedDays.length > 0) {
+        // Incomplete State
+        compliantSpan.className = 'px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-wider border text-osttra-rubine bg-osttra-rubine/10 border-osttra-rubine/20 shadow-sm cursor-help';
+        compliantSpan.textContent = 'Incomplete';
+        compliantSpan.title = 'Missing logs on: ' + missedDays.join(', ');
+      } else {
+        // Evaluate if the range extends into today or future
+        const hasFutureOrToday = globalData.weekDates.some(d => d >= todayStr);
+        if (hasFutureOrToday) {
+          // In Progress State
+          compliantSpan.className = 'px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-wider border text-amber-500 bg-amber-500/10 border-amber-500/20 shadow-sm cursor-help';
+          compliantSpan.textContent = 'In Progress';
+          compliantSpan.title = 'Completed all past weekdays; range extends into today/future.';
+        } else {
+          // Compliant State
+          compliantSpan.className = 'px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-wider border text-emerald-500 bg-emerald-500/10 border-emerald-500/20 shadow-sm cursor-help';
+          compliantSpan.textContent = 'Compliant';
+          compliantSpan.title = 'Fully compliant over the entire selected date range.';
+        }
+      }
+      tdCompliant.appendChild(compliantSpan);
+      tr.appendChild(tdCompliant);
+
+      // Column 4: Workload Balance Badge
+      const tdWorkload = document.createElement('td');
+      tdWorkload.className = 'p-4 text-center border-b border-white/5 pr-6';
+      tdWorkload.innerHTML = loadBadgeHtml;
+      tr.appendChild(tdWorkload);
+
+      tbody.appendChild(tr);
+
+      // Create slide-out accordion row beneath showing detailed ticket breakdowns
+      const detailTr = document.createElement('tr');
+      detailTr.id = detailsRowId;
+      detailTr.className = 'hidden bg-black/25';
+      
+      const detailTd = document.createElement('td');
+      detailTd.colSpan = 4;
+      detailTd.className = 'p-6 border-b border-white/5';
+
+      const detailsContainer = document.createElement('div');
+      detailsContainer.className = 'space-y-6 max-w-5xl';
+      
+      const logs = row.ticketLogs || [];
+
+      // 1. Calculate Status Hours Breakdown Summary
+      const statusHoursMap = {};
+      logs.forEach(l => {
+        let status = l.status || 'Active';
+        if (l.key === 'ooo' || l.key === 'Admin' || l.key === 'NON-BAU' || l.key === 'MGMT' || l.key === 'TRAINING') {
+          status = 'Persistent';
+        }
+        statusHoursMap[status] = (statusHoursMap[status] || 0) + l.total;
+      });
+
+      // 2. Build Status Hours Summary Bar
+      const summaryBar = document.createElement('div');
+      summaryBar.className = 'flex flex-wrap gap-2.5 pb-4 items-center border-b border-white/5';
+      
+      const barLabel = document.createElement('span');
+      barLabel.className = 'text-[9px] font-black uppercase tracking-widest text-white/40 mr-1.5 flex items-center gap-1.5';
+      barLabel.innerHTML = '<i class="fas fa-chart-pie text-osttra-rubine"></i> Status Effort Breakdown:';
+      summaryBar.appendChild(barLabel);
+
+      const statusKeys = Object.keys(statusHoursMap);
+      if (statusKeys.length > 0) {
+        statusKeys.forEach(statusKey => {
+          const hours = statusHoursMap[statusKey];
+          let pillClass = 'text-white/60 bg-white/5 border-white/10';
+          const statusLower = statusKey.toLowerCase();
+          
+          if (['initiation', 'implementation', 'assigned', 'preparing deployment'].includes(statusLower)) {
+            pillClass = 'text-blue-400 bg-blue-500/10 border-blue-500/20';
+          } else if (['uat', 'technical go live', 'technical go-live', 'go live', 'go-live', 'tpm handover approved'].includes(statusLower)) {
+            pillClass = 'text-osttra-ochre bg-osttra-ochre/10 border-osttra-ochre/20';
+          } else if (['closed', 'done', 'resolved', 'live', 'completed'].includes(statusLower)) {
+            pillClass = 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20';
+          }
+
+          const pill = document.createElement('span');
+          pill.className = 'px-2.5 py-1 rounded-xl text-[9px] font-mono font-black uppercase border flex items-center gap-1 ' + pillClass;
+          pill.textContent = statusKey + ': ' + hours.toFixed(1) + 'h';
+          summaryBar.appendChild(pill);
+        });
+      } else {
+        const noLogs = document.createElement('span');
+        noLogs.className = 'text-[9px] text-white/30 uppercase tracking-widest';
+        noLogs.textContent = 'No hours logged';
+        summaryBar.appendChild(noLogs);
+      }
+      detailsContainer.appendChild(summaryBar);
+      
+      // Separate Ticket Categories
+      // Unify Epic and Non-BAU logs into a single unified list
+      const allLogs = [];
+
+      // 1. Add Epics
+      const epicLogs = logs.filter(l => l.key !== 'NON-BAU' && l.key !== 'ooo' && l.key !== 'MGMT' && l.key !== 'TRAINING');
+      epicLogs.forEach(epic => {
+        allLogs.push({
+          key: epic.key,
+          summary: epic.summary || 'Core BAU Project',
+          status: epic.status || 'Active',
+          int: epic.int || 0,
+          uat: epic.uat || 0,
+          other: epic.other || 0,
+          total: epic.total,
+          isEpic: true
+        });
+      });
+
+      // 2. Add Non-BAU / Operations
+      const otherLogs = logs.filter(l => l.key === 'NON-BAU' || l.key === 'ooo' || l.key === 'MGMT' || l.key === 'TRAINING');
+      otherLogs.forEach(log => {
+        allLogs.push({
+          key: log.key.toUpperCase(),
+          summary: log.summary || 'Administrative Operations & Out Of Office',
+          status: 'Persistent',
+          int: 0,
+          uat: 0,
+          other: log.total,
+          total: log.total,
+          isEpic: false
+        });
+      });
+
+      // 1. Single Unified Log Table
+      const logSection = document.createElement('div');
+      logSection.className = 'space-y-2.5';
+      
+      const logTitle = document.createElement('h4');
+      logTitle.className = 'text-[9px] font-black uppercase tracking-[0.2em] text-osttra-rubine border-b border-white/5 pb-1.5 flex items-center gap-2';
+      logTitle.innerHTML = '<i class="fas fa-list-ul"></i> Detailed Effort Logging Roster';
+      logSection.appendChild(logTitle);
+
+      const logTableContainer = document.createElement('div');
+      logTableContainer.className = 'bg-[#1e1e1e] border border-white/5 rounded-2xl overflow-hidden';
+      
+      let logTableHtml = 
+        '<table class="w-full text-left text-[10px] border-collapse">' +
+          '<thead>' +
+            '<tr class="bg-white/5 text-white/40 uppercase tracking-widest text-[8px] font-black border-b border-white/5">' +
+              '<th class="p-3 pl-4 w-36">Jira Key / Category</th>' +
+              '<th class="p-3">Title / Description</th>' +
+              '<th class="p-3 text-center w-24">Status</th>' +
+              '<th class="p-3 text-center w-44">Phase Splits (INT | UAT/GO | Other)</th>' +
+              '<th class="p-3 text-center w-20 pr-4">Total</th>' +
+            '</tr>' +
+          '</thead>' +
+          '<tbody>';
+
+      if (allLogs.length > 0) {
+        allLogs.forEach(log => {
+          if (log.isEpic) {
+            // Epic row rendering (with phase borders)
+            let phaseBorder = 'border-l-4 border-l-transparent';
+            let statusColor = 'text-white/50 border-white/5 bg-white/5';
+            const statusLower = String(log.status || "Active").toLowerCase().trim();
+            
+            if (['initiation', 'implementation', 'assigned', 'preparing deployment'].includes(statusLower)) {
+              phaseBorder = 'border-l-4 border-l-blue-500';
+              statusColor = 'text-blue-400 border-blue-400/20 bg-blue-500/10';
+            } else if (['uat', 'technical go live', 'technical go-live', 'go live', 'go-live', 'tpm handover approved'].includes(statusLower)) {
+              phaseBorder = 'border-l-4 border-l-osttra-ochre';
+              statusColor = 'text-osttra-ochre border-osttra-ochre/20 bg-osttra-ochre/10';
+            } else if (['closed', 'done', 'resolved', 'live', 'completed'].includes(statusLower)) {
+              phaseBorder = 'border-l-4 border-l-emerald-500';
+              statusColor = 'text-emerald-500 border-emerald-500/20 bg-emerald-500/10';
+            }
+
+            logTableHtml += '<tr class="border-b border-white/5 hover:bg-white/[0.01] transition-colors ' + phaseBorder + '">' +
+                '<td class="p-3 pl-4 font-mono font-black text-blue-400">' +
+                  '<a href="https://osttra.atlassian.net/browse/' + log.key + '" target="_blank" class="hover:underline flex items-center gap-1">' +
+                    '<i class="fas fa-external-link-alt text-[8px]"></i> ' + log.key +
+                  '</a>' +
+                '</td>' +
+                '<td class="p-3 text-white/70 font-semibold truncate max-w-[280px]" title="' + log.summary + '">' + log.summary + '</td>' +
+                '<td class="p-3 text-center">' +
+                  '<span class="px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider border ' + statusColor + '">' + log.status + '</span>' +
+                '</td>' +
+                '<td class="p-3 text-center font-mono">' +
+                  '<span class="text-blue-400 font-bold" title="Integration hours">' + log.int.toFixed(1) + 'h</span>' +
+                  '<span class="text-white/20 px-1.5">|</span>' +
+                  '<span class="text-osttra-ochre font-bold" title="UAT & Go-Live hours">' + log.uat.toFixed(1) + 'h</span>' +
+                  '<span class="text-white/20 px-1.5">|</span>' +
+                  '<span class="text-purple-400 font-bold" title="Other hours">' + log.other.toFixed(1) + 'h</span>' +
+                '</td>' +
+                '<td class="p-3 text-center font-mono font-black text-white pr-4">' + log.total.toFixed(1) + 'h</td>' +
+              '</tr>';
+          } else {
+            // Non-BAU (ADMIN, MGMT, ooo, TRAINING) row rendering
+            let icon = 'fa-briefcase text-osttra-ochre';
+            if (log.key.toLowerCase() === 'ooo') icon = 'fa-plane text-blue-400';
+            if (log.key.toUpperCase() === 'TRAINING') icon = 'fa-graduation-cap text-purple-400';
+            if (log.key.toUpperCase() === 'MGMT') icon = 'fa-user-tie text-emerald-400';
+
+            logTableHtml += '<tr class="border-b border-white/5 hover:bg-white/[0.01] transition-colors border-l-4 border-l-transparent">' +
+                '<td class="p-3 pl-4 font-mono font-black text-white/85 flex items-center gap-2">' +
+                  '<div class="w-5 h-5 rounded bg-white/5 border border-white/5 flex items-center justify-center shrink-0 text-[8px]">' +
+                    '<i class="fas ' + icon + '"></i>' +
+                  '</div>' +
+                  log.key +
+                '</td>' +
+                '<td class="p-3 text-white/60 font-semibold truncate max-w-[280px]" title="' + log.summary + '">' + log.summary + '</td>' +
+                '<td class="p-3 text-center">' +
+                  '<span class="px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider border text-white/40 border-white/5 bg-white/5">' + log.status + '</span>' +
+                '</td>' +
+                '<td class="p-3 text-center text-white/20 font-mono">-</td>' +
+                '<td class="p-3 text-center font-mono font-black text-white pr-4">' + log.total.toFixed(1) + 'h</td>' +
+              '</tr>';
+          }
+        });
+      } else {
+        logTableHtml += '<tr>' +
+            '<td colspan="5" class="p-6 text-center text-white/30 uppercase tracking-widest font-black text-[9px]">' +
+              'No timesheet hours logged this week.' +
+            '</td>' +
+          '</tr>';
+      }
+
+      logTableHtml += '</tbody></table>';
+      logTableContainer.innerHTML = logTableHtml;
+      logSection.appendChild(logTableContainer);
+      detailsContainer.appendChild(logSection);
+
+      detailTd.appendChild(detailsContainer);
+      detailTr.appendChild(detailTd);
+      tbody.appendChild(detailTr);
+    });
+  }
+
+  function triggerEmailNudges() {
+    if (!globalData || !globalData.matrix) return;
+    
+    // Extract non-compliant members currently filtered in roster list
+    const compFilter = document.getElementById('compliance-status-filter').value;
+    const loadFilter = document.getElementById('compliance-workload-filter').value;
+    const query = document.getElementById('compliance-search').value.toLowerCase().trim();
+
+    const weekdaysInRange = countWeekdays(globalData.weekDates);
+
+    const targets = globalData.matrix.filter(member => {
+      const name = String(member.name || "").toLowerCase();
+      const email = String(member.email || "").toLowerCase();
+      
+      const oooDaysInRange = member.oooDates.filter(d => globalData.weekDates.includes(d)).length;
+      const targetHours = (member.allocatedFte / 100) * (weekdaysInRange - oooDaysInRange) * 8;
+      const ratio = targetHours > 0 ? (member.total / targetHours) * 100 : 0;
+      let loadState = 'BALANCED';
+      if (ratio >= 115) loadState = 'OVERBURDENED';
+      else if (ratio < 80) loadState = 'UNDERBURDENED';
+
+      if (query && !name.includes(query) && !email.includes(query)) return false;
+      if (compFilter === "COMPLIANT" && !member.isCompliant) return false;
+      if (compFilter === "INCOMPLETE" && member.isCompliant) return false;
+      if (loadFilter !== "ALL" && loadState !== loadFilter) return false;
+
+      // We only nudge those who are NOT compliant
+      return !member.isCompliant;
+    });
+
+    if (targets.length === 0) {
+      showNotification('warning', 'No Reminders Sent', 'All currently filtered members are already compliant!');
+      return;
+    }
+
+    const emailsToNudge = targets.map(t => t.email);
+    const pickerVal = document.getElementById('dashboard-week-picker')
+      ? document.getElementById('dashboard-week-picker').value
+      : (currentStartStr || "");
+
+    showLoading('Sending compliance reminders to ' + emailsToNudge.length + ' members...');
+    google.script.run
+      .withSuccessHandler(msg => {
+        hideLoading();
+        showNotification('success', 'Nudges Sent', msg);
+      })
+      .withFailureHandler(err => {
+        hideLoading();
+        showNotification('error', 'Nudge Dispatch Failed', err.message);
+      })
+      .sendTpmComplianceNudge(emailsToNudge, pickerVal);
+  }
+
+  function renderPortfolioGrid() {
+    const grid = document.getElementById('portfolio-cards-grid');
+    grid.innerHTML = '';
+
+    if (!globalData || !globalData.allEpics || globalData.allEpics.length === 0) {
+      grid.innerHTML = '<div class="col-span-full p-12 text-center text-white/40 text-xs font-bold uppercase tracking-widest text-white/50 bg-[#222222] border border-white/5 rounded-3xl">No active Jira Epics detected in cache. Please click sync.</div>';
+      return;
+    }
+
+    // Build map of Epic Key -> Total Logged Hours and Assigned Members
+    const epicHoursMap = {};
+    globalData.matrix.forEach(member => {
+      member.ticketLogs.forEach(log => {
+        if (log.key !== 'Admin' && log.key !== 'ooo') {
+          if (!epicHoursMap[log.key]) {
+            epicHoursMap[log.key] = { total: 0, team: {} };
+          }
+          epicHoursMap[log.key].total += log.total;
+          epicHoursMap[log.key].team[member.name] = (epicHoursMap[log.key].team[member.name] || 0) + log.total;
+        }
+      });
+    });
+
+    // 1. Evaluate filter dropdowns, text search & button toggles
+    const searchQuery = document.getElementById('portfolio-search').value.toLowerCase().trim();
+    const statusValue = document.getElementById('portfolio-status-filter').value;
+    const ownerValue = document.getElementById('portfolio-owner-filter').value;
+    const accountValue = document.getElementById('portfolio-account-filter').value;
+    const sizingValue = document.getElementById('portfolio-sizing-filter').value;
+
+    const isStatusMatch = (status) => {
+      if (statusValue === "ALL") return true;
+      return String(status || "").toLowerCase().trim() === statusValue.toLowerCase().trim();
+    };
+
+    const filteredEpics = globalData.allEpics.filter(epic => {
+      const key = epic["Key"];
+      const status = epic["Status"];
+      const owner = epic["Assignee_Email"] || 'unassigned@osttra.com';
+      const account = epic["Account_Name"] || epic["Account Name"] || 'N/A';
+      const sizing = epic["Project Sizing"] || 'N/A';
+      const summary = epic["Summary"] || 'No Summary';
+
+      // 1A. Text Search filter (matches Epic Key, Epic Title/Summary, or Client Account)
+      if (searchQuery) {
+        const matchKey = String(key || "").toLowerCase().includes(searchQuery);
+        const matchSummary = String(summary || "").toLowerCase().includes(searchQuery);
+        const matchAccount = String(account || "").toLowerCase().includes(searchQuery);
+        if (!matchKey && !matchSummary && !matchAccount) return false;
+      }
+
+      // 1B. Status filter
+      if (!isStatusMatch(status)) return false;
+
+      // 1C. Owner filter
+      if (ownerValue !== "ALL" && String(owner).toLowerCase().trim() !== ownerValue.toLowerCase().trim()) return false;
+
+      // 1D. Account filter
+      if (accountValue !== "ALL" && String(account).toLowerCase().trim() !== accountValue.toLowerCase().trim()) return false;
+
+      // 1E. Sizing filter
+      if (sizingValue !== "ALL" && String(sizing).toLowerCase().trim() !== sizingValue.toLowerCase().trim()) return false;
+
+      // 1F. At Risk calculation: UAT starts within 14 days and FTE progress is low (< 30%)
+      if (filterAtRisk) {
+        const uatDateStr = epic["UAT start date"] || epic["Expected UAT start date"] || "";
+        const rawEstDays = parseFloat(epic["Effort Estimate (Effort days)"]) || 0;
+        const targetHours = rawEstDays * 8;
+        const loggedHours = epicHoursMap[key] ? epicHoursMap[key].total : 0;
+        let progressPct = 0;
+        if (targetHours > 0) progressPct = (loggedHours / targetHours) * 100;
+
+        let isNearUat = false;
+        if (uatDateStr) {
+          const uatDate = new Date(uatDateStr);
+          const diffTime = uatDate - new Date();
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          isNearUat = diffDays >= -2 && diffDays <= 14; // UAT is actively running or starting soon
+        }
+        if (!isNearUat || progressPct >= 30) return false;
+      }
+
+      // 1G. Over budget calculation: loggedHours exceeds targetHours
+      if (filterOverBudget) {
+        const rawEstDays = parseFloat(epic["Effort Estimate (Effort days)"]) || 0;
+        const targetHours = rawEstDays * 8;
+        const loggedHours = epicHoursMap[key] ? epicHoursMap[key].total : 0;
+        const isOver = targetHours > 0 && loggedHours > targetHours;
+        if (!isOver) return false;
+      }
+
+      return true;
+    });
+
+    if (filteredEpics.length === 0) {
+      grid.innerHTML = '<div class="col-span-full p-12 text-center text-white/40 text-xs font-bold uppercase tracking-widest leading-relaxed flex flex-col items-center justify-center gap-2 bg-[#222222] border border-white/5 rounded-3xl"><i class="fas fa-filter text-3xl mb-1 opacity-25"></i> No active Epics match your selected filter criteria.</div>';
+      return;
+    }
+
+    filteredEpics.forEach((epic, idx) => {
+      const key = epic["Key"];
+      const accName = epic["Account_Name"] || epic["Account Name"] || 'N/A';
+      const summary = epic["Summary"] || 'No Summary';
+      const status = epic["Status"] || 'Backlog';
+      const sizing = epic["Project Sizing"] || 'N/A';
+      
+      const createdDate = formatDateFriendly(epic["Created"] ? String(epic["Created"]).substring(0, 10) : '');
+      const startDate = formatDateFriendly(epic["Project start date"]);
+      const expectedStart = formatDateFriendly(epic["Expected project start date"]);
+      const uatDate = formatDateFriendly(epic["UAT start date"]);
+      const expectedUat = formatDateFriendly(epic["Expected UAT start date"]);
+      const liveDate = formatDateFriendly(epic["Go-live date"]);
+      const expectedLive = formatDateFriendly(epic["Expected Go Live Date"]);
+
+      // Calculate Progress Bar (estimate in days, timesheet in hours. 1 day = 8 hours)
+      const rawEstDays = parseFloat(epic["Effort Estimate (Effort days)"]) || 0;
+      const targetHours = rawEstDays * 8;
+      const loggedHours = epicHoursMap[key] ? epicHoursMap[key].total : 0;
+      
+      const progressPct = targetHours > 0 ? Math.round((loggedHours / targetHours) * 100) : 0;
+      const barPct = Math.min(progressPct, 100);
+      const isOverBudget = targetHours > 0 && loggedHours > targetHours;
+
+      // Filter child tickets
+      const children = globalData.childTickets.filter(c => String(c["Parent_Key"] || "").trim().toUpperCase() === String(key).trim().toUpperCase());
+
+      // Get status colors
+      let statusClass = 'text-gray-400 bg-gray-500/10 border-gray-500/20';
+      if (['In Progress', 'Active', 'QA'].includes(status)) statusClass = 'text-osttra-ochre bg-osttra-ochre/10 border-osttra-ochre/20';
+      if (['Closed', 'Done', 'Resolved', 'Live'].includes(status)) statusClass = 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20';
+
+      const card = document.createElement('div');
+      card.className = 'p-6 bg-[#222222] border border-white/5 rounded-3xl shadow-xl space-y-6 flex flex-col justify-between animate-in fade-in duration-200';
+
+      // Card Header
+      const headerDiv = document.createElement('div');
+      headerDiv.className = 'space-y-2';
+      
+      const keyRow = document.createElement('div');
+      keyRow.className = 'flex justify-between items-start';
+      
+      const keyLink = document.createElement('a');
+      keyLink.href = 'https://osttra.atlassian.net/browse/' + key;
+      keyLink.target = '_blank';
+      keyLink.className = 'font-mono text-sm font-black text-blue-400 hover:text-blue-300 hover:underline flex items-center gap-1.5';
+      keyLink.innerHTML = '<i class="fas fa-external-link-alt text-[10px]"></i> ' + key;
+      keyRow.appendChild(keyLink);
+
+      const statusBadge = document.createElement('span');
+      statusBadge.className = 'px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider border ' + statusClass;
+      statusBadge.textContent = status;
+      keyRow.appendChild(statusBadge);
+      headerDiv.appendChild(keyRow);
+
+      const accP = document.createElement('p');
+      accP.className = 'text-[9px] font-black text-osttra-ochre uppercase tracking-widest';
+      accP.textContent = accName;
+      headerDiv.appendChild(accP);
+
+      const summaryH = document.createElement('h4');
+      summaryH.className = 'text-xs font-bold text-white uppercase tracking-wider leading-relaxed line-clamp-2';
+      summaryH.title = summary;
+      summaryH.textContent = summary;
+      headerDiv.appendChild(summaryH);
+      card.appendChild(headerDiv);
+
+      // Card Milestones List
+      const milestonesDiv = document.createElement('div');
+      milestonesDiv.className = 'space-y-2.5 text-[10px] border-t border-b border-white/5 py-4';
+      
+      // Inject milestones using ES5 string concatenation to bypass dynamic script sanitizer bugs
+      milestonesDiv.innerHTML = 
+        '<div class="flex justify-between items-center">' +
+          '<span class="text-white/40 font-black uppercase tracking-wider">Project Start</span>' +
+          '<span class="text-white font-mono font-semibold">' + (startDate !== 'N/A' ? startDate : expectedStart) + '</span>' +
+        '</div>' +
+        '<div class="flex justify-between items-center">' +
+          '<span class="text-white/40 font-black uppercase tracking-wider">UAT Start</span>' +
+          '<span class="text-white font-mono font-semibold">' + (uatDate !== 'N/A' ? uatDate : expectedUat) + '</span>' +
+        '</div>' +
+        '<div class="flex justify-between items-center">' +
+          '<span class="text-white/40 font-black uppercase tracking-wider">Live & Go Live</span>' +
+          '<span class="text-white font-mono font-semibold">' + (liveDate !== 'N/A' ? liveDate : expectedLive) + '</span>' +
+        '</div>';
+      card.appendChild(milestonesDiv);
+
+      // Progress Bar & Estimates Section
+      const progressDiv = document.createElement('div');
+      progressDiv.className = 'space-y-2';
+      
+      const textRow = document.createElement('div');
+      textRow.className = 'flex justify-between text-[9px] font-black uppercase tracking-widest';
+      
+      let badgeLabel = '';
+      if (isOverBudget) {
+        badgeLabel = '<span class="text-osttra-rubine font-black animate-pulse">OVER BUDGET (' + progressPct + '%)</span>';
+      } else {
+        badgeLabel = '<span class="text-emerald-500">' + progressPct + '% CONSUMED</span>';
+      }
+
+      textRow.innerHTML = 
+        '<span class="text-white/40">FTE Progress</span>' +
+        badgeLabel;
+      progressDiv.appendChild(textRow);
+
+      const barContainer = document.createElement('div');
+      barContainer.className = 'w-full h-2.5 bg-white/5 rounded-full overflow-hidden border border-white/5 relative';
+      
+      const bar = document.createElement('div');
+      if (isOverBudget) {
+        bar.className = 'h-full transition-all duration-500 bg-osttra-rubine animate-pulse';
+      } else {
+        bar.className = 'h-full transition-all duration-500 bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.2)]';
+      }
+      bar.style.width = barPct + '%';
+      barContainer.appendChild(bar);
+      progressDiv.appendChild(barContainer);
+
+      const sizeRow = document.createElement('div');
+      sizeRow.className = 'flex justify-between text-[8px] font-black uppercase tracking-widest text-white/30 pt-1.5';
+      
+      let remainingText = '';
+      if (targetHours > 0) {
+        if (isOverBudget) {
+          remainingText = '<span class="text-osttra-rubine font-black font-mono">+' + (loggedHours - targetHours).toFixed(1) + 'h over</span>';
+        } else {
+          remainingText = '<span class="text-emerald-500 font-mono">' + (targetHours - loggedHours).toFixed(1) + 'h left</span>';
+        }
+      } else {
+        remainingText = '<span class="text-white/20 font-mono">no estimate</span>';
+      }
+
+      sizeRow.innerHTML = 
+        '<span>Budget: <strong class="text-white/60 font-mono">' + (targetHours > 0 ? targetHours.toFixed(0) + 'h' : 'N/A') + '</strong> (' + rawEstDays + 'd)</span>' +
+        remainingText;
+      progressDiv.appendChild(sizeRow);
+      card.appendChild(progressDiv);
+
+      // Accordion Details Container (Accordion trigger button + panels)
+      const detailContainer = document.createElement('div');
+      detailContainer.className = 'space-y-4';
+      
+      const detailsBtn = document.createElement('button');
+      const detailsRowId = 'portfolio-details-' + idx;
+      const accordionChevronId = 'portfolio-chevron-' + idx;
+      
+      detailsBtn.className = 'w-full py-2.5 bg-white/5 hover:bg-white/10 border border-white/5 rounded-xl text-[9px] font-black uppercase tracking-widest text-white flex items-center justify-center gap-1.5 transition-all';
+      detailsBtn.addEventListener('click', () => {
+        const el = document.getElementById(detailsRowId);
+        const icon = document.getElementById(accordionChevronId);
+        el.classList.toggle('hidden');
+        icon.classList.toggle('rotate-90');
+      });
+      detailsBtn.innerHTML = 'View Project Sub-tasks & Resources <i id="' + accordionChevronId + '" class="fas fa-chevron-right text-[8px] chevron-transition"></i>';
+      detailContainer.appendChild(detailsBtn);
+
+      const collapsiblePanel = document.createElement('div');
+      collapsiblePanel.id = detailsRowId;
+      collapsiblePanel.className = 'hidden space-y-4 pt-2 border-t border-white/5 animate-in slide-in-from-top duration-200';
+
+      // 1. Child Tickets List
+      const childBox = document.createElement('div');
+      childBox.className = 'space-y-2';
+      childBox.innerHTML = '<h5 class="text-[9px] font-black uppercase tracking-widest text-blue-400">Jira Child Tickets</h5>';
+      
+      const childScroll = document.createElement('div');
+      childScroll.className = 'space-y-1.5 max-h-36 overflow-y-auto pr-0.5';
+
+      if (children.length === 0) {
+        childScroll.innerHTML = '<p class="text-[9px] text-white/30 uppercase tracking-widest">No child tickets found.</p>';
+      } else {
+        children.forEach(c => {
+          let cStatusColor = 'text-gray-400 border-white/5 bg-white/5';
+          if (['In Progress', 'Active', 'QA'].includes(c["Status"])) cStatusColor = 'text-osttra-ochre border-osttra-ochre/20 bg-osttra-ochre/5';
+          if (['Closed', 'Done', 'Resolved', 'Live'].includes(c["Status"])) cStatusColor = 'text-emerald-500 border-emerald-500/20 bg-emerald-500/5';
+
+          childScroll.innerHTML += 
+            '<div class="p-2 bg-black/15 border border-white/5 rounded-xl flex justify-between items-center gap-3 text-[10px]">' +
+              '<div class="truncate flex-1">' +
+                '<a href="https://osttra.atlassian.net/browse/' + c["Key"] + '" target="_blank" class="font-mono text-[9px] font-black text-blue-400 hover:underline">' +
+                  '<i class="fas fa-external-link-alt text-[7px]"></i> ' + c["Key"] +
+                '</a>' +
+                '<p class="text-[8px] text-white/50 truncate font-semibold lowercase tracking-wider" title="' + c["Summary"] + '">' + c["Summary"] + '</p>' +
+              '</div>' +
+              '<span class="px-1 py-0.5 rounded text-[7px] font-black uppercase border ' + cStatusColor + ' shrink-0">' + c["Status"] + '</span>' +
+            '</div>';
+        });
+      }
+      childBox.appendChild(childScroll);
+      collapsiblePanel.appendChild(childBox);
+
+      // 2. Team Resources list
+      const resourceBox = document.createElement('div');
+      resourceBox.className = 'space-y-2';
+      resourceBox.innerHTML = '<h5 class="text-[9px] font-black uppercase tracking-widest text-osttra-rubine">Team Effort Breakdown</h5>';
+      
+      const resourceScroll = document.createElement('div');
+      resourceScroll.className = 'space-y-1.5';
+
+      const contributors = epicHoursMap[key] ? Object.keys(epicHoursMap[key].team) : [];
+      if (contributors.length === 0) {
+        resourceScroll.innerHTML = '<p class="text-[9px] text-white/30 uppercase tracking-widest">No timesheet logs logged this week.</p>';
+      } else {
+        contributors.forEach(name => {
+          const hours = epicHoursMap[key].team[name];
+          resourceScroll.innerHTML += 
+            '<div class="flex justify-between items-center text-[10px] bg-black/15 p-2 border border-white/5 rounded-xl font-semibold">' +
+              '<span class="text-white/70">' + name + '</span>' +
+              '<span class="font-mono font-black text-white">' + hours.toFixed(1) + 'h</span>' +
+            '</div>';
+        });
+      }
+      resourceBox.appendChild(resourceScroll);
+      collapsiblePanel.appendChild(resourceBox);
+
+      detailContainer.appendChild(collapsiblePanel);
+      card.appendChild(detailContainer);
+
+      grid.appendChild(card);
+    });
+  }
+</script>

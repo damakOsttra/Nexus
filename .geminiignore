@@ -1,0 +1,13 @@
+# Ignore Node.js dependencies
+node_modules/
+
+ # Ignore build output and distribution folders
+   dist/
+   build/
+   out/
+# Ignore IDE configuration folders
+  .vscode/
+  .idea/
+
+# Ignore coverage and test output
+   coverage/

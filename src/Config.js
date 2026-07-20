@@ -8,7 +8,7 @@ const CONFIG = {
   ENVIRONMENT: 'PROD',
 
   // Master Spreadsheet ID
-  SPREADSHEET_ID: '1lZJ2B5HVJ_SYwaPY_3Ga6-oCC8CJJViOyzvD5rbVi34',
+  SPREADSHEET_ID: '1cunxnqjGuBDjLzaN7lRFk9R2Hb16R4skK4wETZeKY6Y',
   
   // Sheet Names
   SHEETS: {
@@ -23,6 +23,8 @@ const CONFIG = {
     ANALYTICAL_HUB: "App Analytical Hub (Read / Write)",
     DATA_AUDIT: "App Audit: Discrepancies (Reference)",
     SNAPSHOT_LOGS: "App Snapshot Logs (Read / Write)",
+    TPM_JIRA_CACHE: "TPM_Jira_Cache",
+    TPM_TIMESHEET_LOGS: "TPM_Timesheet_Logs",
     MANUAL_INACTIVES: "App Manual Inactives (Read / Write)"
   },
 

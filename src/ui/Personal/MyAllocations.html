@@ -340,152 +340,159 @@
   }
 
   // Initialize page
-  (function init() {
-    const user = window.currentUser;
-    if (!user || !user.email) {
-      setTimeout(init, 100);
-      return;
-    }
-
-    const currentPeriod = user.currentPeriod || "Unknown Period";
-
-    // Dynamic Header period update
-    const headerPeriod = document.getElementById('certification-period');
-    if (headerPeriod) {
-      headerPeriod.innerText = `Tabular Self-Certification | Period: ${currentPeriod}`;
-    }
-
-    function initializeWithScopeAndAllocations(scopeData, allocations) {
-      if (!scopeData || scopeData.length === 0) {
-        showNoScopeError();
+  (function() {
+    function initMyAllocations() {
+      const user = window.currentUser;
+      if (!user || !user.email) {
+        setTimeout(initMyAllocations, 100);
         return;
       }
-      
-      // Store current period's submission timestamp for optimistic concurrency
-      window.lastKnownTimestamp = "";
-      const currentPeriodMatches = (allocations || []).filter(a => String(a.period).trim().toLowerCase() === currentPeriod.toLowerCase());
-      if (currentPeriodMatches.length > 0) {
-        const timestamps = currentPeriodMatches.map(a => a.submissionTimestamp).filter(Boolean);
-        if (timestamps.length > 0) {
-          window.lastKnownTimestamp = timestamps.sort().reverse()[0];
-        }
-      }
-      
-      hasSubmitted = (allocations || []).some(a => String(a.period).trim().toLowerCase() === currentPeriod.toLowerCase());
-      renderLockBanner(hasSubmitted, allocations, user.email);
 
-      // Pre-populate Working Days from current period's allocation if exists
-      const baseline = getWeekdaysInMonth(currentPeriod);
-      const baselineEl = document.getElementById('working-days-baseline');
-      if (baselineEl) baselineEl.innerText = baseline;
-      const inputEl = document.getElementById('working-days-total');
-      if (inputEl) {
-        inputEl.value = baseline;
-        inputEl.max = baseline;
+      const currentPeriod = user.currentPeriod || "Unknown Period";
+      document.getElementById('welcome-name').innerText = user.name;
+      document.getElementById('user-region-text').innerText = `${user.role} | ${user.region} | Active Cycle: ${currentPeriod}`;
+      document.getElementById('user-photo-small').innerHTML = `<img src="${user.photoUrl}" class="w-full h-full object-cover">`;
+
+      // Dynamic Header period update
+      const headerPeriod = document.getElementById('certification-period');
+      if (headerPeriod) {
+        headerPeriod.innerText = `Tabular Self-Certification | Period: ${currentPeriod}`;
       }
 
-      const currentPeriodMatch = (allocations || []).find(a => String(a.period).trim().toLowerCase() === currentPeriod.toLowerCase());
-      if (currentPeriodMatch) {
-        if (inputEl) {
-          inputEl.value = currentPeriodMatch.regularDays !== undefined ? currentPeriodMatch.regularDays : baseline;
+      function initializeWithScopeAndAllocations(scopeData, allocations) {
+        if (!scopeData || scopeData.length === 0) {
+          showNoScopeError();
+          return;
         }
-        if (currentPeriodMatch.workedWeekend) {
-          document.getElementById('working-days-weekend-check').checked = true;
-          toggleWeekendDaysInput();
-          document.getElementById('working-days-weekend').value = currentPeriodMatch.weekendDays || 0;
-        } else {
-          document.getElementById('working-days-weekend-check').checked = false;
-          toggleWeekendDaysInput();
-        }
-        document.getElementById('working-days-comments').value = currentPeriodMatch.workingDaysComment || "";
-      }
-
-      // Lock Working Days UI if locked by Admin
-      const isLocked = window.currentUser.phase1State === "2" || window.currentUser.phase1State === "3";
-      if (isLocked) {
-        if (inputEl) {
-          inputEl.disabled = true;
-          inputEl.classList.add('opacity-50', 'cursor-not-allowed');
-        }
-        document.getElementById('working-days-weekend-check').disabled = true;
-        document.getElementById('working-days-weekend').disabled = true;
-        document.getElementById('working-days-weekend').classList.add('opacity-50', 'cursor-not-allowed');
-        document.getElementById('working-days-comments').disabled = true;
-        document.getElementById('working-days-comments').classList.add('opacity-50', 'cursor-not-allowed');
-      }
-
-      assignedScope = scopeData.map(item => {
-        const currentMatch = (allocations || []).find(a => 
-          String(a.product).trim().toLowerCase() === String(item.product).trim().toLowerCase() &&
-          String(a.subProduct || "General").trim().toLowerCase() === String(item.subProduct || "General").trim().toLowerCase() &&
-          String(a.period).trim().toLowerCase() === currentPeriod.toLowerCase()
-        );
         
-        let historicalMatch = null;
-        if (!currentMatch) {
-          const pastMatches = (allocations || []).filter(a => 
+        // Store current period's submission timestamp for optimistic concurrency
+        window.lastKnownTimestamp = "";
+        const currentPeriodMatches = (allocations || []).filter(a => String(a.period).trim().toLowerCase() === currentPeriod.toLowerCase());
+        if (currentPeriodMatches.length > 0) {
+          const timestamps = currentPeriodMatches.map(a => a.submissionTimestamp).filter(Boolean);
+          if (timestamps.length > 0) {
+            window.lastKnownTimestamp = timestamps.sort().reverse()[0];
+          }
+        }
+        
+        hasSubmitted = (allocations || []).some(a => String(a.period).trim().toLowerCase() === currentPeriod.toLowerCase());
+        renderLockBanner(hasSubmitted, allocations, user.email);
+
+        // Pre-populate Working Days from current period's allocation if exists
+        const baseline = getWeekdaysInMonth(currentPeriod);
+        const baselineEl = document.getElementById('working-days-baseline');
+        if (baselineEl) baselineEl.innerText = baseline;
+        const inputEl = document.getElementById('working-days-total');
+        if (inputEl) {
+          inputEl.value = baseline;
+          inputEl.max = baseline;
+        }
+
+        const currentPeriodMatch = (allocations || []).find(a => String(a.period).trim().toLowerCase() === currentPeriod.toLowerCase());
+        if (currentPeriodMatch) {
+          if (inputEl) {
+            inputEl.value = currentPeriodMatch.regularDays !== undefined ? currentPeriodMatch.regularDays : baseline;
+          }
+          if (currentPeriodMatch.workedWeekend) {
+            document.getElementById('working-days-weekend-check').checked = true;
+            toggleWeekendDaysInput();
+            document.getElementById('working-days-weekend').value = currentPeriodMatch.weekendDays || 0;
+          } else {
+            document.getElementById('working-days-weekend-check').checked = false;
+            toggleWeekendDaysInput();
+          }
+          document.getElementById('working-days-comments').value = currentPeriodMatch.workingDaysComment || "";
+        }
+
+        // Lock Working Days UI if locked by Admin
+        const isLocked = window.currentUser.phase1State === "2" || window.currentUser.phase1State === "3";
+        if (isLocked) {
+          if (inputEl) {
+            inputEl.disabled = true;
+            inputEl.classList.add('opacity-50', 'cursor-not-allowed');
+          }
+          document.getElementById('working-days-weekend-check').disabled = true;
+          document.getElementById('working-days-weekend').disabled = true;
+          document.getElementById('working-days-weekend').classList.add('opacity-50', 'cursor-not-allowed');
+          document.getElementById('working-days-comments').disabled = true;
+          document.getElementById('working-days-comments').classList.add('opacity-50', 'cursor-not-allowed');
+        }
+
+        assignedScope = scopeData.map(item => {
+          const currentMatch = (allocations || []).find(a => 
             String(a.product).trim().toLowerCase() === String(item.product).trim().toLowerCase() &&
             String(a.subProduct || "General").trim().toLowerCase() === String(item.subProduct || "General").trim().toLowerCase() &&
-            String(a.period).trim().toLowerCase() !== currentPeriod.toLowerCase()
+            String(a.period).trim().toLowerCase() === currentPeriod.toLowerCase()
           );
-          if (pastMatches.length > 0) {
-            // Assuming chronological append, the last element represents the most recent past submission
-            historicalMatch = pastMatches[pastMatches.length - 1];
-          }
-        }
-
-        const activeData = currentMatch || historicalMatch;
-        
-        const savedBauPct = activeData ? Math.round(parseFloat(activeData.bau) || 0) : 0;
-        const savedNbauPct = activeData ? Math.round(parseFloat(activeData.nbau) || 0) : 0;
-        
-        return {
-          product: item.product,
-          subProduct: item.subProduct || "General",
-          bau: savedBauPct,
-          nbau: savedNbauPct,
-          comment: currentMatch ? (currentMatch.comment || "") : "" // Do not carry over old comments
-        };
-      });
-      
-      const pastAllocations = (allocations || []).filter(a => String(a.period).trim().toLowerCase() !== currentPeriod.toLowerCase());
-      renderHistoricalTable(pastAllocations);
-
-      updateChecklistIcon('check-products', true);
-      renderTable();
-    }
-
-    window.loadAllocationData = function() {
-      google.script.run
-        .withSuccessHandler(scopeData => {
-          if (!scopeData || scopeData.length === 0) {
-            showNoScopeError();
-            return;
-          }
           
-          google.script.run
-            .withSuccessHandler(allocations => {
-              initializeWithScopeAndAllocations(scopeData, allocations);
-            })
-            .withFailureHandler(err => {
-              showNotification("Existing Allocation Fetch Failed", err.message, "error");
-              initializeWithScopeAndAllocations(scopeData, []);
-            })
-            .getHistoricalAllocation(user.email);
-        })
-        .withFailureHandler(err => {
-          showNotification("Scope Fetch Failed", err.message, "error");
-        })
-        .getManagerProductAllocation(user.email);
-    };
+          let historicalMatch = null;
+          if (!currentMatch) {
+            const pastMatches = (allocations || []).filter(a => 
+              String(a.product).trim().toLowerCase() === String(item.product).trim().toLowerCase() &&
+              String(a.subProduct || "General").trim().toLowerCase() === String(item.subProduct || "General").trim().toLowerCase() &&
+              String(a.period).trim().toLowerCase() !== currentPeriod.toLowerCase()
+            );
+            if (pastMatches.length > 0) {
+              // Assuming chronological append, the last element represents the most recent past submission
+              historicalMatch = pastMatches[pastMatches.length - 1];
+            }
+          }
 
-    const state = window.nexusState;
-    if (!state || !state.managerProductAllocation || !state.historicalAllocation) {
-      window.loadAllocationData();
-      return;
+          const activeData = currentMatch || historicalMatch;
+          
+          const savedBauPct = activeData ? Math.round(parseFloat(activeData.bau) || 0) : 0;
+          const savedNbauPct = activeData ? Math.round(parseFloat(activeData.nbau) || 0) : 0;
+          
+          return {
+            product: item.product,
+            subProduct: item.subProduct || "General",
+            bau: savedBauPct,
+            nbau: savedNbauPct,
+            comment: currentMatch ? (currentMatch.comment || "") : "" // Do not carry over old comments
+          };
+        });
+        
+        const pastAllocations = (allocations || []).filter(a => String(a.period).trim().toLowerCase() !== currentPeriod.toLowerCase());
+        renderHistoricalTable(pastAllocations);
+
+        updateChecklistIcon('check-products', true);
+        renderTable();
+      }
+
+      window.loadAllocationData = function() {
+        google.script.run
+          .withSuccessHandler(scopeData => {
+            if (!scopeData || scopeData.length === 0) {
+              showNoScopeError();
+              return;
+            }
+            
+            google.script.run
+              .withSuccessHandler(allocations => {
+                initializeWithScopeAndAllocations(scopeData, allocations);
+              })
+              .withFailureHandler(err => {
+                showNotification("Existing Allocation Fetch Failed", err.message, "error");
+                initializeWithScopeAndAllocations(scopeData, []);
+              })
+              .getHistoricalAllocation(user.email);
+          })
+          .withFailureHandler(err => {
+            showNotification("Scope Fetch Failed", err.message, "error");
+          })
+          .getManagerProductAllocation(user.email);
+      };
+
+      const state = window.nexusState;
+      if (!state || !state.managerProductAllocation || !state.historicalAllocation) {
+        window.loadAllocationData();
+        return;
+      }
+
+      initializeWithScopeAndAllocations(state.managerProductAllocation, state.historicalAllocation);
     }
-
-    initializeWithScopeAndAllocations(state.managerProductAllocation, state.historicalAllocation);
+    
+    initMyAllocations();
   })();
 
   function showNoScopeError() {
@@ -562,7 +569,7 @@
     const body = document.getElementById('historical-table-body');
     if (!body) return;
 
-    // Calculate previous month dynamically based on currentPeriod (e.g. "July 2024" -> "June 2024")
+// Calculate previous month dynamically based on currentPeriod (e.g. "May 2026" -> "April 2026")
     const currentPeriod = window.currentUser.currentPeriod || "Unknown Period";
     const parts = currentPeriod.split(" ");
     const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
@@ -812,7 +819,6 @@
     if (retryCount === 0) {
       triggerConfetti('gauge-container');
     }
-
     btn.disabled = true;
     btn.innerHTML = retryCount > 0 
       ? `<i class="fas fa-spinner animate-spin"></i> Retrying (${retryCount}/3)...`

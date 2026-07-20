@@ -1,0 +1,618 @@
+<!-- ui/Admin/TpmPortfolio.html -->
+<style>
+  /* Prevent horizontal page scroll */
+  body {
+    overflow-x: hidden !important;
+  }
+  .chevron-transition {
+    transition: transform 0.2s ease-in-out;
+  }
+  /* Webkit custom scrollbars for child tasks list */
+  ::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 99px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.2);
+  }
+</style>
+
+<div class="p-8 space-y-8 max-w-7xl mx-auto animate-in fade-in duration-300">
+  <!-- Header -->
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/5 pb-6">
+    <div class="space-y-1">
+      <h2 class="text-2xl font-black uppercase tracking-tighter text-white flex items-center gap-3">
+        <i class="fas fa-folder-open text-blue-400"></i> TPM Project Portfolio
+      </h2>
+      <p class="text-xs font-bold text-white/40 uppercase tracking-widest">Global delivery, sizing & milestone tracking</p>
+    </div>
+    
+    <!-- Week Picker & Actions -->
+    <div class="flex flex-wrap items-center gap-3">
+      <!-- Week Picker (Aids in fetching correct logs for the target period) -->
+      <div class="flex items-center gap-3 bg-white/5 p-1.5 rounded-2xl border border-white/5">
+        <label for="portfolio-week-picker" class="text-[9px] font-black text-white/40 uppercase tracking-widest pl-2">Sync Period:</label>
+        <input type="date" id="portfolio-week-picker" onchange="onWeekPickerChange()"
+          class="bg-white/5 border border-white/10 rounded-xl px-3 py-1.5 text-xs text-white outline-none focus:border-osttra-rubine transition-all font-mono" />
+      </div>
+
+      <button onclick="refreshPortfolioGrid()" class="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-white text-[10px] font-black uppercase tracking-widest border border-white/5 active:scale-95 transition-all flex items-center gap-2" title="Force refresh portfolio metrics from Jira">
+        <i class="fas fa-sync-alt"></i> Refresh Portfolio
+      </button>
+    </div>
+  </div>
+
+  <!-- Advanced Portfolio Filters Bar with Live Search & Date Range -->
+  <div class="p-5 bg-[#222222] border border-white/5 rounded-3xl flex flex-col gap-4">
+    <!-- Row 1: Search & Date Range -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <!-- Live Search Bar -->
+      <div class="flex items-center gap-2 bg-white/5 p-2 rounded-xl border border-white/5 text-[10px] font-black uppercase tracking-widest">
+        <i class="fas fa-search pl-2 text-white/30 text-xs"></i>
+        <input type="text" id="portfolio-search" oninput="renderPortfolioGrid()" placeholder="Search Epic Key, Summary, Client..." class="w-full bg-transparent border-none text-white text-[9px] uppercase font-black tracking-widest placeholder-white/30 outline-none" />
+      </div>
+
+      <!-- Custom Date Range: Start -->
+      <div class="flex items-center justify-between gap-3 bg-white/5 p-1.5 rounded-xl border border-white/5 text-[10px] font-black uppercase tracking-widest text-white/40">
+        <label for="portfolio-start-date" class="pl-2 shrink-0">Go-Live Start:</label>
+        <input type="date" id="portfolio-start-date" onchange="renderPortfolioGrid()"
+          class="bg-[#222222] border border-white/10 rounded-lg px-2 py-1 text-[9px] text-white outline-none focus:border-osttra-rubine transition-all font-mono" />
+      </div>
+
+      <!-- Custom Date Range: End -->
+      <div class="flex items-center justify-between gap-3 bg-white/5 p-1.5 rounded-xl border border-white/5 text-[10px] font-black uppercase tracking-widest text-white/40">
+        <label for="portfolio-end-date" class="pl-2 shrink-0">Go-Live End:</label>
+        <input type="date" id="portfolio-end-date" onchange="renderPortfolioGrid()"
+          class="bg-[#222222] border border-white/10 rounded-lg px-2 py-1 text-[9px] text-white outline-none focus:border-osttra-rubine transition-all font-mono" />
+      </div>
+    </div>
+
+    <!-- Row 2: Select Filters and Toggles -->
+    <div class="flex flex-wrap items-center gap-3 text-[9px] font-black uppercase tracking-widest text-white/40">
+      <!-- 1. Epic Status Filter -->
+      <div class="flex items-center gap-2 bg-white/5 p-1.5 rounded-xl border border-white/5">
+        <label for="portfolio-status-filter" class="pl-2">Status:</label>
+        <select id="portfolio-status-filter" onchange="renderPortfolioGrid()" class="bg-[#222222] border border-white/10 rounded-lg px-2 py-1 text-white outline-none focus:border-osttra-rubine transition-all">
+          <option value="ALL" class="bg-[#222222] text-white">All Statuses</option>
+        </select>
+      </div>
+
+      <!-- 2. Owner Filter -->
+      <div class="flex items-center gap-2 bg-white/5 p-1.5 rounded-xl border border-white/5">
+        <label for="portfolio-owner-filter" class="pl-2">Owner:</label>
+        <select id="portfolio-owner-filter" onchange="renderPortfolioGrid()" class="bg-[#222222] border border-white/10 rounded-lg px-2 py-1 text-white outline-none focus:border-osttra-rubine transition-all">
+          <option value="ALL" class="bg-[#222222] text-white">All Owners</option>
+        </select>
+      </div>
+
+      <!-- 3. Account Filter -->
+      <div class="flex items-center gap-2 bg-white/5 p-1.5 rounded-xl border border-white/5">
+        <label for="portfolio-account-filter" class="pl-2">Account:</label>
+        <select id="portfolio-account-filter" onchange="renderPortfolioGrid()" class="bg-[#222222] border border-white/10 rounded-lg px-2 py-1 text-white outline-none focus:border-osttra-rubine transition-all">
+          <option value="ALL" class="bg-[#222222] text-white">All Accounts</option>
+        </select>
+      </div>
+
+      <!-- 4. Project Sizing Filter -->
+      <div class="flex items-center gap-2 bg-white/5 p-1.5 rounded-xl border border-white/5">
+        <label for="portfolio-sizing-filter" class="pl-2">Sizing:</label>
+        <select id="portfolio-sizing-filter" onchange="renderPortfolioGrid()" class="bg-[#222222] border border-white/10 rounded-lg px-2 py-1 text-white outline-none focus:border-osttra-rubine transition-all">
+          <option value="ALL" class="bg-[#222222] text-white">All Sizes</option>
+          <option value="Large" class="bg-[#222222] text-white">Large</option>
+          <option value="Medium" class="bg-[#222222] text-white">Medium</option>
+          <option value="Small" class="bg-[#222222] text-white">Small</option>
+          <option value="N/A" class="bg-[#222222] text-white">N/A</option>
+        </select>
+      </div>
+
+      <!-- Toggles -->
+      <button id="btn-filter-at-risk" onclick="toggleAtRiskFilter()" class="px-3 py-2 bg-white/5 border border-white/5 rounded-xl text-white/60 hover:bg-white/10 flex items-center gap-1.5 transition-all">
+        <i class="fas fa-exclamation-triangle text-osttra-rubine"></i> At Risk
+      </button>
+
+      <button id="btn-filter-over-budget" onclick="toggleOverBudgetFilter()" class="px-3 py-2 bg-white/5 border border-white/5 rounded-xl text-white/60 hover:bg-white/10 flex items-center gap-1.5 transition-all">
+        <i class="fas fa-hourglass-half text-osttra-ochre"></i> Over Estimate
+      </button>
+    </div>
+  </div>
+
+    <!-- Collapsible Portfolio Help Card & Definitions -->
+    <div class="bg-white/[0.02] border border-white/5 rounded-2xl shadow-md overflow-hidden">
+      <button onclick="togglePortfolioHelpCard()" class="w-full p-4 flex items-center justify-between text-left hover:bg-white/[0.04] transition-colors focus:outline-none">
+        <div class="flex items-center gap-3">
+          <i class="fas fa-info-circle text-blue-400 text-sm"></i>
+          <span class="text-[10px] font-bold text-white/80 uppercase tracking-wider">Project Portfolio & Risk Definitions</span>
+        </div>
+        <i id="portfolio-help-chevron" class="fas fa-chevron-right text-white/40 text-xs transition-transform duration-200 chevron-transition"></i>
+      </button>
+      
+      <div id="portfolio-help-content" class="hidden p-6 pb-6 pr-6 px-6 pt-2 border-t border-white/5 bg-[#1c1c1c]">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 text-[11px] leading-relaxed text-white/70">
+          <div class="space-y-1.5 p-4.5 bg-white/[0.01] border border-white/5 rounded-2xl pr-6">
+            <p class="font-black text-osttra-rubine uppercase tracking-widest text-[9px] flex items-center gap-2 border-b border-white/5 pb-1 pr-2">
+              <i class="fas fa-exclamation-triangle"></i> At Risk Projects
+            </p>
+            <ul class="list-disc pl-4 space-y-1 mt-2 pr-2">
+              <li>UAT Start Date is starting or active within the next 14 days.</li>
+              <li>Total logged hours is less than 30% of approved estimate.</li>
+            </ul>
+          </div>
+          <div class="space-y-1.5 p-4.5 bg-white/[0.01] border border-white/5 rounded-2xl pr-6">
+            <p class="font-black text-osttra-ochre uppercase tracking-widest text-[9px] flex items-center gap-2 border-b border-white/5 pb-1 pr-2">
+              <i class="fas fa-hourglass-half"></i> Over Estimate Projects
+            </p>
+            <ul class="list-disc pl-4 space-y-1 mt-2 pr-2">
+              <li>Total timesheet hours logged exceeds approved Jira Effort Estimate.</li>
+              <li>Estimate standard workday conversion: **1 Day = 8 Hours** (synchronized).</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  <!-- Epic Cards Grid -->
+  <div id="portfolio-cards-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    <!-- Generated dynamically -->
+  </div>
+</div>
+
+<script>
+  var globalData = null; // Store fetched data globally
+  var filterAtRisk = false;
+  var filterOverBudget = false;
+  var portfolioHelpExpanded = false;
+
+  // Initialize view when session state is ready
+  (function() {
+    function initTpmPortfolio() {
+      const user = window.currentUser;
+      if (!user || !user.email) {
+        setTimeout(initTpmPortfolio, 100);
+        return;
+      }
+
+      const d = new Date();
+      const day = d.getDay();
+      const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Monday
+      const monday = new Date(d.setDate(diff));
+
+      // Set date input value
+      const picker = document.getElementById('portfolio-week-picker');
+      const mondayStr = formatDateString(monday);
+      if (picker) picker.value = mondayStr;
+
+      loadPortfolioData(mondayStr);
+    }
+    
+    initTpmPortfolio();
+  })();
+
+  function formatDateString(date) {
+    const yyyy = date.getFullYear();
+    const mm = String(date.getMonth() + 1).padStart(2, '0');
+    const dd = String(date.getDate()).padStart(2, '0');
+    return yyyy + '-' + mm + '-' + dd;
+  }
+
+  function formatDateFriendly(dateStr) {
+    if (!dateStr) return 'N/A';
+    const parts = dateStr.split('-');
+    if (parts.length !== 3) return dateStr;
+    const year = parts[0].substring(2); // "26"
+    const monthIdx = parseInt(parts[1], 10) - 1;
+    const day = parseInt(parts[2], 10);
+    const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    return day + '-' + months[monthIdx] + '-' + year;
+  }
+
+  function onWeekPickerChange() {
+    const value = document.getElementById('portfolio-week-picker').value;
+    if (value) {
+      loadPortfolioData(value);
+    }
+  }
+
+  function refreshPortfolioGrid() {
+    const value = document.getElementById('portfolio-week-picker').value;
+    if (value) {
+      loadPortfolioData(value);
+    }
+  }
+
+  function togglePortfolioHelpCard() {
+    portfolioHelpExpanded = !portfolioHelpExpanded;
+    const content = document.getElementById('portfolio-help-content');
+    const icon = document.getElementById('portfolio-help-chevron');
+    if (portfolioHelpExpanded) {
+      content.classList.remove('hidden');
+      content.classList.add('grid');
+      icon.classList.add('rotate-90');
+    } else {
+      content.classList.add('hidden');
+      content.classList.remove('grid');
+      icon.classList.remove('rotate-90');
+    }
+  }
+
+  function toggleAtRiskFilter() {
+    filterAtRisk = !filterAtRisk;
+    const btn = document.getElementById('btn-filter-at-risk');
+    if (filterAtRisk) {
+      btn.className = 'px-3 py-2 bg-osttra-rubine text-white border border-osttra-rubine/20 rounded-xl flex items-center gap-1.5 transition-all';
+    } else {
+      btn.className = 'px-3 py-2 bg-white/5 border border-white/5 rounded-xl text-white/60 hover:bg-white/10 flex items-center gap-1.5 transition-all';
+    }
+    renderPortfolioGrid();
+  }
+
+  function toggleOverBudgetFilter() {
+    filterOverBudget = !filterOverBudget;
+    const btn = document.getElementById('btn-filter-over-budget');
+    if (filterOverBudget) {
+      btn.className = 'px-3 py-2 bg-osttra-ochre text-black border border-osttra-ochre/20 rounded-xl flex items-center gap-1.5 transition-all';
+    } else {
+      btn.className = 'px-3 py-2 bg-white/5 border border-white/5 rounded-xl text-white/60 hover:bg-white/10 flex items-center gap-1.5 transition-all';
+    }
+    renderPortfolioGrid();
+  }
+
+  function loadPortfolioData(mondayStr) {
+    showLoading('Fetching portfolio & estimates...');
+    google.script.run
+      .withSuccessHandler(data => {
+        hideLoading();
+        globalData = data;
+        
+        // Dynamically populate filters based on unique data values in cache
+        populateDynamicFilters();
+        renderPortfolioGrid();
+      })
+      .withFailureHandler(err => {
+        hideLoading();
+        showNotification('error', 'Portfolio Load Failed', err.message);
+      })
+      .getTpmDashboardData(mondayStr);
+  }
+
+  function populateDynamicFilters() {
+    if (!globalData || !globalData.allEpics) return;
+
+    // 1. Dynamic Unique Epic Statuses
+    const statuses = [...new Set(globalData.allEpics.map(e => e["Status"]).filter(Boolean))];
+    const statusSelect = document.getElementById('portfolio-status-filter');
+    statusSelect.innerHTML = '<option value="ALL" class="bg-[#222222] text-white">All Statuses</option>';
+    statuses.forEach(s => {
+      statusSelect.innerHTML += '<option value="' + s + '" class="bg-[#222222] text-white">' + s + '</option>';
+    });
+
+    // 2. Unique Owners
+    const owners = [...new Set(globalData.allEpics.map(e => e["Assignee_Email"]).filter(Boolean))];
+    const ownerSelect = document.getElementById('portfolio-owner-filter');
+    ownerSelect.innerHTML = '<option value="ALL" class="bg-[#222222] text-white">All Owners</option>';
+    owners.forEach(email => {
+      ownerSelect.innerHTML += '<option value="' + email + '" class="bg-[#222222] text-white">' + email + '</option>';
+    });
+
+    // 3. Unique Accounts
+    const accounts = [...new Set(globalData.allEpics.map(e => e["Account_Name"] || e["Account Name"]).filter(Boolean))];
+    const accountSelect = document.getElementById('portfolio-account-filter');
+    accountSelect.innerHTML = '<option value="ALL" class="bg-[#222222] text-white">All Accounts</option>';
+    accounts.forEach(acc => {
+      accountSelect.innerHTML += '<option value="' + acc + '" class="bg-[#222222] text-white">' + acc + '</option>';
+    });
+  }
+
+  function renderPortfolioGrid() {
+    const grid = document.getElementById('portfolio-cards-grid');
+    grid.innerHTML = '';
+
+    if (!globalData || !globalData.allEpics || globalData.allEpics.length === 0) {
+      grid.innerHTML = '<div class="col-span-full p-12 text-center text-white/40 text-xs font-bold uppercase tracking-widest text-white/50 bg-[#222222] border border-white/5 rounded-3xl">No active Jira Epics detected in cache. Please click sync.</div>';
+      return;
+    }
+
+    // Build map of Epic Key -> Total Logged Hours and Assigned Members
+    const epicHoursMap = {};
+    globalData.matrix.forEach(member => {
+      member.ticketLogs.forEach(log => {
+        if (log.key !== 'NON-BAU' && log.key !== 'Admin' && log.key !== 'ooo') {
+          if (!epicHoursMap[log.key]) {
+            epicHoursMap[log.key] = { total: 0, team: {} };
+          }
+          epicHoursMap[log.key].total += log.total;
+          epicHoursMap[log.key].team[member.name] = (epicHoursMap[log.key].team[member.name] || 0) + log.total;
+        }
+      });
+    });
+
+    // Evaluate filters
+    const searchQuery = document.getElementById('portfolio-search').value.toLowerCase().trim();
+    const statusValue = document.getElementById('portfolio-status-filter').value;
+    const ownerValue = document.getElementById('portfolio-owner-filter').value;
+    const accountValue = document.getElementById('portfolio-account-filter').value;
+    const sizingValue = document.getElementById('portfolio-sizing-filter').value;
+    
+    // Custom Date range pickers
+    const startDateVal = document.getElementById('portfolio-start-date').value;
+    const endDateVal = document.getElementById('portfolio-end-date').value;
+
+    const isStatusMatch = (status) => {
+      if (statusValue === "ALL") return true;
+      return String(status || "").toLowerCase().trim() === statusValue.toLowerCase().trim();
+    };
+
+    const filteredEpics = globalData.allEpics.filter(epic => {
+      const key = epic["Key"];
+      const status = epic["Status"];
+      const owner = epic["Assignee_Email"] || 'unassigned@osttra.com';
+      const account = epic["Account_Name"] || epic["Account Name"] || 'N/A';
+      const sizing = epic["Project Sizing"] || 'N/A';
+      const summary = epic["Summary"] || 'No Summary';
+
+      // 1A. Text Search filter
+      if (searchQuery) {
+        const matchKey = String(key || "").toLowerCase().includes(searchQuery);
+        const matchSummary = String(summary || "").toLowerCase().includes(searchQuery);
+        const matchAccount = String(account || "").toLowerCase().includes(searchQuery);
+        if (!matchKey && !matchSummary && !matchAccount) return false;
+      }
+
+      // 1B. Status filter
+      if (!isStatusMatch(status)) return false;
+
+      // 1C. Owner filter
+      if (ownerValue !== "ALL" && String(owner).toLowerCase().trim() !== ownerValue.toLowerCase().trim()) return false;
+
+      // 1D. Account filter
+      if (accountValue !== "ALL" && String(account).toLowerCase().trim() !== accountValue.toLowerCase().trim()) return false;
+
+      // 1E. Sizing filter
+      if (sizingValue !== "ALL" && String(sizing).toLowerCase().trim() !== sizingValue.toLowerCase().trim()) return false;
+
+      // 1F. Date Range Filter (Filters based on Go-live Date)
+      const rawLiveDate = epic["Go-live date"] || epic["Expected Go Live Date"] || "";
+      if (startDateVal || endDateVal) {
+        if (!rawLiveDate || rawLiveDate === 'N/A') return false;
+        try {
+          const liveD = new Date(rawLiveDate);
+          if (isNaN(liveD.getTime())) return false;
+          const liveDStr = formatDateString(liveD);
+          if (startDateVal && liveDStr < startDateVal) return false;
+          if (endDateVal && liveDStr > endDateVal) return false;
+        } catch(e) {
+          return false;
+        }
+      }
+
+      // 1G. At Risk calculation
+      if (filterAtRisk) {
+        const uatDateStr = epic["UAT start date"] || epic["Expected UAT start date"] || "";
+        const rawEstDays = parseFloat(epic["Effort Estimate (Effort days)"]) || 0;
+        const targetHours = rawEstDays * 7;
+        const loggedHours = epicHoursMap[key] ? epicHoursMap[key].total : 0;
+        let progressPct = 0;
+        if (targetHours > 0) progressPct = (loggedHours / targetHours) * 100;
+
+        let isNearUat = false;
+        if (uatDateStr) {
+          const uatDate = new Date(uatDateStr);
+          const diffTime = uatDate - new Date();
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          isNearUat = diffDays >= -2 && diffDays <= 14;
+        }
+        if (!isNearUat || progressPct >= 30) return false;
+      }
+
+      // 1H. Over budget calculation
+      if (filterOverBudget) {
+        const rawEstDays = parseFloat(epic["Effort Estimate (Effort days)"]) || 0;
+        const targetHours = rawEstDays * 7;
+        const loggedHours = epicHoursMap[key] ? epicHoursMap[key].total : 0;
+        const isOver = targetHours > 0 && loggedHours > targetHours;
+        if (!isOver) return false;
+      }
+
+      return true;
+    });
+
+    if (filteredEpics.length === 0) {
+      grid.innerHTML = '<div class="col-span-full p-12 text-center text-white/40 text-xs font-bold uppercase tracking-widest leading-relaxed flex flex-col items-center justify-center gap-2 bg-[#222222] border border-white/5 rounded-3xl"><i class="fas fa-filter text-3xl mb-1 opacity-25"></i> No active Epics match your selected filter criteria.</div>';
+      return;
+    }
+
+    filteredEpics.forEach((epic, idx) => {
+      const key = epic["Key"];
+      const accName = epic["Account_Name"] || epic["Account Name"] || 'N/A';
+      const summary = epic["Summary"] || 'No Summary';
+      const status = epic["Status"] || 'Backlog';
+      const sizing = epic["Project Sizing"] || 'N/A';
+      
+      const createdDate = formatDateFriendly(epic["Created"] ? String(epic["Created"]).substring(0, 10) : '');
+      const startDate = formatDateFriendly(epic["Project start date"]);
+      const expectedStart = formatDateFriendly(epic["Expected project start date"]);
+      const uatDate = formatDateFriendly(epic["UAT start date"]);
+      const expectedUat = formatDateFriendly(epic["Expected UAT start date"]);
+      const liveDate = formatDateFriendly(epic["Go-live date"]);
+      const expectedLive = formatDateFriendly(epic["Expected Go Live Date"]);
+
+      const rawEstDays = parseFloat(epic["Effort Estimate (Effort days)"]) || 0;
+      const targetHours = rawEstDays * 7;
+      const loggedHours = epicHoursMap[key] ? epicHoursMap[key].total : 0;
+      
+      let progressPct = 0;
+      if (targetHours > 0) {
+        progressPct = Math.min(Math.round((loggedHours / targetHours) * 100), 100);
+      }
+
+      const children = globalData.childTickets.filter(c => String(c["Parent_Key"] || "").trim().toUpperCase() === String(key).trim().toUpperCase());
+
+      let statusClass = 'text-gray-400 bg-gray-500/10 border-gray-500/20';
+      if (['In Progress', 'Active', 'QA'].includes(status)) statusClass = 'text-osttra-ochre bg-osttra-ochre/10 border-osttra-ochre/20';
+      if (['Closed', 'Done', 'Resolved', 'Live'].includes(status)) statusClass = 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20';
+
+      const card = document.createElement('div');
+      card.className = 'p-6 bg-[#222222] border border-white/5 rounded-3xl shadow-xl space-y-6 flex flex-col justify-between animate-in fade-in duration-200';
+
+      const headerDiv = document.createElement('div');
+      headerDiv.className = 'space-y-2';
+      
+      const keyRow = document.createElement('div');
+      keyRow.className = 'flex justify-between items-start';
+      
+      const keyLink = document.createElement('a');
+      keyLink.href = 'https://osttra.atlassian.net/browse/' + key;
+      keyLink.target = '_blank';
+      keyLink.className = 'font-mono text-sm font-black text-blue-400 hover:text-blue-300 hover:underline flex items-center gap-1.5';
+      keyLink.innerHTML = '<i class="fas fa-external-link-alt text-[10px]"></i> ' + key;
+      keyRow.appendChild(keyLink);
+
+      const statusBadge = document.createElement('span');
+      statusBadge.className = 'px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider border ' + statusClass;
+      statusBadge.textContent = status;
+      keyRow.appendChild(statusBadge);
+      headerDiv.appendChild(keyRow);
+
+      const accP = document.createElement('p');
+      accP.className = 'text-[9px] font-black text-osttra-ochre uppercase tracking-widest';
+      accP.textContent = accName;
+      headerDiv.appendChild(accP);
+
+      const summaryH = document.createElement('h4');
+      summaryH.className = 'text-xs font-bold text-white uppercase tracking-wider leading-relaxed line-clamp-2';
+      summaryH.title = summary;
+      summaryH.textContent = summary;
+      headerDiv.appendChild(summaryH);
+      card.appendChild(headerDiv);
+
+      const milestonesDiv = document.createElement('div');
+      milestonesDiv.className = 'space-y-2.5 text-[10px] border-t border-b border-white/5 py-4';
+      milestonesDiv.innerHTML = 
+        '<div class="flex justify-between items-center">' +
+          '<span class="text-white/40 font-black uppercase tracking-wider">Project Start</span>' +
+          '<span class="text-white font-mono font-semibold">' + (startDate !== 'N/A' ? startDate : expectedStart) + '</span>' +
+        '</div>' +
+        '<div class="flex justify-between items-center">' +
+          '<span class="text-white/40 font-black uppercase tracking-wider">UAT Start</span>' +
+          '<span class="text-white font-mono font-semibold">' + (uatDate !== 'N/A' ? uatDate : expectedUat) + '</span>' +
+        '</div>' +
+        '<div class="flex justify-between items-center">' +
+          '<span class="text-white/40 font-black uppercase tracking-wider">Live & Go Live</span>' +
+          '<span class="text-white font-mono font-semibold">' + (liveDate !== 'N/A' ? liveDate : expectedLive) + '</span>' +
+        '</div>';
+      card.appendChild(milestonesDiv);
+
+      const progressDiv = document.createElement('div');
+      progressDiv.className = 'space-y-2';
+      
+      const textRow = document.createElement('div');
+      textRow.className = 'flex justify-between text-[9px] font-black uppercase tracking-widest';
+      textRow.innerHTML = 
+        '<span class="text-white/40">FTE Progress</span>' +
+        '<span class="text-white">' + loggedHours.toFixed(1) + ' / ' + (targetHours > 0 ? targetHours.toFixed(0) : '- ') + 'h (' + progressPct + '%)</span>';
+      progressDiv.appendChild(textRow);
+
+      const barContainer = document.createElement('div');
+      barContainer.className = 'w-full h-2 bg-white/5 rounded-full overflow-hidden border border-white/5';
+      
+      const bar = document.createElement('div');
+      bar.className = 'h-full transition-all duration-500 ' + (progressPct >= 100 ? 'bg-emerald-500' : 'bg-osttra-rubine');
+      bar.style.width = progressPct + '%';
+      barContainer.appendChild(bar);
+      progressDiv.appendChild(barContainer);
+
+      const sizeRow = document.createElement('div');
+      sizeRow.className = 'flex justify-between text-[9px] font-black uppercase tracking-widest text-white/30 pt-1';
+      sizeRow.innerHTML = 
+        '<span>Sizing: <strong class="text-white/60">' + sizing + '</strong></span>' +
+        '<span>Est: <strong class="text-white/60">' + rawEstDays + ' Days</strong></span>';
+      progressDiv.appendChild(sizeRow);
+      card.appendChild(progressDiv);
+
+      const detailContainer = document.createElement('div');
+      detailContainer.className = 'space-y-4';
+      
+      const detailsBtn = document.createElement('button');
+      const detailsRowId = 'portfolio-details-' + idx;
+      const accordionChevronId = 'portfolio-chevron-' + idx;
+      
+      detailsBtn.className = 'w-full py-2.5 bg-white/5 hover:bg-white/10 border border-white/5 rounded-xl text-[9px] font-black uppercase tracking-widest text-white flex items-center justify-center gap-1.5 transition-all';
+      detailsBtn.addEventListener('click', () => {
+        const el = document.getElementById(detailsRowId);
+        const icon = document.getElementById(accordionChevronId);
+        el.classList.toggle('hidden');
+        icon.classList.toggle('rotate-90');
+      });
+      detailsBtn.innerHTML = 'View Project Sub-tasks & Resources <i id="' + accordionChevronId + '" class="fas fa-chevron-right text-[8px] chevron-transition"></i>';
+      detailContainer.appendChild(detailsBtn);
+
+      const collapsiblePanel = document.createElement('div');
+      collapsiblePanel.id = detailsRowId;
+      collapsiblePanel.className = 'hidden space-y-4 pt-2 border-t border-white/5 animate-in slide-in-from-top duration-200';
+
+      const childBox = document.createElement('div');
+      childBox.className = 'space-y-2';
+      childBox.innerHTML = '<h5 class="text-[9px] font-black uppercase tracking-widest text-blue-400">Jira Child Tickets</h5>';
+      
+      const childScroll = document.createElement('div');
+      childScroll.className = 'space-y-1.5 max-h-36 overflow-y-auto pr-0.5';
+
+      if (children.length === 0) {
+        childScroll.innerHTML = '<p class="text-[9px] text-white/30 uppercase tracking-widest">No child tickets found.</p>';
+      } else {
+        children.forEach(c => {
+          let cStatusColor = 'text-gray-400 border-white/5 bg-white/5';
+          if (['In Progress', 'Active', 'QA'].includes(c["Status"])) cStatusColor = 'text-osttra-ochre border-osttra-ochre/20 bg-osttra-ochre/5';
+          if (['Closed', 'Done', 'Resolved', 'Live'].includes(c["Status"])) cStatusColor = 'text-emerald-500 border-emerald-500/20 bg-emerald-500/5';
+
+          childScroll.innerHTML += 
+            '<div class="p-2 bg-black/15 border border-white/5 rounded-xl flex justify-between items-center gap-3 text-[10px]">' +
+              '<div class="truncate flex-1">' +
+                '<a href="https://osttra.atlassian.net/browse/' + c["Key"] + '" target="_blank" class="font-mono text-[9px] font-black text-blue-400 hover:underline">' +
+                  '<i class="fas fa-external-link-alt text-[7px]"></i> ' + c["Key"] +
+                '</a>' +
+                '<p class="text-[8px] text-white/50 truncate font-semibold lowercase tracking-wider" title="' + c["Summary"] + '">' + c["Summary"] + '</p>' +
+              '</div>' +
+              '<span class="px-1 py-0.5 rounded text-[7px] font-black uppercase border ' + cStatusColor + ' shrink-0">' + c["Status"] + '</span>' +
+            '</div>';
+        });
+      }
+      childBox.appendChild(childScroll);
+      collapsiblePanel.appendChild(childBox);
+
+      const resourceBox = document.createElement('div');
+      resourceBox.className = 'space-y-2';
+      resourceBox.innerHTML = '<h5 class="text-[9px] font-black uppercase tracking-widest text-osttra-rubine">Team Effort Breakdown</h5>';
+      
+      const resourceScroll = document.createElement('div');
+      resourceScroll.className = 'space-y-1.5';
+
+      const contributors = epicHoursMap[key] ? Object.keys(epicHoursMap[key].team) : [];
+      if (contributors.length === 0) {
+        resourceScroll.innerHTML = '<p class="text-[9px] text-white/30 uppercase tracking-widest">No timesheet logs logged this week.</p>';
+      } else {
+        contributors.forEach(name => {
+          const hours = epicHoursMap[key].team[name];
+          resourceScroll.innerHTML += 
+            '<div class="flex justify-between items-center text-[10px] bg-black/15 p-2 border border-white/5 rounded-xl font-semibold">' +
+              '<span class="text-white/70">' + name + '</span>' +
+              '<span class="font-mono font-black text-white">' + hours.toFixed(1) + 'h</span>' +
+            '</div>';
+        });
+      }
+      resourceBox.appendChild(resourceScroll);
+      collapsiblePanel.appendChild(resourceBox);
+
+      detailContainer.appendChild(collapsiblePanel);
+      card.appendChild(detailContainer);
+
+      grid.appendChild(card);
+    });
+  }
+</script>

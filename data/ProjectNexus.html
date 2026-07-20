@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Nexus Project Mermaid Flowchart Syntax</title>
+</head>
+<body>
+    <pre>
+flowchart TD
+    %% Styling and Colors
+    classDef system fill:#1e293b,stroke:#94a3b8,stroke-width:2px,color:#fff;
+    classDef l1 fill:#2563eb,stroke:#bfdbfe,stroke-width:2px,color:#fff;
+    classDef mgr fill:#7c3aed,stroke:#ddd6fe,stroke-width:2px,color:#fff;
+    classDef admin fill:#059669,stroke:#a7f3d0,stroke-width:2px,color:#fff;
+    classDef decision fill:#ea580c,stroke:#fdba74,stroke-width:2px,color:#fff;
+
+    %% Swimlanes
+    subgraph System [System / Automation Backend]
+        direction TB
+        S1([Month Day 1: Pre-Populate SF/BQ Data]):::system
+        S2([Week 1, Day 3 & 5: Email Alerts to L1s]):::system
+        S3([End of Week 1: Hard Lock L1 Access]):::system
+        S4([Week 2, Day 3 & 5: Email Alerts to Managers]):::system
+        S5([End of Week 2: Hard Lock Manager Access]):::system
+        
+        %% Archival Logic
+        S6{Is it 4th Week of <br>Apr, Jul, Oct, or Jan?}:::decision
+        S7([Execute Quarterly Data Archive <br>to Google Drive]):::system
+    end
+
+    subgraph Rep [L1 Rep: Week 1]
+        direction TB
+        R1(Log in & Review Pre-filled BAU/Non-BAU Data):::l1
+        R2(Adjust % & Add Mandatory Justifications):::l1
+        R3{Submit before <br>End of Week 1?}:::decision
+    end
+
+    subgraph Manager [Manager: Week 2]
+        direction TB
+        M1(Review Submitted L1 Team Data):::mgr
+        M2(View BQ Data for Missing L1 Submissions):::mgr
+        M3(Fill Missing Data & Justifications for L1s):::mgr
+        M4(Approve & Lock Team Data):::mgr
+    end
+
+    subgraph Governance [Admins & Leads: Ongoing]
+        direction TB
+        G1(Monitor Compliance Dashboard: Team Status & Alert Logs):::admin
+        G2(Consume Finalized Regional Dashboards):::admin
+        G3(Access Archived Quarter Data via Drive):::admin
+    end
+
+    %% --- Journey Mapping & Logic ---
+
+    %% Pre-population triggers L1 flow
+    S1 --> R1
+    
+    %% L1 Workflow
+    R1 --> R2
+    R2 --> R3
+    
+    %% L1 Alerts
+    S2 -.->|If Status = Pending| R1
+
+    %% L1 Submission Decisions
+    R3 -- "Yes (Submitted in Time)" --> M1
+    R3 -- "No (Missed Deadline)" --> S3
+    
+    %% Week 1 Lock triggers Manager intervention
+    S3 --> M2
+    
+    %% Manager Workflow
+    M1 --> M4
+    M2 --> M3
+    M3 --> M4
+    
+    %% Manager Alerts
+    S4 -.->|If Status = Unapproved| M1
+    S4 -.->|If Status = Unapproved| M2
+
+    %% Week 2 Hard Lock
+    M4 --> S5
+    
+    %% Archival Decision Tree
+    S5 --> S6
+    S6 -- "Yes" --> S7
+    S6 -- "No" --> G2
+    S7 --> G3
+    S7 --> G2
+    
+    %% Governance Visibility (Happening concurrently)
+    S1 -.->|Updates UI| G1
+    S2 -.->|Logs Alerts| G1
+    S4 -.->|Logs Alerts| G1
+    G1 --> G2
+    </pre>
+</body>
+</html>

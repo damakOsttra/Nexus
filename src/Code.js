@@ -89,7 +89,10 @@ function getView(pageName) {
     'NexusAdoption': 3,
     'AssignProduct': 2, 'AssignSkill': 2, 'TeamAllocationsReview': 2,
     'About': 1, 'Profile': 1, 'MyAllocations': 1, 'AnalyticsHub': 1, 'ExecAnalytics': 2,
-    'UserGuide': 1, 'OrganizationChart': 1
+    'UserGuide': 1, 'OrganizationChart': 1,
+    'TpmTimesheet': 1,
+    'TpmDashboard': 1,
+    'TpmPortfolio': 1
   };
 
   const requiredTier = permissions[pageName];
@@ -102,6 +105,17 @@ function getView(pageName) {
 
   if (session.tier < requiredTier) {
     return `<div class="p-8 text-red-500">🚫 Restricted Access: Tier ${requiredTier} required.</div>`;
+  }
+
+  // Dynamic checks for TPM access
+  if (pageName === 'TpmTimesheet' && !session.isTpmUser) {
+    return `<div class="p-8 text-red-500">🚫 Restricted Access: Tier-4 TPM hierarchy required.</div>`;
+  }
+  if (pageName === 'TpmDashboard' && !session.isTpmManager) {
+    return `<div class="p-8 text-red-500">🚫 Restricted Access: Tier-4 TPM manager clearance required.</div>`;
+  }
+  if (pageName === 'TpmPortfolio' && !session.isTpmManager) {
+    return `<div class="p-8 text-red-500">🚫 Restricted Access: Tier-4 TPM manager clearance required.</div>`;
   }
 
   // Strict executive view authorization guard
@@ -119,11 +133,14 @@ function getView(pageName) {
     'MonitoringAdmin': 'ui/Admin/MonitoringAdmin',
     'BackupAdmin': 'ui/Admin/BackupAdmin',
     'NexusAdoption': 'ui/Admin/NexusAdoption',
+    'TpmDashboard': 'ui/Admin/TpmDashboard',
+    'TpmPortfolio': 'ui/Admin/TpmPortfolio',
 
     // Teams
     'AssignProduct': 'ui/Teams/AssignProduct',
     'AssignSkill': 'ui/Teams/AssignSkill',
     'TeamAllocationsReview': 'ui/Teams/TeamAllocationsReview',
+    'TpmTimesheet': 'ui/Teams/TpmTimesheet',
 
     // Personal
     'About': 'ui/Personal/About',
@@ -153,18 +170,24 @@ function getView(pageName) {
 
     session.preloadedViews = {};
     const permissions = {
-    'SystemSettings': 3,
-    'ReportHubAdmin': 3,
-    'MonitoringAdmin': 3,
-    'BackupAdmin': 3,
-    'NexusAdoption': 3,
-    'AssignProduct': 2, 'AssignSkill': 2, 'TeamAllocationsReview': 2,
-    'About': 1, 'Profile': 1, 'MyAllocations': 1, 'AnalyticsHub': 1,
-    'UserGuide': 1
+      'SystemSettings': 3,
+      'ReportHubAdmin': 3,
+      'MonitoringAdmin': 3,
+      'BackupAdmin': 3,
+      'NexusAdoption': 3,
+      'AssignProduct': 2, 'AssignSkill': 2, 'TeamAllocationsReview': 2,
+      'About': 1, 'Profile': 1, 'MyAllocations': 1, 'AnalyticsHub': 1,
+      'UserGuide': 1,
+      'TpmTimesheet': 1,
+      'TpmDashboard': 1
     };
 
   for (const pageName in permissions) {
-    if (session.tier >= permissions[pageName]) {
+    let hasPerm = session.tier >= permissions[pageName];
+    if (pageName === 'TpmTimesheet' && !session.isTpmUser) hasPerm = false;
+    if (pageName === 'TpmDashboard' && !session.isTpmManager) hasPerm = false;
+
+    if (hasPerm) {
       try {
         session.preloadedViews[pageName] = getView(pageName);
       } catch (e) {

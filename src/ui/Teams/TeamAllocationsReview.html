@@ -856,7 +856,7 @@
 
       google.script.run
         .withSuccessHandler(allocations => {
-          // Exclude current period from history table
+          // Exclude current period (May 2026) from history table
           const currentPeriod = window.currentUser.currentPeriod || "Unknown Period";
           const pastAllocations = (allocations || []).filter(a => String(a.period).trim().toLowerCase() !== currentPeriod.toLowerCase());
 
@@ -1033,6 +1033,48 @@
         .saveManagerBulkAllocation(JSON.parse(JSON.stringify(payload)));
     };
 
+    function showStaleDataModal() {
+      const modalHtml = `
+        <div id="stale-data-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
+          <div class="bg-osttra-black border border-osttra-rubine/30 p-8 rounded-3xl max-w-md w-full shadow-2xl animate-in zoom-in-95 duration-200 ease-out text-center">
+            <div class="w-16 h-16 rounded-full bg-osttra-rubine/10 text-osttra-rubine flex items-center justify-center text-2xl mx-auto mb-4 animate-bounce">
+              <i class="fas fa-exclamation-triangle"></i>
+            </div>
+            <h3 class="text-xl font-black text-white uppercase tracking-wider mb-2">Stale Data Warning</h3>
+            <p class="text-xs text-white/60 mb-8 leading-relaxed uppercase tracking-wider">
+              This employee's allocation splits have been updated by another session or by the employee themselves since you loaded this page. 
+              Please reload the dashboard to view the latest data.
+            </p>
+            <button onclick="loadBulkData(); document.getElementById('stale-data-modal').remove();" class="w-full py-4 osttra-gradient rounded-xl text-xs font-black uppercase text-white hover:brightness-110 hover:scale-[1.03] active:scale-95 transition-all duration-200">
+              Refresh Data
+            </button>
+          </div>
+        </div>
+      `;
+      document.body.insertAdjacentHTML('beforeend', modalHtml);
+    }
+
+    window.resetProxyAllocation = function() {
+      const currentPeriod = window.currentUser.currentPeriod || "Unknown Period";
+      
+      showConfirmModal(
+        `Are you sure you want to RESET and UNLOCK the allocation splits for ${activeEmp.name}?\n\nThis will purge all ${currentPeriod} split entries for this employee, clearing their cache and unlocking their personal tab so they can certify it themselves.`,
+        () => {
+          showLoading(`Resetting and unlocking ${activeEmp.name}'s allocation splits...`);
+          google.script.run
+            .withSuccessHandler(msg => {
+              hideLoading();
+              showNotification('Allocation Unlocked', msg, 'success');
+              loadBulkData();
+            })
+            .withFailureHandler(err => {
+              hideLoading();
+              showNotification('Unlock Failed', err.message, 'error');
+            })
+            .deleteEmployeeAllocation(activeEmp.email, currentPeriod);
+        }
+      );
+    };
     window.closeConfirmModal = function() {
       document.getElementById('confirm-modal').classList.add('hidden');
     };
