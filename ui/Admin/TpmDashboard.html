@@ -1,0 +1,1074 @@
+﻿<!-- ui/Admin/TpmDashboard.html -->
+<style>
+  /* Prevent horizontal page scroll */
+  body {
+    overflow-x: hidden !important;
+  }
+  .chevron-transition {
+    transition: transform 0.2s ease-in-out;
+  }
+</style>
+
+<div class="p-8 space-y-8 max-w-7xl mx-auto animate-in fade-in duration-300 relative">
+  <!-- Smart Loading Screen -->
+  <div id="tpm-dashboard-loading" class="hidden absolute inset-0 z-50 bg-[#141414]/80 backdrop-blur-sm rounded-[2rem] flex flex-col items-center justify-center gap-4 transition-all">
+    <i class="fas fa-circle-notch animate-spin text-4xl text-osttra-rubine"></i>
+    <p class="text-[10px] font-black uppercase tracking-widest text-white/30 animate-pulse">Fetching Compliance Analytics...</p>
+  </div>
+  <!-- Header & Navigation -->
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-6 border-b border-white/5 pb-6">
+    <div class="space-y-1">
+      <h2 class="text-2xl font-black uppercase tracking-tighter text-white flex items-center gap-3">
+        <i class="fas fa-users-cog text-osttra-rubine"></i> TPM Compliance Dashboard
+      </h2>
+      <p class="text-xs font-bold text-white/40 uppercase tracking-widest">Technical Project Management Team Center</p>
+    </div>
+    
+    <div class="flex flex-wrap items-center gap-3">
+      <!-- Custom Date Range Picker -->
+      <div class="flex items-center gap-2.5 bg-white/5 p-1.5 rounded-2xl border border-white/5 text-[9px] font-black uppercase tracking-widest text-white/50">
+        <span class="pl-2">From</span>
+        <input type="date" id="start-date-picker" onchange="handleCustomDateRangeChange()" class="bg-[#1e1e1e] border border-white/10 rounded-xl px-2.5 py-1.5 text-xs text-white outline-none focus:border-osttra-rubine transition-all font-mono" />
+        <span>To</span>
+        <input type="date" id="end-date-picker" onchange="handleCustomDateRangeChange()" class="bg-[#1e1e1e] border border-white/10 rounded-xl px-2.5 py-1.5 text-xs text-white outline-none focus:border-osttra-rubine transition-all font-mono" />
+      </div>
+
+      <!-- Refresh Button -->
+      <button onclick="handleRefresh()" class="px-3.5 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 text-white text-[10px] font-black uppercase tracking-widest active:scale-95 transition-all flex items-center gap-1.5 focus:outline-none">
+        <i class="fas fa-sync-alt"></i> Refresh
+      </button>
+    </div>
+  </div>
+
+  <!-- ================= TAB 1: TEAM COMPLIANCE & CAPACITY ================= -->
+  <div id="tab-compliance" class="space-y-8 animate-in fade-in duration-300">
+    
+    <!-- Guidelines & Metrics Reference (Collapsible Accordion) -->
+    <div class="bg-white/[0.02] border border-white/5 rounded-2xl shadow-md overflow-hidden">
+      <button onclick="document.getElementById('dashboard-guidelines-content').classList.toggle('hidden'); document.getElementById('dashboard-guidelines-chevron').classList.toggle('rotate-180');" class="w-full p-4 flex items-center justify-between text-left hover:bg-white/[0.04] transition-colors focus:outline-none">
+        <div class="flex items-center gap-3">
+          <i class="fas fa-info-circle text-osttra-rubine text-sm"></i>
+          <span class="text-[10px] font-bold text-white/80 uppercase tracking-wider">Compliance Dashboard Guidelines & Charter</span>
+        </div>
+        <i id="dashboard-guidelines-chevron" class="fas fa-chevron-down text-white/40 text-xs transition-transform duration-200"></i>
+      </button>
+      <div id="dashboard-guidelines-content" class="hidden p-6 pt-2 border-t border-white/5 space-y-6 text-[11px] text-white/70 leading-relaxed bg-[#1c1c1c]">
+        
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <!-- Panel A: Compliance Scoring System -->
+          <div class="space-y-3.5 bg-white/[0.01] p-5 rounded-2xl border border-white/5 pr-6">
+            <h4 class="text-osttra-rubine font-black uppercase tracking-widest text-[9px] flex items-center gap-2 border-b border-white/5 pb-1.5 pr-2">
+              <i class="fas fa-user-check text-osttra-rubine"></i> 1. Compliance Scoring System
+            </h4>
+            <ul class="list-disc pl-4 space-y-2 pr-2">
+              <li><strong class="text-white font-bold">Compliant ≡ƒƒó:</strong> Time logged (>0h) or marked OOO for every past weekday in selected range.</li>
+              <li><strong class="text-white font-bold">Incomplete ≡ƒö┤:</strong> Missing entries on one or more past weekdays. Hover badge for list of missed dates.</li>
+              <li><strong class="text-white font-bold">In Progress ≡ƒƒí:</strong> Completed all past weekdays; range extends into today/future.</li>
+              <li><strong class="text-white font-bold">Exemptions:</strong> Saturday/Sunday, future dates, and OOO days are automatically excluded from penalties.</li>
+            </ul>
+          </div>
+          
+          <!-- Panel B: Workload Target Calculations -->
+          <div class="space-y-3.5 bg-white/[0.01] p-5 rounded-2xl border border-white/5 pr-6">
+            <h4 class="text-osttra-rubine font-black uppercase tracking-widest text-[9px] flex items-center gap-2 border-b border-white/5 pb-1.5 pr-2">
+              <i class="fas fa-calculator text-osttra-rubine"></i> 2. Workload Target Model
+            </h4>
+            <div class="font-mono text-[8px] text-osttra-ochre font-black bg-[#141414] p-2 rounded border border-white/5 text-center leading-normal">
+              Target Hours = (FTE % / 100) * (Weekdays - OOO Days) * 8h
+            </div>
+            <ul class="list-disc pl-4 space-y-1.5 pt-1 pr-2">
+              <li><strong class="text-white font-bold">Balanced:</strong> Logged hours are <strong class="text-white">80% to 115%</strong> of target capacity.</li>
+              <li><strong class="text-white font-bold">Underburdened:</strong> Hours are <strong class="text-white">< 80%</strong> (under-allocated or incomplete logs).</li>
+              <li><strong class="text-white font-bold">Overburdened:</strong> Hours are <strong class="text-white">>= 115%</strong> (burnout warning).</li>
+            </ul>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Summary Grid & Donut Chart -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <!-- Stat Cards -->
+      <div class="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="p-6 bg-[#222222] border border-white/5 rounded-3xl flex flex-col justify-between h-40 shadow-xl relative overflow-hidden group">
+          <div class="absolute -right-4 -bottom-4 text-white/[0.02] text-8xl group-hover:scale-110 transition-transform duration-500">
+            <i class="fas fa-users"></i>
+          </div>
+          <p class="text-[10px] font-black text-white/40 uppercase tracking-widest">Total Team Members</p>
+          <h3 id="stat-total" class="text-5xl font-black text-white tracking-tighter">0</h3>
+          <p class="text-[10px] font-bold text-white/30 uppercase tracking-widest mt-2">Active TPM hierarchy</p>
+        </div>
+
+        <div class="p-6 bg-[#222222] border border-white/5 rounded-3xl flex flex-col justify-between h-40 shadow-xl relative overflow-hidden group">
+          <div class="absolute -right-4 -bottom-4 text-white/[0.02] text-8xl group-hover:scale-110 transition-transform duration-500">
+            <i class="fas fa-check-circle"></i>
+          </div>
+          <p class="text-[10px] font-black text-emerald-500 uppercase tracking-widest">Compliant This Week</p>
+          <h3 id="stat-compliant" class="text-5xl font-black text-emerald-500 tracking-tighter">0</h3>
+          <p class="text-[10px] font-bold text-emerald-500/50 uppercase tracking-widest mt-2">Logged daily hours or marked OOO</p>
+        </div>
+
+        <div class="p-6 bg-[#222222] border border-white/5 rounded-3xl flex flex-col justify-between h-40 shadow-xl relative overflow-hidden group">
+          <div class="absolute -right-4 -bottom-4 text-white/[0.02] text-8xl group-hover:scale-110 transition-transform duration-500">
+            <i class="fas fa-exclamation-triangle"></i>
+          </div>
+          <p class="text-[10px] font-black text-osttra-rubine uppercase tracking-widest">Non-Compliant</p>
+          <h3 id="stat-noncompliant" class="text-5xl font-black text-osttra-rubine tracking-tighter">0</h3>
+          <p class="text-[10px] font-bold text-osttra-rubine/50 uppercase tracking-widest mt-2">Missing entries on one or more days</p>
+        </div>
+
+        <!-- NEW WORKLOAD saturation Alert Card -->
+        <div class="p-6 bg-[#222222] border border-white/5 rounded-3xl flex flex-col justify-between h-40 shadow-xl relative overflow-hidden group">
+          <div class="absolute -right-4 -bottom-4 text-white/[0.02] text-8xl group-hover:scale-110 transition-transform duration-500">
+            <i class="fas fa-fire text-osttra-rubine"></i>
+          </div>
+          <p class="text-[10px] font-black text-osttra-ochre uppercase tracking-widest">Overburden Alerts</p>
+          <h3 id="stat-overburden" class="text-5xl font-black text-osttra-ochre tracking-tighter">0</h3>
+          <p class="text-[10px] font-bold text-white/30 uppercase tracking-widest mt-2">Utilization Ratio is &ge; 115% of FTE target</p>
+        </div>
+      </div>
+
+      <!-- Chart Card -->
+      <div class="p-6 bg-[#222222] border border-white/5 rounded-3xl shadow-xl flex flex-col items-center justify-center relative">
+        <h3 class="text-[10px] font-black text-white/40 uppercase tracking-widest mb-4 self-start">Compliance Breakdown</h3>
+        <div class="w-48 h-48 relative">
+          <canvas id="compliance-chart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Collapsible Help Card & Definitions -->
+    <div class="bg-white/[0.02] border border-white/5 rounded-2xl shadow-md overflow-hidden">
+      <button onclick="toggleHelpCard()" class="w-full p-4 flex items-center justify-between text-left hover:bg-white/[0.04] transition-colors focus:outline-none">
+        <div class="flex items-center gap-3">
+          <i class="fas fa-info-circle text-osttra-rubine text-sm"></i>
+          <span class="text-[10px] font-bold text-white/80 uppercase tracking-wider">Workload Balance & Utilization Definitions</span>
+        </div>
+        <i id="help-chevron" class="fas fa-chevron-right text-white/40 text-xs transition-transform duration-200 chevron-transition"></i>
+      </button>
+      
+      <div id="help-content-card" class="hidden p-6 pt-2 border-t border-white/5 bg-[#1c1c1c]">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 text-[11px] leading-relaxed text-white/70">
+          <div class="space-y-1.5 p-4.5 bg-white/[0.01] border border-white/5 rounded-2xl pr-6">
+            <p class="font-black text-emerald-500 uppercase tracking-widest text-[9px] flex items-center gap-2 border-b border-white/5 pb-1 pr-2">
+              <i class="fas fa-balance-scale"></i> Balanced (80% - 115%)
+            </p>
+            <ul class="list-disc pl-4 space-y-1 mt-2 pr-2">
+              <li>Logged weekly effort matches allocation target baseline.</li>
+              <li>Shows sustainable workload of 32h to 46h (based on a 1.0 FTE).</li>
+            </ul>
+          </div>
+          <div class="space-y-1.5 p-4.5 bg-white/[0.01] border border-white/5 rounded-2xl pr-6">
+            <p class="font-black text-osttra-ochre uppercase tracking-widest text-[9px] flex items-center gap-2 border-b border-white/5 pb-1 pr-2">
+              <i class="fas fa-fire"></i> Overburdened (&ge; 115%)
+            </p>
+            <ul class="list-disc pl-4 space-y-1 mt-2 pr-2">
+              <li>Effort significantly exceeds target baseline.</li>
+              <li>Indicates high burnout risk. (Logged > 46 hours on 1.0 FTE).</li>
+            </ul>
+          </div>
+          <div class="space-y-1.5 p-4.5 bg-white/[0.01] border border-white/5 rounded-2xl pr-6">
+            <p class="font-black text-blue-400 uppercase tracking-widest text-[9px] flex items-center gap-2 border-b border-white/5 pb-1 pr-2">
+              <i class="fas fa-bed"></i> Underburdened (&lt; 80%)
+            </p>
+            <ul class="list-disc pl-4 space-y-1 mt-2 pr-2">
+              <li>Effort is well below allocation baseline.</li>
+              <li>Implies bench capacity or incomplete logging (< 32h on 1.0 FTE).</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Advanced Operational Filters & Action Bar -->
+    <div class="p-4 bg-[#222222] border border-white/5 rounded-2xl flex flex-wrap items-center gap-4 text-[10px] font-black uppercase tracking-widest text-white/40">
+      
+      <!-- Live Member Search -->
+      <div class="flex items-center gap-2 bg-white/5 p-1.5 rounded-xl border border-white/5 flex-1 min-w-[200px]">
+        <i class="fas fa-search pl-2 text-white/30"></i>
+        <input type="text" id="compliance-search" oninput="filterRosterGrid()" placeholder="Search Teammate Name, Email..." class="w-full bg-transparent border-none text-white text-[9px] uppercase font-black tracking-widest placeholder-white/30 outline-none" />
+      </div>
+
+      <!-- 1. Compliance Status Filter -->
+      <div class="flex items-center gap-2 bg-white/5 p-1.5 rounded-xl border border-white/5">
+        <label for="compliance-status-filter" class="pl-2">Compliance:</label>
+        <select id="compliance-status-filter" onchange="filterRosterGrid()" class="bg-[#222222] border border-white/10 rounded-lg px-2 py-1 text-white outline-none focus:border-osttra-rubine transition-all">
+          <option value="ALL" class="bg-[#222222] text-white">All Members</option>
+          <option value="COMPLIANT" class="bg-[#222222] text-white">Compliant Only</option>
+          <option value="INCOMPLETE" class="bg-[#222222] text-white">Incomplete Only</option>
+        </select>
+      </div>
+
+      <!-- 2. Workload Balance Filter -->
+      <div class="flex items-center gap-2 bg-white/5 p-1.5 rounded-xl border border-white/5">
+        <label for="compliance-workload-filter" class="pl-2">Workload:</label>
+        <select id="compliance-workload-filter" onchange="filterRosterGrid()" class="bg-[#222222] border border-white/10 rounded-lg px-2 py-1 text-white outline-none focus:border-osttra-rubine transition-all">
+          <option value="ALL" class="bg-[#222222] text-white">All Loads</option>
+          <option value="BALANCED" class="bg-[#222222] text-white">Balanced Only</option>
+          <option value="OVERBURDENED" class="bg-[#222222] text-white">Overburdened Only</option>
+          <option value="UNDERBURDENED" class="bg-[#222222] text-white">Underburdened Only</option>
+        </select>
+      </div>
+
+      <!-- 3. Automated Email Nudge Button -->
+      <button id="btn-email-nudges" onclick="triggerEmailNudges()" class="px-4 py-2 rounded-xl bg-osttra-rubine hover:brightness-110 text-white text-[9px] font-black uppercase tracking-widest active:scale-95 transition-all flex items-center gap-2 ml-auto shadow-md shadow-osttra-rubine/10">
+        <i class="fas fa-paper-plane"></i> ≡ƒô⌐ Nudge Incomplete Members
+      </button>
+    </div>
+
+    <!-- Collapsible Nudge Email Customization Template -->
+    <div id="nudge-template-panel" class="hidden bg-white/[0.02] border border-white/5 rounded-2xl shadow-md overflow-hidden animate-in slide-in-from-top duration-300">
+      <div class="p-6 bg-[#1c1c1c] space-y-6">
+        <div class="flex items-center justify-between border-b border-white/5 pb-3">
+          <span class="text-xs font-black uppercase tracking-widest text-white flex items-center gap-2">
+            <i class="fas fa-paper-plane text-osttra-rubine"></i> Customize Compliance Reminder Email
+          </span>
+          <button onclick="document.getElementById('nudge-template-panel').classList.add('hidden')" class="text-white/40 hover:text-white transition-colors focus:outline-none"><i class="fas fa-times"></i></button>
+        </div>
+
+        <div class="space-y-4">
+          <!-- Recipient Count Indicator -->
+          <div class="text-[10px] font-black uppercase tracking-widest text-white/50">
+            Recipients: <span id="nudge-recipients-count" class="text-osttra-rubine">0</span> incomplete member(s) selected
+          </div>
+
+          <!-- Email Subject -->
+          <div class="space-y-1.5">
+            <label class="text-[9px] font-black text-white/40 uppercase tracking-widest">Email Subject</label>
+            <input type="text" id="nudge-email-subject" class="w-full bg-[#1a1a1a]/50 border border-white/5 rounded-xl px-4 py-3 text-xs text-white focus:outline-none focus:border-osttra-rubine/40 transition-all placeholder-white/10" value="Action Required: Outstanding Timesheet Logs">
+          </div>
+
+          <!-- Email Body -->
+          <div class="space-y-1.5">
+            <label class="text-[9px] font-black text-white/40 uppercase tracking-widest">Email Message (Use [Name] and [Week] as placeholders)</label>
+            <textarea id="nudge-email-body" rows="6" class="w-full bg-[#1a1a1a]/50 border border-white/5 rounded-xl p-4 text-xs text-white focus:outline-none focus:border-osttra-rubine/40 transition-all font-mono leading-relaxed"></textarea>
+          </div>
+        </div>
+
+        <div class="flex justify-end gap-3 pt-2">
+          <button onclick="document.getElementById('nudge-template-panel').classList.add('hidden')" class="px-4 py-2 bg-white/5 border border-white/5 rounded-xl text-white/60 text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all">Cancel</button>
+          <button onclick="executeEmailNudges()" class="px-4 py-2 bg-osttra-rubine hover:brightness-110 rounded-xl text-white text-[10px] font-black uppercase tracking-widest transition-all shadow-md shadow-osttra-rubine/10">Send Compliance Reminders</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Compliance Matrix Card -->
+    <div class="space-y-4">
+      <h3 class="text-[10px] font-black text-white/40 uppercase tracking-widest">Compliance Roster Detail</h3>
+      
+      <div class="bg-[#222222] border border-white/5 rounded-3xl overflow-hidden shadow-2xl">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse">
+            <thead>
+              <tr class="border-b border-white/5 bg-white/[0.02]">
+                <th class="p-4 text-[10px] font-black uppercase tracking-widest text-white/40 pl-6 w-[320px]">TPM Team Member</th>
+                <th class="p-4 text-[10px] font-black uppercase tracking-widest text-white/40 text-center w-40">Total Hours Logged</th>
+                <th class="p-4 text-[10px] font-black uppercase tracking-widest text-white/40 text-center w-56">Compliance Status</th>
+                <th class="p-4 text-[10px] font-black uppercase tracking-widest text-white/40 text-center w-36 pr-6">Workload Balance</th>
+              </tr>
+            </thead>
+            <tbody id="compliance-matrix-body">
+              <!-- Populated dynamically -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  var complianceChart = null;
+  var globalData = null; // Store fetched data globally for rendering
+  var helpCardExpanded = false;
+  var currentStartStr = null; // State variable for active start date
+  var currentEndStr = null; // State variable for active end date
+
+  function getErrorMessage(err) {
+    if (!err) return "An unknown server-side error occurred.";
+    if (typeof err === 'string') return err;
+    if (err.message) return err.message;
+    if (err.details) return err.details;
+    return JSON.stringify(err);
+  }
+
+  function countWeekdays(dates) {
+    if (!dates || !Array.isArray(dates)) return 0;
+    let count = 0;
+    dates.forEach(dateStr => {
+      const parts = dateStr.split('-');
+      const d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+      const dayOfWeek = d.getDay();
+      if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+        count++;
+      }
+    });
+    return count;
+  }
+
+  // Initialize view
+  (function() {
+    function initTpmDashboard() {
+      const startPicker = document.getElementById('start-date-picker');
+      const endPicker = document.getElementById('end-date-picker');
+      
+      // Self-healing yield check: if elements aren't painted in DOM yet, wait 100ms and try again
+      if (!startPicker || !endPicker) {
+        setTimeout(initTpmDashboard, 100);
+        return;
+      }
+
+      const d = new Date();
+      const day = d.getDay();
+      const diff = d.getDate() - day; // Sunday is day 0
+      const sunday = new Date(d.setDate(diff));
+      
+      const saturday = new Date(sunday);
+      saturday.setDate(saturday.getDate() + 6);
+
+      currentStartStr = formatDateString(sunday);
+      currentEndStr = formatDateString(saturday);
+
+      startPicker.value = currentStartStr;
+      endPicker.value = currentEndStr;
+
+      const todayStr = formatDateString(new Date());
+      startPicker.max = todayStr;
+      endPicker.max = todayStr;
+
+      loadDashboardData(currentStartStr, currentEndStr);
+    }
+    
+    initTpmDashboard();
+  })();
+
+  function formatDateString(date) {
+    const yyyy = date.getFullYear();
+    const mm = String(date.getMonth() + 1).padStart(2, '0');
+    const dd = String(date.getDate()).padStart(2, '0');
+    return yyyy + '-' + mm + '-' + dd;
+  }
+
+  function formatDateFriendly(dateStr) {
+    if (!dateStr) return 'N/A';
+    const parts = dateStr.split('-');
+    if (parts.length !== 3) return dateStr;
+    const year = parts[0].substring(2); // "26"
+    const monthIdx = parseInt(parts[1], 10) - 1;
+    const day = parseInt(parts[2], 10);
+    const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    return day + '-' + months[monthIdx] + '-' + year;
+  }
+
+  function formatHours2D(val) {
+    const num = parseFloat(val) || 0;
+    const fixed = num.toFixed(2);
+    const parts = fixed.split('.');
+    const before = parts[0].padStart(2, '0');
+    return before + '.' + parts[1];
+  }
+
+  function handleCustomDateRangeChange() {
+    const startVal = document.getElementById('start-date-picker').value;
+    const endVal = document.getElementById('end-date-picker').value;
+    if (!startVal || !endVal) return;
+
+    if (startVal > endVal) {
+      showNotification('warning', 'Invalid Date Range', 'Start Date cannot be after End Date. Auto-adjusting...');
+      document.getElementById('end-date-picker').value = startVal;
+      currentStartStr = startVal;
+      currentEndStr = startVal;
+    } else {
+      currentStartStr = startVal;
+      currentEndStr = endVal;
+    }
+
+    loadDashboardData(currentStartStr, currentEndStr);
+  }
+
+  function handleRefresh() {
+    const startVal = document.getElementById('start-date-picker').value;
+    const endVal = document.getElementById('end-date-picker').value;
+    loadDashboardData(startVal, endVal, true);
+  }
+
+  function toggleHelpCard() {
+    helpCardExpanded = !helpCardExpanded;
+    const content = document.getElementById('help-content-card');
+    const icon = document.getElementById('help-chevron');
+    if (helpCardExpanded) {
+      content.classList.remove('hidden');
+      content.classList.add('grid');
+      icon.classList.add('rotate-90');
+    } else {
+      content.classList.add('hidden');
+      content.classList.remove('grid');
+      icon.classList.remove('rotate-90');
+    }
+  }
+
+  function loadDashboardData(startDateStr, endDateStr, forceRefresh = false) {
+    const loader = document.getElementById('tpm-dashboard-loading');
+    if (loader) loader.classList.remove('hidden');
+    google.script.run
+      .withSuccessHandler(data => {
+        if (loader) loader.classList.add('hidden');
+        globalData = data;
+        updateDashboardStats(data.complianceStats);
+        
+        // Calculate dynamic alerts and counts
+        calculateWorkloadAlerts(data.matrix);
+
+        try {
+          renderComplianceChart(data.complianceStats);
+        } catch (chartError) {
+          console.error("Failed to render compliance chart:", chartError);
+        }
+        renderComplianceMatrix(data.matrix);
+      })
+      .withFailureHandler(err => {
+        if (loader) loader.classList.add('hidden');
+        showNotification('error', 'Dashboard Load Failed', err.message);
+      })
+      .getTpmDashboardData(startDateStr, endDateStr, forceRefresh);
+  }
+
+  function calculateWorkloadAlerts(matrix) {
+    let overburdenCount = 0;
+    const weekdaysInRange = countWeekdays(globalData.weekDates);
+    
+    matrix.forEach(member => {
+      const oooDaysInRange = member.oooDates.filter(d => globalData.weekDates.includes(d)).length;
+      const targetHours = (member.allocatedFte / 100) * (weekdaysInRange - oooDaysInRange) * 8;
+      const ratio = targetHours > 0 ? (member.total / targetHours) * 100 : 0;
+      if (ratio >= 115) {
+        overburdenCount++;
+      }
+    });
+    document.getElementById('stat-overburden').innerText = overburdenCount;
+  }
+
+  function populateDynamicFilters() {
+    if (!globalData || !globalData.allEpics) return;
+
+    // 1. Dynamic Unique Epic Statuses
+    const statuses = [...new Set(globalData.allEpics.map(e => e["Status"]).filter(Boolean))];
+    const statusSelect = document.getElementById('portfolio-status-filter');
+    statusSelect.innerHTML = '<option value="ALL" class="bg-[#222222] text-white">All Statuses</option>';
+    statuses.forEach(s => {
+      statusSelect.innerHTML += '<option value="' + s + '" class="bg-[#222222] text-white">' + s + '</option>';
+    });
+
+    // 2. Unique Owners (Filter out unassigned/empty)
+    const owners = [...new Set(globalData.allEpics.map(e => e["Assignee_Email"]).filter(Boolean))];
+    const ownerSelect = document.getElementById('portfolio-owner-filter');
+    ownerSelect.innerHTML = '<option value="ALL" class="bg-[#222222] text-white">All Owners</option>';
+    owners.forEach(email => {
+      ownerSelect.innerHTML += '<option value="' + email + '" class="bg-[#222222] text-white">' + email + '</option>';
+    });
+
+    // 3. Unique Accounts
+    const accounts = [...new Set(globalData.allEpics.map(e => e["Account_Name"] || e["Account Name"]).filter(Boolean))];
+    const accountSelect = document.getElementById('portfolio-account-filter');
+    accountSelect.innerHTML = '<option value="ALL" class="bg-[#222222] text-white">All Accounts</option>';
+    accounts.forEach(acc => {
+      accountSelect.innerHTML += '<option value="' + acc + '" class="bg-[#222222] text-white">' + acc + '</option>';
+    });
+  }
+
+  function updateUnassignedBadge(count) {
+    const badge = document.getElementById('unassigned-epics-badge');
+    const countSpan = document.getElementById('unassigned-epics-count');
+    if (badge && countSpan) {
+      countSpan.innerText = count;
+      if (count > 0) {
+        badge.classList.remove('hidden');
+        badge.classList.add('flex');
+      } else {
+        badge.classList.add('hidden');
+        badge.classList.remove('flex');
+      }
+    }
+  }
+
+  function updateDashboardStats(stats) {
+    document.getElementById('stat-total').innerText = stats.total;
+    document.getElementById('stat-compliant').innerText = stats.compliant;
+    document.getElementById('stat-noncompliant').innerText = stats.nonCompliant;
+    const rateEl = document.getElementById('stat-rate');
+    if (rateEl) {
+      rateEl.innerText = stats.percentage + '%';
+    }
+  }
+
+  function renderComplianceChart(stats) {
+    if (typeof Chart === 'undefined') {
+      console.warn("Chart.js is not fully loaded from CDN yet. Skipping chart rendering.");
+      return;
+    }
+    const canvas = document.getElementById('compliance-chart');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    
+    if (complianceChart) {
+      try {
+        complianceChart.destroy();
+      } catch (e) {
+        console.warn("Failed to destroy previous chart instance:", e);
+      }
+    }
+
+    complianceChart = new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels: ['Compliant', 'Non-Compliant'],
+        datasets: [{
+          data: [stats.compliant, stats.nonCompliant],
+          backgroundColor: ['#10B981', '#FF0061'],
+          borderWidth: 0,
+          hoverOffset: 4
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            display: false
+          },
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                return ' ' + context.label + ': ' + context.raw + ' members';
+              }
+            }
+          }
+        },
+        cutout: '75%'
+      }
+    });
+  }
+
+  // Frontend Dynamic filtering for the Compliance Roster (Tab 1)
+  function filterRosterGrid() {
+    if (!globalData || !globalData.matrix) return;
+    renderComplianceMatrix(globalData.matrix);
+  }
+
+  function renderComplianceMatrix(matrix) {
+    const tbody = document.getElementById('compliance-matrix-body');
+    tbody.innerHTML = '';
+
+    if (matrix.length === 0) {
+      const tr = document.createElement('tr');
+      const td = document.createElement('td');
+      td.colSpan = 4;
+      td.className = 'p-12 text-center text-white/40 text-xs font-bold uppercase tracking-widest leading-relaxed';
+      td.textContent = 'No TPM hierarchy members detected under your reporting structure.';
+      tr.appendChild(td);
+      tbody.appendChild(tr);
+      return;
+    }
+
+    // Capture dynamic filter values
+    const query = document.getElementById('compliance-search').value.toLowerCase().trim();
+    const compFilter = document.getElementById('compliance-status-filter').value;
+    const loadFilter = document.getElementById('compliance-workload-filter').value;
+
+    const filteredMatrix = matrix.filter(member => {
+      const name = String(member.name || "").toLowerCase();
+      const email = String(member.email || "").toLowerCase();
+      const isCompliant = member.isCompliant;
+      
+      const weekdaysInRange = countWeekdays(globalData.weekDates);
+      const oooDaysInRange = member.oooDates.filter(d => globalData.weekDates.includes(d)).length;
+      const targetHours = (member.allocatedFte / 100) * (weekdaysInRange - oooDaysInRange) * 8;
+      
+      const ratio = targetHours > 0 ? (member.total / targetHours) * 100 : 0;
+      
+      let loadState = 'BALANCED';
+      if (ratio >= 115) loadState = 'OVERBURDENED';
+      else if (ratio < 80) loadState = 'UNDERBURDENED';
+
+      // 1. Search Query filter
+      if (query && !name.includes(query) && !email.includes(query)) return false;
+
+      // 2. Compliance status filter
+      if (compFilter === "COMPLIANT" && !isCompliant) return false;
+      if (compFilter === "INCOMPLETE" && isCompliant) return false;
+
+      // 3. Workload balance filter
+      if (loadFilter !== "ALL" && loadState !== loadFilter) return false;
+
+      return true;
+    });
+
+    // Dynamically update Nudge Button indicator count
+    const nudgeBtn = document.getElementById('btn-email-nudges');
+    const incompleteTeammates = filteredMatrix.filter(m => !m.isCompliant);
+    nudgeBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Nudge ' + incompleteTeammates.length + ' Incomplete Members';
+    if (incompleteTeammates.length === 0) {
+      nudgeBtn.disabled = true;
+      nudgeBtn.style.opacity = '0.3';
+      nudgeBtn.style.cursor = 'not-allowed';
+    } else {
+      nudgeBtn.disabled = false;
+      nudgeBtn.style.opacity = '1';
+      nudgeBtn.style.cursor = 'pointer';
+    }
+
+    if (filteredMatrix.length === 0) {
+      const tr = document.createElement('tr');
+      const td = document.createElement('td');
+      td.colSpan = 4;
+      td.className = 'p-12 text-center text-white/40 text-xs font-bold uppercase tracking-widest leading-relaxed flex flex-col items-center justify-center gap-2 bg-[#222222] border border-white/5 rounded-3xl';
+      td.innerHTML = '<i class="fas fa-filter text-3xl mb-1 opacity-25"></i> No roster members match your active search or workload filters.';
+      tr.appendChild(td);
+      tbody.appendChild(tr);
+      return;
+    }
+
+    const todayStr = formatDateString(new Date());
+    const weekdaysInRange = countWeekdays(globalData.weekDates);
+
+    filteredMatrix.forEach((row, rowIndex) => {
+      const totalHours = row.total;
+      const detailsRowId = 'details-row-' + rowIndex;
+      const chevronId = 'chevron-' + rowIndex;
+
+      // Calculate Workload balance based on standard 8-hour target baseline
+      const targetHours = (row.allocatedFte / 100) * weekdaysInRange * 8;
+      const utilRatio = targetHours > 0 ? (totalHours / targetHours) * 100 : 0;
+
+      let loadBadgeHtml = '';
+      if (utilRatio >= 115) {
+        loadBadgeHtml = '<span class="px-2.5 py-1 rounded-full text-[8px] font-black uppercase tracking-wider border border-red-500/25 text-osttra-rubine bg-osttra-rubine/10 shadow-lg shadow-osttra-rubine/5 cursor-help" title="Effort exceeds allocation baseline (Risk of Burnout)">Overburdened (' + Math.round(utilRatio) + '%)</span>';
+      } else if (utilRatio < 80) {
+        loadBadgeHtml = '<span class="px-2.5 py-1 rounded-full text-[8px] font-black uppercase tracking-wider border border-blue-500/25 text-blue-400 bg-blue-500/10 cursor-help" title="Under-allocated effort or incomplete logs">Underburdened (' + Math.round(utilRatio) + '%)</span>';
+      } else {
+        loadBadgeHtml = '<span class="px-2.5 py-1 rounded-full text-[8px] font-black uppercase tracking-wider border border-emerald-500/25 text-emerald-500 bg-emerald-500/10 cursor-help" title="Effort matches allocated FTE target baseline">Balanced (' + Math.round(utilRatio) + '%)</span>';
+      }
+
+      // Build main row (tr)
+      const tr = document.createElement('tr');
+      tr.className = 'hover:bg-white/[0.01] transition-colors border-b border-white/5 cursor-pointer';
+      tr.addEventListener('click', () => {
+        const rowEl = document.getElementById(detailsRowId);
+        const iconEl = document.getElementById(chevronId);
+        if (rowEl) {
+          rowEl.classList.toggle('hidden');
+          iconEl.classList.toggle('rotate-90');
+        }
+      });
+
+      // Column 1: Member Info
+      const tdInfo = document.createElement('td');
+      tdInfo.className = 'p-4 pl-6 border-b border-white/5 flex items-center gap-3';
+      
+      const toggleBtn = document.createElement('div');
+      toggleBtn.className = 'w-6 h-6 rounded-md bg-white/5 border border-white/5 text-[10px] text-white flex items-center justify-center shrink-0';
+      
+      const chevronIcon = document.createElement('i');
+      chevronIcon.id = chevronId;
+      chevronIcon.className = 'fas fa-chevron-right chevron-transition';
+      toggleBtn.appendChild(chevronIcon);
+      
+      const textContainer = document.createElement('div');
+      const nameP = document.createElement('p');
+      nameP.className = 'text-xs font-bold text-white';
+      nameP.textContent = row.name;
+      
+      const emailP = document.createElement('p');
+      emailP.className = 'text-[9px] text-white/40 font-mono mt-0.5';
+      emailP.textContent = row.email;
+      
+      textContainer.appendChild(nameP);
+      textContainer.appendChild(emailP);
+      
+      tdInfo.appendChild(toggleBtn);
+      tdInfo.appendChild(textContainer);
+      tr.appendChild(tdInfo);
+
+      // Column 2: Capacity Fraction (X logged / Y target)
+      const tdTotal = document.createElement('td');
+      tdTotal.className = 'p-4 text-center border-b border-white/5 font-mono';
+      tdTotal.innerHTML = '<span class="text-xs font-black text-white">' + totalHours.toFixed(1) + 'h</span>' +
+                          '<span class="text-white/20 mx-1">/</span>' +
+                          '<span class="text-[10px] text-white/40 font-bold" title="Capacity target based on standard 8-hour weekdays minus OOO days">' + targetHours.toFixed(1) + 'h</span>';
+      tr.appendChild(tdTotal);
+
+      // Column 3: Single Unified Compliance Status Badge (Option B: Range-Bounded)
+      const missedDays = [];
+      globalData.weekDates.forEach(dateStr => {
+        const parts = dateStr.split('-');
+        const dateObj = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+        const dayOfWeek = dateObj.getDay();
+        const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+        
+        if (!isWeekend && dateStr <= todayStr && !row.oooDates.includes(dateStr)) {
+          // Check if hours were logged for this day
+          const dayIdx = globalData.weekDates.indexOf(dateStr);
+          const hoursLogged = dayIdx !== -1 ? row.dailyHours[dayIdx] : 0;
+          if (hoursLogged <= 0) {
+            missedDays.push(formatDateFriendly(dateStr));
+          }
+        }
+      });
+
+      const tdCompliant = document.createElement('td');
+      tdCompliant.className = 'p-4 text-center border-b border-white/5';
+      
+      const compliantSpan = document.createElement('span');
+      if (missedDays.length > 0) {
+        // Incomplete State
+        compliantSpan.className = 'px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-wider border text-osttra-rubine bg-osttra-rubine/10 border-osttra-rubine/20 shadow-sm cursor-help';
+        compliantSpan.textContent = 'Incomplete';
+        compliantSpan.title = 'Missing logs on: ' + missedDays.join(', ');
+      } else {
+        // Evaluate if the range extends into today or future
+        const hasFutureOrToday = globalData.weekDates.some(d => d >= todayStr);
+        if (hasFutureOrToday) {
+          // In Progress State
+          compliantSpan.className = 'px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-wider border text-amber-500 bg-amber-500/10 border-amber-500/20 shadow-sm cursor-help';
+          compliantSpan.textContent = 'In Progress';
+          compliantSpan.title = 'Completed all past weekdays; range extends into today/future.';
+        } else {
+          // Compliant State
+          compliantSpan.className = 'px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-wider border text-emerald-500 bg-emerald-500/10 border-emerald-500/20 shadow-sm cursor-help';
+          compliantSpan.textContent = 'Compliant';
+          compliantSpan.title = 'Fully compliant over the entire selected date range.';
+        }
+      }
+      tdCompliant.appendChild(compliantSpan);
+      tr.appendChild(tdCompliant);
+
+      // Column 4: Workload Balance Badge
+      const tdWorkload = document.createElement('td');
+      tdWorkload.className = 'p-4 text-center border-b border-white/5 pr-6';
+      tdWorkload.innerHTML = loadBadgeHtml;
+      tr.appendChild(tdWorkload);
+
+      tbody.appendChild(tr);
+
+      // Create slide-out accordion row beneath showing detailed ticket breakdowns
+      const detailTr = document.createElement('tr');
+      detailTr.id = detailsRowId;
+      detailTr.className = 'hidden bg-black/25';
+      
+      const detailTd = document.createElement('td');
+      detailTd.colSpan = 4;
+      detailTd.className = 'p-6 border-b border-white/5';
+
+      const detailsContainer = document.createElement('div');
+      detailsContainer.className = 'space-y-6 max-w-5xl';
+      
+      const logs = row.ticketLogs || [];
+
+      // 1. Calculate Status Hours Breakdown Summary
+      const statusHoursMap = {};
+      logs.forEach(l => {
+        let status = l.status || 'Active';
+        const keyUpper = String(l.key || "").toUpperCase().trim();
+        if (['OOO', 'ADMIN', 'NON-BAU', 'MGMT', 'TRAINING'].includes(keyUpper)) {
+          status = 'Persistent';
+        }
+        statusHoursMap[status] = (statusHoursMap[status] || 0) + l.total;
+      });
+
+      // 2. Build Status Hours Summary Bar
+      const summaryBar = document.createElement('div');
+      summaryBar.className = 'flex flex-wrap gap-2.5 pb-4 items-center border-b border-white/5';
+      
+      const barLabel = document.createElement('span');
+      barLabel.className = 'text-[9px] font-black uppercase tracking-widest text-white/40 mr-1.5 flex items-center gap-1.5';
+      barLabel.innerHTML = '<i class="fas fa-chart-pie text-osttra-rubine"></i> Status Effort Breakdown:';
+      summaryBar.appendChild(barLabel);
+
+      const statusKeys = Object.keys(statusHoursMap);
+      if (statusKeys.length > 0) {
+        statusKeys.forEach(statusKey => {
+          const hours = statusHoursMap[statusKey];
+          let pillClass = 'text-white/60 bg-white/5 border-white/10';
+          const statusLower = statusKey.toLowerCase();
+          
+          if (['initiation', 'implementation', 'assigned', 'preparing deployment'].includes(statusLower)) {
+            pillClass = 'text-blue-400 bg-blue-500/10 border-blue-500/20';
+          } else if (['uat', 'technical go live', 'technical go-live', 'go live', 'go-live', 'tpm handover approved'].includes(statusLower)) {
+            pillClass = 'text-osttra-ochre bg-osttra-ochre/10 border-osttra-ochre/20';
+          } else if (['closed', 'done', 'resolved', 'live', 'completed'].includes(statusLower)) {
+            pillClass = 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20';
+          }
+
+          const pill = document.createElement('span');
+          pill.className = 'px-2.5 py-1 rounded-xl text-[9px] font-mono font-black uppercase border flex items-center gap-1 ' + pillClass;
+          pill.textContent = statusKey + ': ' + formatHours2D(hours) + 'h';
+          summaryBar.appendChild(pill);
+        });
+      } else {
+        const noLogs = document.createElement('span');
+        noLogs.className = 'text-[9px] text-white/30 uppercase tracking-widest';
+        noLogs.textContent = 'No hours logged';
+        summaryBar.appendChild(noLogs);
+      }
+      detailsContainer.appendChild(summaryBar);
+      
+      // Separate Ticket Categories
+      // Unify Epic and Non-BAU logs into a single unified list
+      const allLogs = [];
+
+      // 1. Add Epics
+      const epicLogs = logs.filter(l => {
+        const keyUpper = String(l.key || "").toUpperCase().trim();
+        return !['NON-BAU', 'ADMIN', 'OOO', 'MGMT', 'TRAINING'].includes(keyUpper);
+      });
+      epicLogs.forEach(epic => {
+        allLogs.push({
+          key: epic.key,
+          summary: epic.summary || 'Core BAU Project',
+          status: epic.status || 'Active',
+          int: epic.int || 0,
+          uat: epic.uat || 0,
+          other: epic.other || 0,
+          total: epic.total,
+          isEpic: true
+        });
+      });
+
+      // 2. Add Non-BAU / Operations
+      const otherLogs = logs.filter(l => {
+        const keyUpper = String(l.key || "").toUpperCase().trim();
+        return ['NON-BAU', 'ADMIN', 'OOO', 'MGMT', 'TRAINING'].includes(keyUpper);
+      });
+      otherLogs.forEach(log => {
+        allLogs.push({
+          key: log.key.toUpperCase(),
+          summary: log.summary || 'Administrative Operations & Out Of Office',
+          status: 'Persistent',
+          int: 0,
+          uat: 0,
+          other: log.total,
+          total: log.total,
+          isEpic: false
+        });
+      });
+
+      // 1. Single Unified Log Table
+      const logSection = document.createElement('div');
+      logSection.className = 'space-y-2.5';
+      
+      const logTitle = document.createElement('h4');
+      logTitle.className = 'text-[9px] font-black uppercase tracking-[0.2em] text-osttra-rubine border-b border-white/5 pb-1.5 flex items-center gap-2';
+      logTitle.innerHTML = '<i class="fas fa-list-ul"></i> Detailed Effort Logging Roster';
+      logSection.appendChild(logTitle);
+
+      const logTableContainer = document.createElement('div');
+      logTableContainer.className = 'bg-[#1e1e1e] border border-white/5 rounded-2xl overflow-hidden';
+      
+      let logTableHtml = 
+        '<table class="w-full text-left text-[10px] border-collapse">' +
+          '<thead>' +
+            '<tr class="bg-white/5 text-white/40 uppercase tracking-widest text-[8px] font-black border-b border-white/5">' +
+              '<th class="p-3 pl-4 w-36">Jira Key / Category</th>' +
+              '<th class="p-3">Title / Description</th>' +
+              '<th class="p-3 text-center w-24">Status</th>' +
+              '<th class="p-3 text-center w-44">Phase Splits (INT | UAT/GO | Other)</th>' +
+              '<th class="p-3 text-center w-20 pr-4">Total</th>' +
+            '</tr>' +
+          '</thead>' +
+          '<tbody>';
+
+      if (allLogs.length > 0) {
+        allLogs.forEach(log => {
+          if (log.isEpic) {
+            // Epic row rendering (with phase borders)
+            let phaseBorder = 'border-l-4 border-l-transparent';
+            let statusColor = 'text-white/50 border-white/5 bg-white/5';
+            const statusLower = String(log.status || "Active").toLowerCase().trim();
+            
+            if (['initiation', 'implementation', 'assigned', 'preparing deployment'].includes(statusLower)) {
+              phaseBorder = 'border-l-4 border-l-blue-500';
+              statusColor = 'text-blue-400 border-blue-400/20 bg-blue-500/10';
+            } else if (['uat', 'technical go live', 'technical go-live', 'go live', 'go-live', 'tpm handover approved'].includes(statusLower)) {
+              phaseBorder = 'border-l-4 border-l-osttra-ochre';
+              statusColor = 'text-osttra-ochre border-osttra-ochre/20 bg-osttra-ochre/10';
+            } else if (['closed', 'done', 'resolved', 'live', 'completed'].includes(statusLower)) {
+              phaseBorder = 'border-l-4 border-l-emerald-500';
+              statusColor = 'text-emerald-500 border-emerald-500/20 bg-emerald-500/10';
+            }
+
+            logTableHtml += '<tr class="border-b border-white/5 hover:bg-white/[0.01] transition-colors ' + phaseBorder + '">' +
+                '<td class="p-3 pl-4 font-mono font-black text-blue-400">' +
+                  '<a href="https://osttra.atlassian.net/browse/' + log.key + '" target="_blank" class="hover:underline flex items-center gap-1">' +
+                    '<i class="fas fa-external-link-alt text-[8px]"></i> ' + log.key +
+                  '</a>' +
+                '</td>' +
+                '<td class="p-3 text-white/70 font-semibold truncate max-w-[280px]" title="' + log.summary + '">' + log.summary + '</td>' +
+                '<td class="p-3 text-center">' +
+                  '<span class="px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider border ' + statusColor + '">' + log.status + '</span>' +
+                '</td>' +
+                '<td class="p-3 text-center font-mono">' +
+                  '<span class="text-blue-400 font-bold" title="Integration hours">' + formatHours2D(log.int) + 'h</span>' +
+                  '<span class="text-white/20 px-1.5">|</span>' +
+                  '<span class="text-osttra-ochre font-bold" title="UAT & Go-Live hours">' + formatHours2D(log.uat) + 'h</span>' +
+                  '<span class="text-white/20 px-1.5">|</span>' +
+                  '<span class="text-purple-400 font-bold" title="Other hours">' + formatHours2D(log.other) + 'h</span>' +
+                '</td>' +
+                '<td class="p-3 text-center font-mono font-black text-white pr-4">' + formatHours2D(log.total) + 'h</td>' +
+              '</tr>';
+          } else {
+            // Non-BAU (ADMIN, MGMT, ooo, TRAINING) row rendering
+            let icon = 'fa-briefcase text-osttra-ochre';
+            if (log.key.toLowerCase() === 'ooo') icon = 'fa-plane text-blue-400';
+            if (log.key.toUpperCase() === 'TRAINING') icon = 'fa-graduation-cap text-purple-400';
+            if (log.key.toUpperCase() === 'MGMT') icon = 'fa-user-tie text-emerald-400';
+
+            logTableHtml += '<tr class="border-b border-white/5 hover:bg-white/[0.01] transition-colors border-l-4 border-l-transparent">' +
+                '<td class="p-3 pl-4 font-mono font-black text-white/85 flex items-center gap-2">' +
+                  '<div class="w-5 h-5 rounded bg-white/5 border border-white/5 flex items-center justify-center shrink-0 text-[8px]">' +
+                    '<i class="fas ' + icon + '"></i>' +
+                  '</div>' +
+                  log.key +
+                '</td>' +
+                '<td class="p-3 text-white/60 font-semibold truncate max-w-[280px]" title="' + log.summary + '">' + log.summary + '</td>' +
+                '<td class="p-3 text-center">' +
+                  '<span class="px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider border text-white/40 border-white/5 bg-white/5">' + log.status + '</span>' +
+                '</td>' +
+                '<td class="p-3 text-center text-white/20 font-mono">-</td>' +
+                '<td class="p-3 text-center font-mono font-black text-white pr-4">' + formatHours2D(log.total) + 'h</td>' +
+              '</tr>';
+          }
+        });
+      } else {
+        logTableHtml += '<tr>' +
+            '<td colspan="5" class="p-6 text-center text-white/30 uppercase tracking-widest font-black text-[9px]">' +
+              'No timesheet hours logged this week.' +
+            '</td>' +
+          '</tr>';
+      }
+
+      logTableHtml += '</tbody></table>';
+      logTableContainer.innerHTML = logTableHtml;
+      logSection.appendChild(logTableContainer);
+      detailsContainer.appendChild(logSection);
+
+      detailTd.appendChild(detailsContainer);
+      detailTr.appendChild(detailTd);
+      tbody.appendChild(detailTr);
+    });
+  }
+
+  function triggerEmailNudges() {
+    if (!globalData || !globalData.matrix) return;
+    
+    // Extract non-compliant members currently filtered in roster list
+    const compFilter = document.getElementById('compliance-status-filter').value;
+    const loadFilter = document.getElementById('compliance-workload-filter').value;
+    const query = document.getElementById('compliance-search').value.toLowerCase().trim();
+
+    const weekdaysInRange = countWeekdays(globalData.weekDates);
+
+    const targets = globalData.matrix.filter(member => {
+      const name = String(member.name || "").toLowerCase();
+      const email = String(member.email || "").toLowerCase();
+      
+      const targetHours = (member.allocatedFte / 100) * weekdaysInRange * 8;
+      const ratio = targetHours > 0 ? (member.total / targetHours) * 100 : 0;
+      let loadState = 'BALANCED';
+      if (ratio >= 115) loadState = 'OVERBURDENED';
+      else if (ratio < 80) loadState = 'UNDERBURDENED';
+
+      if (query && !name.includes(query) && !email.includes(query)) return false;
+      if (compFilter === "COMPLIANT" && !member.isCompliant) return false;
+      if (compFilter === "INCOMPLETE" && member.isCompliant) return false;
+      if (loadFilter !== "ALL" && loadState !== loadFilter) return false;
+
+      // We only nudge those who are NOT compliant
+      return !member.isCompliant;
+    });
+
+    if (targets.length === 0) {
+      showNotification('warning', 'No Reminders Sent', 'All currently filtered members are already compliant!');
+      return;
+    }
+
+    const pickerVal = currentStartStr || "";
+    
+    // Unhide the template panel and pre-fill default parameters
+    const panel = document.getElementById('nudge-template-panel');
+    panel.classList.remove('hidden');
+    panel.scrollIntoView({ behavior: 'smooth' });
+
+    document.getElementById('nudge-recipients-count').innerText = targets.length;
+    document.getElementById('nudge-email-subject').value = "Action Required: Outstanding Timesheet Logs - Week of " + pickerVal;
+    
+    document.getElementById('nudge-email-body').value = 
+      "Hi [Name],\n\n" +
+      "This is an automated operational reminder from the Nexus TPM Resource Center.\n\n" +
+      "Our records indicate that your timesheet entries for the week starting " + pickerVal + " are currently incomplete (missing hours or below your standard allocated capacity).\n\n" +
+      "Please log into Nexus and update your timesheet as soon as possible to ensure accurate monthly product allocation metrics.\n\n" +
+      "Link to Nexus: " + window.location.href + "\n\n" +
+      "Thank you for your prompt cooperation,\n" +
+      "TPM Team Management";
+  }
+
+  function executeEmailNudges() {
+    if (!globalData || !globalData.matrix) return;
+    
+    // Extract non-compliant members currently filtered in roster list
+    const compFilter = document.getElementById('compliance-status-filter').value;
+    const loadFilter = document.getElementById('compliance-workload-filter').value;
+    const query = document.getElementById('compliance-search').value.toLowerCase().trim();
+
+    const weekdaysInRange = countWeekdays(globalData.weekDates);
+
+    const targets = globalData.matrix.filter(member => {
+      const name = String(member.name || "").toLowerCase();
+      const email = String(member.email || "").toLowerCase();
+      
+      const targetHours = (member.allocatedFte / 100) * weekdaysInRange * 8;
+      const ratio = targetHours > 0 ? (member.total / targetHours) * 100 : 0;
+      let loadState = 'BALANCED';
+      if (ratio >= 115) loadState = 'OVERBURDENED';
+      else if (ratio < 80) loadState = 'UNDERBURDENED';
+
+      if (query && !name.includes(query) && !email.includes(query)) return false;
+      if (compFilter === "COMPLIANT" && !member.isCompliant) return false;
+      if (compFilter === "INCOMPLETE" && member.isCompliant) return false;
+      if (loadFilter !== "ALL" && loadState !== loadFilter) return false;
+
+      // We only nudge those who are NOT compliant
+      return !member.isCompliant;
+    });
+
+    if (targets.length === 0) {
+      showNotification('warning', 'No Reminders Sent', 'All currently filtered members are already compliant!');
+      return;
+    }
+
+    const emailsToNudge = targets.map(t => t.email);
+    const pickerVal = currentStartStr || "";
+    const subject = document.getElementById('nudge-email-subject').value.trim();
+    const bodyTemplate = document.getElementById('nudge-email-body').value.trim();
+
+    if (!subject || !bodyTemplate) {
+      showNotification('error', 'Validation Error', 'Email Subject and Message Body cannot be empty.');
+      return;
+    }
+
+    showLoading('Sending compliance reminders to ' + emailsToNudge.length + ' members...');
+    google.script.run
+      .withSuccessHandler(msg => {
+        hideLoading();
+        document.getElementById('nudge-template-panel').classList.add('hidden');
+        showNotification('success', 'Nudges Sent', msg);
+      })
+      .withFailureHandler(err => {
+        hideLoading();
+        showNotification('error', 'Nudge Dispatch Failed', err.message);
+      })
+      .sendTpmComplianceNudge(emailsToNudge, pickerVal, subject, bodyTemplate);
+  }
+
+</script>

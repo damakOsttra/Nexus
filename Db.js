@@ -166,6 +166,10 @@ function flushSystemCaches() {
     clearSheetCache(CONFIG.SHEETS.SKILL_LEVELS);
     clearSheetCache(CONFIG.SHEETS.CONFIG);
     
+    // Clear TPM workspace caches
+    clearSheetCache(CONFIG.SHEETS.TPM_JIRA_CACHE);
+    clearSheetCache(CONFIG.SHEETS.TPM_TIMESHEET_LOGS);
+    
     // Clear system config cache
     cache.remove("system_config");
     
@@ -207,8 +211,14 @@ function getSheetData(sheetName) {
       let val = row[i];
       // Convert all values to strings/numbers consistently if needed, 
       // but primarily preserve original for date/number handling.
-      if (val instanceof Date && (header === "Month and Year" || header === "Period")) {
-        val = Utilities.formatDate(val, tz, "MMMM yyyy");
+      if (val instanceof Date) {
+        if (header === "Month and Year" || header === "Period") {
+          val = Utilities.formatDate(val, tz, "MMMM yyyy");
+        } else {
+          const headerLower = header.toLowerCase();
+          const hasTime = headerLower.includes("time") || headerLower.includes("stamp");
+          val = Utilities.formatDate(val, tz, hasTime ? "yyyy-MM-dd HH:mm:ss" : "yyyy-MM-dd");
+        }
       }
       if (typeof val === 'string') val = val.trim();
       obj[header] = val;
@@ -296,46 +306,6 @@ function updateSheetData(sheetName, data2D) {
     sheet.getRange(1, 1, data2D.length, data2D[0].length).setValues(data2D);
     return true;
   });
-}
-
-/**
- * BIGQUERY UTILITY: Executes a SQL query and returns rows as objects.
- * Handles the mapping from BigQuery nested arrays to clean JSON.
- */
-function executeBQQuery(sql) {
-  try {
-    const request = {
-      query: sql,
-      useLegacySql: false
-    };
-    
-    const queryResults = BigQuery.Jobs.query(request, CONFIG.BQ.PROJECT_ID);
-    const jobId = queryResults.jobReference.jobId;
-
-    // Check on status of the Query Job
-    let sleepTime = 500;
-    while (!queryResults.jobComplete) {
-      Utilities.sleep(sleepTime);
-      sleepTime *= 2;
-      queryResults = BigQuery.Jobs.getQueryResults(CONFIG.BQ.PROJECT_ID, jobId);
-    }
-
-    const rows = queryResults.rows;
-    if (!rows) return [];
-
-    const fields = queryResults.schema.fields;
-    return rows.map(row => {
-      const obj = {};
-      row.f.forEach((cell, i) => {
-        obj[fields[i].name] = cell.v;
-      });
-      return obj;
-    });
-
-  } catch (error) {
-    console.error("BigQuery Error:", error.message);
-    return null; // Return null to trigger fallback logic
-  }
 }
 
 /**
@@ -1677,21 +1647,8 @@ function getEmployeeProfileData(email) {
     user["Cost Center"] = String(user["Cost Center"]).trim();
   }
 
-  // Fetch actual case counts from BigQuery
+  // Salesforce Case Metrics (BigQuery integration is disabled)
   let caseCount = 0;
-  try {
-    const sql = `
-      SELECT COUNT(*) as cases
-      FROM \`${CONFIG.BQ.PROJECT_ID}.${CONFIG.BQ.DATASETS.SALESFORCE}\`
-      WHERE email = '${searchEmail}'
-    `;
-    const bqResult = executeBQQuery(sql);
-    if (bqResult && bqResult.length > 0) {
-      caseCount = parseInt(bqResult[0].cases, 10) || 0;
-    }
-  } catch(e) {
-    console.warn("BigQuery Case Metrics Failed:", e);
-  }
 
   // Real-time submission validation to avoid cached roster sync issues
   const allocations = getHistoricalAllocation(email);
@@ -1719,18 +1676,8 @@ function getEmployeeProfileData(email) {
 function getUtilizationData(managerName) {
   validateTier(2); // Managers+
   
-  const currentPeriod = getActivePeriod();
-
-  // 1. Fetch capacity data from People Data (BigQuery)
-  const ptoSql = `
-    SELECT email, SUM(pto_hours) as pto
-    FROM \`${CONFIG.BQ.PROJECT_ID}.${CONFIG.BQ.DATASETS.PEOPLE_DATA}\`
-    WHERE period = '${currentPeriod}'
-    GROUP BY 1
-  `;
-  const ptoResults = executeBQQuery(ptoSql) || [];
+  // 1. Capacity mapping (PTO Tracking from BigQuery is disabled)
   const ptoMap = {};
-  ptoResults.forEach(r => ptoMap[r.email.toLowerCase()] = parseFloat(r.pto) || 0);
 
   // 2. Fetch Employee Roster
   let roster = getSheetData(CONFIG.SHEETS.EMPLOYEES);
@@ -1743,13 +1690,13 @@ function getUtilizationData(managerName) {
     const bau = parseFloat(e["BAU (%)"]) || 0;
     const nbau = parseFloat(e["Non-BAU (%)"]) || 0;
     
-    // Calculate Capacity: Standard hours minus PTO
+    // Calculate Capacity: Standard hours (PTO is disabled)
     const ptoHours = ptoMap[emailLower] || 0;
-    const availableHours = Math.max(1, CONFIG.BQ.STD_MONTHLY_HOURS - ptoHours);
+    const availableHours = Math.max(1, CONFIG.STD_MONTHLY_HOURS - ptoHours);
     
     // Calculate Actuals (from current submission)
     const totalProductivePct = bau + nbau;
-    const utilization = Math.round((totalProductivePct / 100) * (CONFIG.BQ.STD_MONTHLY_HOURS / availableHours) * 100);
+    const utilization = Math.round((totalProductivePct / 100) * (CONFIG.STD_MONTHLY_HOURS / availableHours) * 100);
 
     return {
       name: (e["Google Chat Full Name"] || e["HR Name"] || `${e["First Name"] || ""} ${e["Last Name"] || ""}`).trim(),
@@ -1999,6 +1946,20 @@ function initializeDatabaseSchema() {
     {
       name: CONFIG.SHEETS.DATA_AUDIT,
       headers: ["Timestamp", "Employee Email", "Employee Name", "Discrepancy Field", "Google Value", "Dayforce Value", "Severity", "Action Status"]
+    },
+    {
+      name: CONFIG.SHEETS.TPM_JIRA_CACHE,
+      headers: [
+        "Key", "Issue_Type", "Parent_Key", "Assignee_Email", "Secondary_Assignee_Email", "Account_Name", "Summary", "Status",
+        "Go Live & Onboarding EE", "Project start date", "Go-live date",
+        "UAT Estimate", "Effort Estimate (Effort days)", "Expected Go Live Date",
+        "UAT start date", "Project Sizing", "Expected UAT start date",
+        "Expected project start date", "Created", "Updated", "Technical go-live date", "Opportunity Close Date"
+      ]
+    },
+    {
+      name: CONFIG.SHEETS.TPM_TIMESHEET_LOGS,
+      headers: ["Log_ID", "User_Email", "Jira_Key", "Date_Logged", "Hours_Logged", "Created_Timestamp", "UAT_Hours", "Int_Hours", "Other_Hours", "Jira_Status"]
     }
   ];
   
