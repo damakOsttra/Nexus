@@ -878,6 +878,17 @@
     google.script.run
       .withSuccessHandler(data => {
         if (forceRefresh) hideLoading();
+        
+        // CRITICAL RACE-CONDITION GUARD: Only process this background fetch if it matches the current active week!
+        // If the user has already navigated to another week, silently discard this outdated payload.
+        if (data && data.weekDates && data.weekDates.length > 0) {
+          const fetchSunday = data.weekDates[0];
+          if (fetchSunday !== currentSunday) {
+            console.warn(`Race condition blocked: Discarded background fetch for ${fetchSunday} because active week is ${currentSunday}.`);
+            return;
+          }
+        }
+
         // Cache the fresh dataset for future seamless navigation
         if (userEmail) {
           sessionStorage.setItem(cacheKey, JSON.stringify(data));
