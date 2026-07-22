@@ -61,9 +61,9 @@
               <i class="fas fa-user-check text-osttra-rubine"></i> 1. Compliance Scoring System
             </h4>
             <ul class="list-disc pl-4 space-y-2 pr-2">
-              <li><strong class="text-white font-bold">Compliant ≡ƒƒó:</strong> Time logged (>0h) or marked OOO for every past weekday in selected range.</li>
-              <li><strong class="text-white font-bold">Incomplete ≡ƒö┤:</strong> Missing entries on one or more past weekdays. Hover badge for list of missed dates.</li>
-              <li><strong class="text-white font-bold">In Progress ≡ƒƒí:</strong> Completed all past weekdays; range extends into today/future.</li>
+              <li><strong class="text-white font-bold">Compliant (Green):</strong> Time logged (>0h) or marked OOO for every past weekday in selected range.</li>
+              <li><strong class="text-white font-bold">Incomplete (Red):</strong> Missing entries on one or more past weekdays. Hover badge for list of missed dates.</li>
+              <li><strong class="text-white font-bold">In Progress (Ochre):</strong> Completed all past weekdays; range extends into today/future.</li>
               <li><strong class="text-white font-bold">Exemptions:</strong> Saturday/Sunday, future dates, and OOO days are automatically excluded from penalties.</li>
             </ul>
           </div>
@@ -101,12 +101,20 @@
         </div>
 
         <div class="p-6 bg-[#222222] border border-white/5 rounded-3xl flex flex-col justify-between h-40 shadow-xl relative overflow-hidden group">
-          <div class="absolute -right-4 -bottom-4 text-white/[0.02] text-8xl group-hover:scale-110 transition-transform duration-500">
+          <div class="absolute -right-4 -bottom-4 text-white/[0.02] text-8xl group-hover:scale-110 transition-transform duration-500 pointer-events-none">
             <i class="fas fa-check-circle"></i>
           </div>
-          <p class="text-[10px] font-black text-emerald-500 uppercase tracking-widest">Compliant This Week</p>
-          <h3 id="stat-compliant" class="text-5xl font-black text-emerald-500 tracking-tighter">0</h3>
-          <p class="text-[10px] font-bold text-emerald-500/50 uppercase tracking-widest mt-2">Logged daily hours or marked OOO</p>
+          <div class="flex justify-between items-start w-full relative z-10">
+            <div class="space-y-1">
+              <p class="text-[10px] font-black text-emerald-500 uppercase tracking-widest">Compliant This Week</p>
+              <h3 id="stat-compliant" class="text-5xl font-black text-emerald-500 tracking-tighter">0</h3>
+            </div>
+            <!-- Sparkline container -->
+            <div class="w-24 h-12 bg-white/[0.02] rounded-xl border border-white/5 p-1 relative group/spark" title="6-Week Compliance Trend">
+              <canvas id="trend-sparkline"></canvas>
+            </div>
+          </div>
+          <p class="text-[10px] font-bold text-emerald-500/50 uppercase tracking-widest mt-2 relative z-10">Logged daily hours or marked OOO</p>
         </div>
 
         <div class="p-6 bg-[#222222] border border-white/5 rounded-3xl flex flex-col justify-between h-40 shadow-xl relative overflow-hidden group">
@@ -213,7 +221,12 @@
 
       <!-- 3. Automated Email Nudge Button -->
       <button id="btn-email-nudges" onclick="triggerEmailNudges()" class="px-4 py-2 rounded-xl bg-osttra-rubine hover:brightness-110 text-white text-[9px] font-black uppercase tracking-widest active:scale-95 transition-all flex items-center gap-2 ml-auto shadow-md shadow-osttra-rubine/10">
-        <i class="fas fa-paper-plane"></i> ≡ƒô⌐ Nudge Incomplete Members
+        <i class="fas fa-paper-plane"></i> Nudge Incomplete Members
+      </button>
+
+      <!-- 4. Export CSV Button -->
+      <button onclick="exportComplianceMatrixToCsv()" class="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 text-white text-[9px] font-black uppercase tracking-widest active:scale-95 transition-all flex items-center gap-2 shadow-md shadow-white/5">
+        <i class="fas fa-file-csv"></i> Export Matrix
       </button>
     </div>
 
@@ -262,6 +275,9 @@
           <table class="w-full text-left border-collapse">
             <thead>
               <tr class="border-b border-white/5 bg-white/[0.02]">
+                <th class="p-4 text-[10px] font-black uppercase tracking-widest text-white/40 pl-6 w-12 text-center">
+                  <input type="checkbox" id="select-all" onchange="toggleSelectAll(this)" class="accent-osttra-rubine rounded cursor-pointer">
+                </th>
                 <th class="p-4 text-[10px] font-black uppercase tracking-widest text-white/40 pl-6 w-[320px]">TPM Team Member</th>
                 <th class="p-4 text-[10px] font-black uppercase tracking-widest text-white/40 text-center w-40">Total Hours Logged</th>
                 <th class="p-4 text-[10px] font-black uppercase tracking-widest text-white/40 text-center w-56">Compliance Status</th>
@@ -285,6 +301,55 @@
   var helpCardExpanded = false;
   var currentStartStr = null; // State variable for active start date
   var currentEndStr = null; // State variable for active end date
+  var selectedEmails = new Set();
+
+  function toggleSelectAll(selectAllCb) {
+    const checkboxes = document.querySelectorAll('.user-checkbox');
+    selectedEmails.clear();
+    checkboxes.forEach(cb => {
+      cb.checked = selectAllCb.checked;
+      if (selectAllCb.checked) {
+        selectedEmails.add(cb.value);
+      }
+    });
+    updateSelectedCount();
+  }
+
+  function toggleUserCheckbox(cb) {
+    if (cb.checked) {
+      selectedEmails.add(cb.value);
+    } else {
+      selectedEmails.delete(cb.value);
+      const selectAll = document.getElementById('select-all');
+      if (selectAll) selectAll.checked = false;
+    }
+    updateSelectedCount();
+  }
+
+  function updateSelectedCount() {
+    const nudgeBtn = document.getElementById('btn-email-nudges');
+    if (!nudgeBtn) return;
+    
+    const cnt = selectedEmails.size;
+    if (cnt > 0) {
+      nudgeBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Nudge ' + cnt + ' Selected Members';
+      nudgeBtn.disabled = false;
+      nudgeBtn.style.opacity = '1';
+      nudgeBtn.style.cursor = 'pointer';
+    } else {
+      const incompleteCount = globalData ? globalData.matrix.filter(m => !m.isCompliant).length : 0;
+      nudgeBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Nudge ' + incompleteCount + ' Incomplete Members';
+      if (incompleteCount === 0) {
+        nudgeBtn.disabled = true;
+        nudgeBtn.style.opacity = '0.3';
+        nudgeBtn.style.cursor = 'not-allowed';
+      } else {
+        nudgeBtn.disabled = false;
+        nudgeBtn.style.opacity = '1';
+        nudgeBtn.style.cursor = 'pointer';
+      }
+    }
+  }
 
   function getErrorMessage(err) {
     if (!err) return "An unknown server-side error occurred.";
@@ -423,6 +488,7 @@
 
         try {
           renderComplianceChart(data.complianceStats);
+          renderTrendSparkline(data.complianceStats.trend);
         } catch (chartError) {
           console.error("Failed to render compliance chart:", chartError);
         }
@@ -536,7 +602,19 @@
         maintainAspectRatio: false,
         plugins: {
           legend: {
-            display: false
+            display: true,
+            position: 'bottom',
+            labels: {
+              color: 'rgba(255, 255, 255, 0.6)',
+              font: {
+                size: 8,
+                family: 'monospace',
+                weight: 'bold'
+              },
+              padding: 10,
+              usePointStyle: true,
+              pointStyle: 'circle'
+            }
           },
           tooltip: {
             callbacks: {
@@ -551,6 +629,64 @@
     });
   }
 
+  var sparklineChart = null;
+  function renderTrendSparkline(trend) {
+    if (typeof Chart === 'undefined') return;
+    if (!trend || !Array.isArray(trend) || trend.length === 0) return;
+    
+    const canvas = document.getElementById('trend-sparkline');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    
+    if (sparklineChart) {
+      try {
+        sparklineChart.destroy();
+      } catch (e) {}
+    }
+
+    const labels = trend.map(t => formatDateFriendly(t.weekStart));
+    const data = trend.map(t => t.percentage);
+
+    sparklineChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [{
+          data: data,
+          borderColor: '#10B981', // Emerald
+          borderWidth: 1.5,
+          tension: 0.4,
+          pointRadius: 2,
+          pointBackgroundColor: '#10B981',
+          fill: true,
+          backgroundColor: 'rgba(16, 185, 129, 0.05)'
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                return ' ' + context.raw + '%';
+              }
+            }
+          }
+        },
+        scales: {
+          x: { display: false },
+          y: { 
+            display: false,
+            min: 0,
+            max: 100
+          }
+        }
+      }
+    });
+  }
+
   // Frontend Dynamic filtering for the Compliance Roster (Tab 1)
   function filterRosterGrid() {
     if (!globalData || !globalData.matrix) return;
@@ -561,10 +697,14 @@
     const tbody = document.getElementById('compliance-matrix-body');
     tbody.innerHTML = '';
 
+    // Reset master select-all checkbox
+    const selectAll = document.getElementById('select-all');
+    if (selectAll) selectAll.checked = false;
+
     if (matrix.length === 0) {
       const tr = document.createElement('tr');
       const td = document.createElement('td');
-      td.colSpan = 4;
+      td.colSpan = 5;
       td.className = 'p-12 text-center text-white/40 text-xs font-bold uppercase tracking-widest leading-relaxed';
       td.textContent = 'No TPM hierarchy members detected under your reporting structure.';
       tr.appendChild(td);
@@ -606,23 +746,12 @@
     });
 
     // Dynamically update Nudge Button indicator count
-    const nudgeBtn = document.getElementById('btn-email-nudges');
-    const incompleteTeammates = filteredMatrix.filter(m => !m.isCompliant);
-    nudgeBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Nudge ' + incompleteTeammates.length + ' Incomplete Members';
-    if (incompleteTeammates.length === 0) {
-      nudgeBtn.disabled = true;
-      nudgeBtn.style.opacity = '0.3';
-      nudgeBtn.style.cursor = 'not-allowed';
-    } else {
-      nudgeBtn.disabled = false;
-      nudgeBtn.style.opacity = '1';
-      nudgeBtn.style.cursor = 'pointer';
-    }
+    updateSelectedCount();
 
     if (filteredMatrix.length === 0) {
       const tr = document.createElement('tr');
       const td = document.createElement('td');
-      td.colSpan = 4;
+      td.colSpan = 5;
       td.className = 'p-12 text-center text-white/40 text-xs font-bold uppercase tracking-widest leading-relaxed flex flex-col items-center justify-center gap-2 bg-[#222222] border border-white/5 rounded-3xl';
       td.innerHTML = '<i class="fas fa-filter text-3xl mb-1 opacity-25"></i> No roster members match your active search or workload filters.';
       tr.appendChild(td);
@@ -662,6 +791,24 @@
           iconEl.classList.toggle('rotate-90');
         }
       });
+
+      // Column 0: Checkbox
+      const tdCheck = document.createElement('td');
+      tdCheck.className = 'p-4 pl-6 border-b border-white/5 text-center w-12';
+      tdCheck.addEventListener('click', (e) => {
+        e.stopPropagation();
+      });
+
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.value = row.email;
+      checkbox.className = 'user-checkbox accent-osttra-rubine rounded cursor-pointer';
+      checkbox.checked = selectedEmails.has(row.email);
+      checkbox.addEventListener('change', function() {
+        toggleUserCheckbox(this);
+      });
+      tdCheck.appendChild(checkbox);
+      tr.appendChild(tdCheck);
 
       // Column 1: Member Info
       const tdInfo = document.createElement('td');
@@ -716,31 +863,37 @@
           }
         }
       });
+      row.missedDaysList = missedDays;
 
       const tdCompliant = document.createElement('td');
       tdCompliant.className = 'p-4 text-center border-b border-white/5';
       
       const compliantSpan = document.createElement('span');
-      if (missedDays.length > 0) {
-        // Incomplete State
+      const status = row.complianceStatus || 'Compliant';
+      
+      compliantSpan.textContent = status;
+      
+      if (status === "Complete" || status === "Compliant") {
+        compliantSpan.className = 'px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-wider border text-emerald-500 bg-emerald-500/10 border-emerald-500/20 shadow-sm cursor-help';
+        compliantSpan.title = status === "Complete" ? 'Logged weekly target hours successfully!' : 'Fully compliant over the entire selected date range.';
+      } else if (status === "On Track") {
+        compliantSpan.className = 'px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-wider border text-osttra-ochre bg-osttra-ochre/10 border-osttra-ochre/20 shadow-sm cursor-help';
+        compliantSpan.title = 'Active Week: On track based on expected pace-to-date.';
+      } else if (status === "Lagging") {
+        const loggedHrs = totalHours;
+        const expectedHrs = row.paceTarget || 0;
+        compliantSpan.className = 'px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-wider border text-orange-500 bg-orange-500/10 border-orange-500/20 shadow-sm cursor-help animate-pulse';
+        compliantSpan.textContent = 'Lagging (' + loggedHrs.toFixed(1) + 'h / ' + expectedHrs.toFixed(1) + 'h expected)';
+        compliantSpan.title = 'Logged hours are significantly below the expected pace-to-date of ' + expectedHrs.toFixed(1) + 'h.';
+      } else if (status === "Unstarted") {
+        compliantSpan.className = 'px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-wider border text-osttra-rubine bg-osttra-rubine/10 border-osttra-rubine/20 shadow-sm cursor-help';
+        compliantSpan.title = 'Active Week: Has not logged any hours yet.';
+      } else { // "Incomplete"
         compliantSpan.className = 'px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-wider border text-osttra-rubine bg-osttra-rubine/10 border-osttra-rubine/20 shadow-sm cursor-help';
         compliantSpan.textContent = 'Incomplete';
-        compliantSpan.title = 'Missing logs on: ' + missedDays.join(', ');
-      } else {
-        // Evaluate if the range extends into today or future
-        const hasFutureOrToday = globalData.weekDates.some(d => d >= todayStr);
-        if (hasFutureOrToday) {
-          // In Progress State
-          compliantSpan.className = 'px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-wider border text-amber-500 bg-amber-500/10 border-amber-500/20 shadow-sm cursor-help';
-          compliantSpan.textContent = 'In Progress';
-          compliantSpan.title = 'Completed all past weekdays; range extends into today/future.';
-        } else {
-          // Compliant State
-          compliantSpan.className = 'px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-wider border text-emerald-500 bg-emerald-500/10 border-emerald-500/20 shadow-sm cursor-help';
-          compliantSpan.textContent = 'Compliant';
-          compliantSpan.title = 'Fully compliant over the entire selected date range.';
-        }
+        compliantSpan.title = 'Past Week: Missing logs on: ' + missedDays.join(', ');
       }
+      
       tdCompliant.appendChild(compliantSpan);
       tr.appendChild(tdCompliant);
 
@@ -758,11 +911,11 @@
       detailTr.className = 'hidden bg-black/25';
       
       const detailTd = document.createElement('td');
-      detailTd.colSpan = 4;
+      detailTd.colSpan = 5;
       detailTd.className = 'p-6 border-b border-white/5';
 
       const detailsContainer = document.createElement('div');
-      detailsContainer.className = 'space-y-6 max-w-5xl';
+      detailsContainer.className = 'space-y-6 w-full overflow-x-auto';
       
       const logs = row.ticketLogs || [];
 
@@ -904,7 +1057,7 @@
                     '<i class="fas fa-external-link-alt text-[8px]"></i> ' + log.key +
                   '</a>' +
                 '</td>' +
-                '<td class="p-3 text-white/70 font-semibold truncate max-w-[280px]" title="' + log.summary + '">' + log.summary + '</td>' +
+                '<td class="p-3 text-white/70 font-semibold truncate max-w-[550px]" title="' + log.summary + '">' + log.summary + '</td>' +
                 '<td class="p-3 text-center">' +
                   '<span class="px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider border ' + statusColor + '">' + log.status + '</span>' +
                 '</td>' +
@@ -931,7 +1084,7 @@
                   '</div>' +
                   log.key +
                 '</td>' +
-                '<td class="p-3 text-white/60 font-semibold truncate max-w-[280px]" title="' + log.summary + '">' + log.summary + '</td>' +
+                '<td class="p-3 text-white/60 font-semibold truncate max-w-[550px]" title="' + log.summary + '">' + log.summary + '</td>' +
                 '<td class="p-3 text-center">' +
                   '<span class="px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider border text-white/40 border-white/5 bg-white/5">' + log.status + '</span>' +
                 '</td>' +
@@ -962,34 +1115,40 @@
   function triggerEmailNudges() {
     if (!globalData || !globalData.matrix) return;
     
-    // Extract non-compliant members currently filtered in roster list
-    const compFilter = document.getElementById('compliance-status-filter').value;
-    const loadFilter = document.getElementById('compliance-workload-filter').value;
-    const query = document.getElementById('compliance-search').value.toLowerCase().trim();
+    let targets = [];
+    
+    if (selectedEmails.size > 0) {
+      // Nudge manually selected emails (can nudge even if balanced/compliant)
+      targets = globalData.matrix.filter(member => selectedEmails.has(member.email));
+    } else {
+      // Fallback: nudge incomplete filtered members
+      const compFilter = document.getElementById('compliance-status-filter').value;
+      const loadFilter = document.getElementById('compliance-workload-filter').value;
+      const query = document.getElementById('compliance-search').value.toLowerCase().trim();
+      const weekdaysInRange = countWeekdays(globalData.weekDates);
 
-    const weekdaysInRange = countWeekdays(globalData.weekDates);
+      targets = globalData.matrix.filter(member => {
+        const name = String(member.name || "").toLowerCase();
+        const email = String(member.email || "").toLowerCase();
+        
+        const targetHours = (member.allocatedFte / 100) * weekdaysInRange * 8;
+        const ratio = targetHours > 0 ? (member.total / targetHours) * 100 : 0;
+        let loadState = 'BALANCED';
+        if (ratio >= 115) loadState = 'OVERBURDENED';
+        else if (ratio < 80) loadState = 'UNDERBURDENED';
 
-    const targets = globalData.matrix.filter(member => {
-      const name = String(member.name || "").toLowerCase();
-      const email = String(member.email || "").toLowerCase();
-      
-      const targetHours = (member.allocatedFte / 100) * weekdaysInRange * 8;
-      const ratio = targetHours > 0 ? (member.total / targetHours) * 100 : 0;
-      let loadState = 'BALANCED';
-      if (ratio >= 115) loadState = 'OVERBURDENED';
-      else if (ratio < 80) loadState = 'UNDERBURDENED';
+        if (query && !name.includes(query) && !email.includes(query)) return false;
+        if (compFilter === "COMPLIANT" && !member.isCompliant) return false;
+        if (compFilter === "INCOMPLETE" && member.isCompliant) return false;
+        if (loadFilter !== "ALL" && loadState !== loadFilter) return false;
 
-      if (query && !name.includes(query) && !email.includes(query)) return false;
-      if (compFilter === "COMPLIANT" && !member.isCompliant) return false;
-      if (compFilter === "INCOMPLETE" && member.isCompliant) return false;
-      if (loadFilter !== "ALL" && loadState !== loadFilter) return false;
-
-      // We only nudge those who are NOT compliant
-      return !member.isCompliant;
-    });
+        // We only nudge those who are NOT compliant
+        return !member.isCompliant;
+      });
+    }
 
     if (targets.length === 0) {
-      showNotification('warning', 'No Reminders Sent', 'All currently filtered members are already compliant!');
+      showNotification('warning', 'No Reminders Sent', 'No valid target members selected to nudge.');
       return;
     }
 
@@ -1005,45 +1164,49 @@
     
     document.getElementById('nudge-email-body').value = 
       "Hi [Name],\n\n" +
-      "This is an automated operational reminder from the Nexus TPM Resource Center.\n\n" +
-      "Our records indicate that your timesheet entries for the week starting " + pickerVal + " are currently incomplete (missing hours or below your standard allocated capacity).\n\n" +
-      "Please log into Nexus and update your timesheet as soon as possible to ensure accurate monthly product allocation metrics.\n\n" +
+      "This is an automated reminder from the Nexus.\n\n" +
+      "Our records indicate that your timesheet entries for [MissedDates] are currently incomplete (missing hours or below your standard allocated capacity).\n\n" +
+      "Please log into Nexus and update your timesheet as soon as possible.\n\n" +
       "Link to Nexus: " + window.location.href + "\n\n" +
       "Thank you for your prompt cooperation,\n" +
-      "TPM Team Management";
+      "Team Nexus";
   }
 
   function executeEmailNudges() {
     if (!globalData || !globalData.matrix) return;
     
-    // Extract non-compliant members currently filtered in roster list
-    const compFilter = document.getElementById('compliance-status-filter').value;
-    const loadFilter = document.getElementById('compliance-workload-filter').value;
-    const query = document.getElementById('compliance-search').value.toLowerCase().trim();
+    let targets = [];
+    
+    if (selectedEmails.size > 0) {
+      targets = globalData.matrix.filter(member => selectedEmails.has(member.email));
+    } else {
+      const compFilter = document.getElementById('compliance-status-filter').value;
+      const loadFilter = document.getElementById('compliance-workload-filter').value;
+      const query = document.getElementById('compliance-search').value.toLowerCase().trim();
+      const weekdaysInRange = countWeekdays(globalData.weekDates);
 
-    const weekdaysInRange = countWeekdays(globalData.weekDates);
+      targets = globalData.matrix.filter(member => {
+        const name = String(member.name || "").toLowerCase();
+        const email = String(member.email || "").toLowerCase();
+        
+        const targetHours = (member.allocatedFte / 100) * weekdaysInRange * 8;
+        const ratio = targetHours > 0 ? (member.total / targetHours) * 100 : 0;
+        let loadState = 'BALANCED';
+        if (ratio >= 115) loadState = 'OVERBURDENED';
+        else if (ratio < 80) loadState = 'UNDERBURDENED';
 
-    const targets = globalData.matrix.filter(member => {
-      const name = String(member.name || "").toLowerCase();
-      const email = String(member.email || "").toLowerCase();
-      
-      const targetHours = (member.allocatedFte / 100) * weekdaysInRange * 8;
-      const ratio = targetHours > 0 ? (member.total / targetHours) * 100 : 0;
-      let loadState = 'BALANCED';
-      if (ratio >= 115) loadState = 'OVERBURDENED';
-      else if (ratio < 80) loadState = 'UNDERBURDENED';
+        if (query && !name.includes(query) && !email.includes(query)) return false;
+        if (compFilter === "COMPLIANT" && !member.isCompliant) return false;
+        if (compFilter === "INCOMPLETE" && member.isCompliant) return false;
+        if (loadFilter !== "ALL" && loadState !== loadFilter) return false;
 
-      if (query && !name.includes(query) && !email.includes(query)) return false;
-      if (compFilter === "COMPLIANT" && !member.isCompliant) return false;
-      if (compFilter === "INCOMPLETE" && member.isCompliant) return false;
-      if (loadFilter !== "ALL" && loadState !== loadFilter) return false;
-
-      // We only nudge those who are NOT compliant
-      return !member.isCompliant;
-    });
+        // We only nudge those who are NOT compliant
+        return !member.isCompliant;
+      });
+    }
 
     if (targets.length === 0) {
-      showNotification('warning', 'No Reminders Sent', 'All currently filtered members are already compliant!');
+      showNotification('warning', 'No Reminders Sent', 'No valid target members selected.');
       return;
     }
 
@@ -1057,18 +1220,88 @@
       return;
     }
 
+    // Build missed dates mapping
+    const missedDatesMap = {};
+    targets.forEach(t => {
+      missedDatesMap[t.email] = t.missedDaysList || [];
+    });
+
     showLoading('Sending compliance reminders to ' + emailsToNudge.length + ' members...');
     google.script.run
       .withSuccessHandler(msg => {
         hideLoading();
         document.getElementById('nudge-template-panel').classList.add('hidden');
         showNotification('success', 'Nudges Sent', msg);
+        
+        // Clear checkbox selections on successful nudge dispatch
+        selectedEmails.clear();
+        const selectAll = document.getElementById('select-all');
+        if (selectAll) selectAll.checked = false;
+        filterRosterGrid(); // Re-render grid to clear checkbox checks
       })
       .withFailureHandler(err => {
         hideLoading();
         showNotification('error', 'Nudge Dispatch Failed', err.message);
       })
-      .sendTpmComplianceNudge(emailsToNudge, pickerVal, subject, bodyTemplate);
+      .sendTpmComplianceNudge(emailsToNudge, pickerVal, subject, bodyTemplate, missedDatesMap);
+  }
+
+  function exportComplianceMatrixToCsv() {
+    if (!globalData || !globalData.matrix || globalData.matrix.length === 0) {
+      showNotification('warning', 'Export Empty', 'No compliance matrix data available to export.');
+      return;
+    }
+
+    const weekdaysInRange = countWeekdays(globalData.weekDates);
+    const csvRows = [];
+    
+    csvRows.push(["Team Member", "Email Address", "Logged Hours", "Target Capacity", "Compliance Status", "Workload Balance", "FTE Percentage", "OOO Days In Range"]);
+
+    globalData.matrix.forEach(row => {
+      const oooDaysInRange = row.oooDates.filter(d => globalData.weekDates.includes(d)).length;
+      const targetHours = (row.allocatedFte / 100) * (weekdaysInRange - oooDaysInRange) * 8;
+      
+      const missedDays = row.missedDaysList || [];
+      let complianceText = 'Compliant';
+      if (missedDays.length > 0) {
+        complianceText = 'Incomplete (Missed: ' + missedDays.join('; ') + ')';
+      } else {
+        const todayStr = formatDateString(new Date());
+        const hasFutureOrToday = globalData.weekDates.some(d => d >= todayStr);
+        if (hasFutureOrToday) complianceText = 'In Progress';
+      }
+
+      const ratio = targetHours > 0 ? (row.total / targetHours) * 100 : 0;
+      let workloadText = 'Balanced';
+      if (ratio >= 115) workloadText = 'Overburdened (' + Math.round(ratio) + '%)';
+      else if (ratio < 80) workloadText = 'Underburdened (' + Math.round(ratio) + '%)';
+
+      csvRows.push([
+        row.name,
+        row.email,
+        row.total.toFixed(2),
+        targetHours.toFixed(2),
+        complianceText,
+        workloadText,
+        row.allocatedFte + "%",
+        oooDaysInRange
+      ]);
+    });
+
+    const csvContent = "data:text/csv;charset=utf-8," 
+      + csvRows.map(e => e.map(val => `"${String(val).replace(/"/g, '""')}"`).join(",")).join("\n");
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    const startDisplay = currentStartStr || "start";
+    const endDisplay = currentEndStr || "end";
+    link.setAttribute("download", `TPM_Compliance_Report_${startDisplay}_to_${endDisplay}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    showNotification('success', 'Export Successful', 'Downloaded Compliance Matrix Report as CSV.');
   }
 
 </script>

@@ -208,8 +208,11 @@ function getTpmTimesheetData(weekStartDateStr, showAllEpics = false, forceRefres
     throw new Error("Unauthorized: TPM Workspace is restricted to Tier-4 TPM hierarchy.");
   }
 
+  // Always force-evict the timesheet logs cache to ensure subsequent background fetches
+  // on week navigation (using arrows) always pull 100% fresh, live logged hours from the sheet.
+  clearSheetCache(CONFIG.SHEETS.TPM_TIMESHEET_LOGS);
+
   if (forceRefresh) {
-    clearSheetCache(CONFIG.SHEETS.TPM_TIMESHEET_LOGS);
     clearSheetCache(CONFIG.SHEETS.TPM_JIRA_CACHE);
     console.log("[CACHE_BUST] Successfully busted timesheet and jira cache for fresh load.");
   }
@@ -471,6 +474,40 @@ function saveTpmTimesheetData(payload) {
     throw new Error("Invalid timesheet save payload.");
   }
 
+  // Guardrail 1: Lifesaving Safeguard - Block empty timesheet submissions to prevent accidental wipeouts
+  if (payload.logs.length === 0) {
+    throw new Error("Validation Error: Cannot submit an empty timesheet.");
+  }
+
+  // Guardrail 2: Strict Older-Week Locking (Block modifications on any week before the previous week)
+  try {
+    const today = new Date();
+    const todayDay = today.getDay();
+    const todayDiff = today.getDate() - todayDay;
+    const currentWeekSundayObj = new Date(today.setDate(todayDiff));
+    currentWeekSundayObj.setHours(0,0,0,0);
+
+    const prevWeekSundayObj = new Date(currentWeekSundayObj);
+    prevWeekSundayObj.setDate(prevWeekSundayObj.getDate() - 7);
+    prevWeekSundayObj.setHours(0,0,0,0);
+
+    const parts = String(payload.weekStartDate).split('-');
+    if (parts.length === 3) {
+      const loadedSundayObj = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+      loadedSundayObj.setHours(0,0,0,0);
+
+      const isOlderWeek = loadedSundayObj < prevWeekSundayObj;
+      if (isOlderWeek) {
+        throw new Error("Validation Error: This timesheet is locked because editing is restricted for older weeks.");
+      }
+    }
+  } catch (e) {
+    if (e.message.indexOf("Validation Error") !== -1) {
+      throw e;
+    }
+    console.error("Backend lock check failed", e);
+  }
+
   const userEmail = session.email.toLowerCase().trim();
 
   // Compute Mon-Sun dates robustly to prevent timezone shifting
@@ -499,6 +536,8 @@ function saveTpmTimesheetData(payload) {
 
     // Block any attempt to log hours for future dates (exempting weekends) and enforce strict 24-hour daily limits
     const dailyTotals = {};
+    const oooSet = new Set(payload.logs.filter(l => l.jiraKey.toLowerCase() === "ooo").map(l => l.date));
+
     payload.logs.forEach(log => {
       const parts = log.date.split('-');
       const d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
@@ -507,10 +546,15 @@ function saveTpmTimesheetData(payload) {
       if (log.date > todayStr) {
         throw new Error("Validation Error: Cannot log hours for future dates (" + log.date + ").");
       }
-      
+
       const hours = parseFloat(log.hours) || 0;
       if (hours < 0 || hours > 24.01) {
         throw new Error("Validation Error: Individual ticket hours cannot exceed 24.00 hours. Found " + hours.toFixed(2) + "h on " + log.date + " for " + log.jiraKey + ".");
+      }
+
+      // Strict OOO conflict check: cannot log hours against a ticket if that day is marked OOO
+      if (log.jiraKey.toLowerCase() !== "ooo" && oooSet.has(log.date) && hours > 0) {
+        throw new Error("Validation Error: Cannot log hours against " + log.jiraKey + " on " + log.date + " because it is marked as Out of Office (OOO).");
       }
       
       if (log.jiraKey !== "ooo") {
@@ -717,6 +761,15 @@ function getTpmDashboardData(startDateStr, endDateStr, forceRefresh = false) {
       const mm = String(d.getMonth() + 1).padStart(2, '0');
       const dd = String(d.getDate()).padStart(2, '0');
       endDateStr = `${yyyy}-${mm}-${dd}`;
+    }
+  }
+
+  const cacheKey = "TPM_COMPLIANCE_DASHBOARD_" + session.email.toLowerCase().trim() + "_" + startDateStr + "_" + endDateStr;
+  if (!forceRefresh) {
+    const cached = getCachedData(cacheKey);
+    if (cached) {
+      console.log("Instant Dashboard: Returning cached computed dashboard payload.");
+      return cached;
     }
   }
 
@@ -981,32 +1034,84 @@ function getTpmDashboardData(startDateStr, endDateStr, forceRefresh = false) {
   const todayStr = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd");
   const targetMonthYear = getMonthYearFromDateStr(startDateStr);
 
+  // Determine if selected week is the current active week
+  const isCurrentWeek = (weekDates[0] <= todayStr && weekDates[6] >= todayStr);
+
+  // Count standard weekdays in the selected week dates (Mon-Fri)
+  let standardWeekdaysCount = 0;
+  let pastWeekdaysCount = 0;
+  weekDates.forEach(dateStr => {
+    const parts = dateStr.split('-');
+    const d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+    const dayOfWeek = d.getDay();
+    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+    if (!isWeekend) {
+      standardWeekdaysCount++;
+      if (dateStr <= todayStr) {
+        pastWeekdaysCount++;
+      }
+    }
+  });
+
   const matrix = team.map(member => {
     const dailyHours = weekDates.map(date => hoursMap[member.email][date] || 0);
     const weeklyTotal = dailyHours.reduce((acc, h) => acc + h, 0);
+    const memberOooDates = Array.from(oooMap[member.email] || []);
     
-    // Fully compliant means hours logged > 0 for each of the non-weekend past days
-    const isCompliant = dailyHours.every((h, i) => {
-      const parts = weekDates[i].split('-');
+    // 1. Strict past-weekday daily gap check (for past weeks)
+    const hasDailyGaps = weekDates.some((dateStr, i) => {
+      const parts = dateStr.split('-');
       const d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
       const dayOfWeek = d.getDay();
-      // Saturday (6) & Sunday (0) are exempt from compliance requirements
-      if (dayOfWeek === 0 || dayOfWeek === 6) {
-        return true;
-      }
-      // If the day is in the future, don't penalize them for 0 hours yet (skip check)
-      if (weekDates[i] > todayStr) {
-        return true;
-      }
-      // OOO days are compliant even with 0 active contribution hours
-      if (oooMap[member.email].has(weekDates[i])) {
-        return true;
-      }
-      return h > 0;
+      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+      if (isWeekend) return false;
+      if (dateStr > todayStr) return false;
+      if (memberOooDates.includes(dateStr)) return false;
+      return dailyHours[i] <= 0;
     });
+
+    // 2. Compute targets (standard 100% FTE baseline)
+    const oooDaysCount = memberOooDates.filter(d => weekDates.includes(d)).length;
+    const weeklyTargetHours = Math.max((standardWeekdaysCount - oooDaysCount) * 8, 0);
+
+    // Compute expected pace-to-date
+    const pastOooDaysCount = memberOooDates.filter(d => weekDates.includes(d) && d <= todayStr).length;
+    const paceTarget = Math.max((pastWeekdaysCount - pastOooDaysCount) * 8, 0);
 
     // Default to standard 100% FTE (keep it simple, no allocation handshake)
     const allocatedFte = 100;
+
+    // 3. Classify compliance status using the intelligent engine
+    let status = "Compliant";
+    let isCompliant = true;
+
+    if (isCurrentWeek) {
+      if (weeklyTotal >= weeklyTargetHours) {
+        status = "Complete";
+        isCompliant = true;
+      } else if (weeklyTotal === 0) {
+        status = "Unstarted";
+        isCompliant = false;
+      } else {
+        // Evaluate pace
+        if (weeklyTotal >= 0.8 * paceTarget) {
+          status = "On Track";
+          isCompliant = true; // On Track is treated as compliant during active week
+        } else {
+          status = "Lagging";
+          isCompliant = false; // Lagging is non-compliant
+        }
+      }
+    } else {
+      // Past Week: strict daily audit
+      if (!hasDailyGaps) {
+        status = "Compliant";
+        isCompliant = true;
+      } else {
+        status = "Incomplete";
+        isCompliant = false;
+      }
+    }
 
     // Build the status counts for this member
     const statusSummary = { total: 0 };
@@ -1024,11 +1129,14 @@ function getTpmDashboardData(startDateStr, endDateStr, forceRefresh = false) {
       dailyHours: dailyHours,
       total: weeklyTotal,
       isCompliant: isCompliant,
+      complianceStatus: status, // New status field
+      paceTarget: paceTarget, // New pace target
+      weeklyTarget: weeklyTargetHours, // New weekly target
       allocatedFte: allocatedFte,
       epics: memberEpics,
       statusSummary: statusSummary,
       ticketLogs: Object.values(ticketLogsMap[member.email] || {}),
-      oooDates: Array.from(oooMap[member.email] || [])
+      oooDates: memberOooDates
     };
   });
 
@@ -1036,6 +1144,88 @@ function getTpmDashboardData(startDateStr, endDateStr, forceRefresh = false) {
   const totalTeam = matrix.length;
   const compliantCount = matrix.filter(r => r.isCompliant).length;
   const compliantPercentage = totalTeam > 0 ? Math.round((compliantCount / totalTeam) * 100) : 100;
+
+  // 6. In-memory Historical Trend Calculation (no database overhead)
+  const trend = [];
+  const calculateWeeklyComplianceForDate = (weekStartStr) => {
+    const dates = [];
+    const parts = weekStartStr.split('-');
+    if (parts.length === 3) {
+      const year = parseInt(parts[0], 10);
+      const month = parseInt(parts[1], 10) - 1;
+      const day = parseInt(parts[2], 10);
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(Date.UTC(year, month, day + i)); 
+        const yyyy = d.getUTCFullYear();
+        const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+        const dd = String(d.getUTCDate()).padStart(2, '0');
+        dates.push(`${yyyy}-${mm}-${dd}`);
+      }
+    } else {
+      return 100;
+    }
+
+    const tMap = {};
+    const oMap = {};
+    teamEmails.forEach(email => {
+      tMap[email] = {};
+      oMap[email] = new Set();
+      dates.forEach(d => {
+        tMap[email][d] = 0;
+      });
+    });
+
+    logData.forEach(row => {
+      const email = String(row["User_Email"] || "").toLowerCase().trim();
+      const date = normalizeDateToYMD(row["Date_Logged"]);
+      const hours = parseFloat(row["Hours_Logged"]) || 0;
+      const key = String(row["Jira_Key"] || "").toLowerCase().trim();
+
+      if (teamEmails.includes(email) && dates.includes(date)) {
+        if (key === "ooo") {
+          oMap[email].add(date);
+        } else {
+          tMap[email][date] = (tMap[email][date] || 0) + hours;
+        }
+      }
+    });
+
+    const compliant = teamEmails.filter(email => {
+      return dates.every((dateStr, i) => {
+        const parts = dateStr.split('-');
+        const dateObj = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+        const dayOfWeek = dateObj.getDay();
+        if (dayOfWeek === 0 || dayOfWeek === 6) return true;
+        if (dateStr > todayStr) return true;
+        if (oMap[email].has(dateStr)) return true;
+        return tMap[email][dateStr] > 0;
+      });
+    }).length;
+
+    return teamEmails.length > 0 ? Math.round((compliant / teamEmails.length) * 100) : 100;
+  };
+
+  const parts = startDateStr.split('-');
+  if (parts.length === 3) {
+    const year = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10) - 1;
+    const day = parseInt(parts[2], 10);
+    
+    // Past 6 weeks (from oldest to newest)
+    for (let w = 5; w >= 0; w--) {
+      const d = new Date(Date.UTC(year, month, day - (w * 7)));
+      const yyyy = d.getUTCFullYear();
+      const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+      const dd = String(d.getUTCDate()).padStart(2, '0');
+      const prevWeekStart = `${yyyy}-${mm}-${dd}`;
+      
+      const compRate = calculateWeeklyComplianceForDate(prevWeekStart);
+      trend.push({
+        weekStart: prevWeekStart,
+        percentage: compRate
+      });
+    }
+  }
 
   return {
     matrix: matrix,
@@ -1047,7 +1237,8 @@ function getTpmDashboardData(startDateStr, endDateStr, forceRefresh = false) {
       total: totalTeam,
       compliant: compliantCount,
       nonCompliant: totalTeam - compliantCount,
-      percentage: compliantPercentage
+      percentage: compliantPercentage,
+      trend: trend
     }
   };
 }
@@ -1177,7 +1368,7 @@ function syncTpmAllocationHours(ss, userEmail, targetMonthYear, product, subProd
 /**
  * Automated Operational Nudge: Sends individual compliance reminder emails to team members with incomplete timesheets.
  */
-function sendTpmComplianceNudge(emails, weekStartDateStr, customSubject = "", customBody = "") {
+function sendTpmComplianceNudge(emails, weekStartDateStr, customSubject = "", customBody = "", missedDatesMap = {}) {
   const session = getCurrentUserSession();
   if (!session.isTpmManager && !session.isAdmin && session.identityTier !== 3) {
     throw new Error("Unauthorized: Only TPM Team Managers can send compliance nudges.");
@@ -1195,27 +1386,88 @@ function sendTpmComplianceNudge(emails, weekStartDateStr, customSubject = "", cu
       empNameMap[email] = String(e["First Name"] || e["Google Chat Full Name"] || "Team Member").trim();
     }
   });
-  
+
+  // Common Header/Footer Styles matching OSTTRA Branding
+  const getEmailHtml = (title, contentHtml) => {
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <style>
+          body { font-family: 'Neue Haas Grotesk Text Pro', 'Helvetica Neue', Helvetica, Arial, sans-serif; margin: 0; padding: 0; background-color: #F0F0F0; color: #222222; }
+          .container { max-width: 600px; margin: 20px auto; background-color: #FFFFFF; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.05); border: 1px solid #E5E5E5; }
+          .header-gradient { height: 8px; background: linear-gradient(90deg, #FE952D 0%, #FF0061 50%, #9125BF 100%); }
+          .content { padding: 40px; }
+          .title { color: #FF0061; font-size: 18px; font-weight: bold; margin-bottom: 24px; text-transform: uppercase; letter-spacing: 1px; }
+          .body-text { font-size: 14px; line-height: 1.6; color: #555555; margin-bottom: 24px; }
+          .btn-container { text-align: center; margin: 30px 0 10px 0; }
+          .btn { display: inline-block; background: linear-gradient(90deg, #FE952D 0%, #FF0061 100%); color: #FFFFFF !important; text-decoration: none; padding: 12px 24px; border-radius: 8px; font-size: 12px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; box-shadow: 0 4px 10px rgba(255,0,97,0.2); }
+          .footer { background-color: #F9F9F9; padding: 24px; text-align: center; border-top: 1px solid #EAEAEA; }
+          .footer-logo { font-size: 14px; font-weight: bold; color: #222222; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 8px; }
+          .footer-text { font-size: 11px; color: #888888; line-height: 1.5; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header-gradient"></div>
+          <div class="content">
+            <div class="title">${title}</div>
+            ${contentHtml}
+          </div>
+          <div class="footer">
+            <div class="footer-logo">OSTTRA | NEXUS</div>
+            <div class="footer-text">This is an automated operational notification. Please do not reply directly to this email. For questions or support, contact your TPM manager.</div>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+  };
+
   emails.forEach(email => {
+    const lowerEmail = email.toLowerCase().trim();
     let subject = customSubject || ("Action Required: Outstanding Timesheet Logs - Week of " + weekStartDateStr);
-    
+
     let body = customBody || (
       "Hi [Name],\n\n" +
-      "This is an automated operational reminder from the Nexus TPM Resource Center.\n\n" +
-      "Our records indicate that your timesheet entries for the week starting " + weekStartDateStr + " are currently incomplete (missing hours or below your standard allocated capacity).\n\n" +
-      "Please log into Nexus and update your timesheet as soon as possible to ensure accurate monthly product allocation metrics.\n\n" +
+      "This is an automated reminder from the Nexus.\n\n" +
+      "Our records indicate that your timesheet entries for [MissedDates] are currently incomplete (missing hours or below your standard allocated capacity).\n\n" +
+      "Please log into Nexus and update your timesheet as soon as possible.\n\n" +
       "Link to Nexus: " + ScriptApp.getService().getUrl() + "\n\n" +
       "Thank you for your prompt cooperation,\n" +
-      session.name + " (TPM Team Management)"
+      "Team Nexus"
     );
 
     // Substitute placeholders
-    const rName = empNameMap[email.toLowerCase().trim()] || "Team Member";
+    const rName = empNameMap[lowerEmail] || "Team Member";
+
+    // Resolve Missed Dates nicely
+    const missedList = missedDatesMap[email] || missedDatesMap[lowerEmail] || [];
+    const missedStr = missedList.length > 0 ? missedList.join(", ") : ("the week starting " + weekStartDateStr);
+
     subject = subject.replace(/\[Name\]/g, rName).replace(/\[Week\]/g, weekStartDateStr);
-    body = body.replace(/\[Name\]/g, rName).replace(/\[Week\]/g, weekStartDateStr);
-      
+    body = body.replace(/\[Name\]/g, rName).replace(/\[Week\]/g, weekStartDateStr).replace(/\[MissedDates\]/g, missedStr);
+
+    const htmlBodyContent = body.replace(/\n/g, "<br>");
+    const portalUrl = ScriptApp.getService().getUrl() || "https://nexus.osttra.com";
+    const wrappedHtmlBody = getEmailHtml(
+      "Action Required: Update Your Timesheet Logs",
+      `
+        <p class="body-text">${htmlBodyContent}</p>
+        <div class="btn-container">
+          <a href="${portalUrl}" target="_blank" class="btn">Update Timesheet in Portal</a>
+        </div>
+      `
+    );
+
     try {
-      MailApp.sendEmail(email, subject, body);
+      MailApp.sendEmail({
+        to: email,
+        subject: subject,
+        body: body, // Plain text fallback
+        htmlBody: wrappedHtmlBody
+      });
     } catch (e) {
       console.error("Failed to send nudge email to " + email + ": " + e.message);
     }

@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html>
   <head>
     <base target="_top">
@@ -42,7 +42,7 @@
   <body class="flex flex-col h-screen overflow-hidden">
     <!-- UAT Banner -->
     <div id="uat-banner" class="hidden w-full bg-osttra-ochre text-white p-2 flex items-center justify-center gap-4 shrink-0 z-50 border-b border-black/20">
-      <span class="font-bold text-[10px] uppercase tracking-[0.2em]">🚧 UAT / Development Environment - Do Not Enter Live Data 🚧</span>
+      <span class="font-bold text-[10px] uppercase tracking-[0.2em]">&#9888; UAT / Development Environment - Do Not Enter Live Data &#9888;</span>
       <a id="uat-prod-btn" href="#" target="_top" class="px-4 py-1.5 bg-white text-osttra-ochre text-[10px] font-black rounded-lg shadow-sm hover:bg-gray-100 transition-colors uppercase">Go To Prod</a>
     </div>
 
@@ -85,10 +85,11 @@
         </div>
 
         <!-- Navigation -->
-        <nav class="flex-1 overflow-y-auto no-scrollbar pr-2 space-y-8 flex flex-col justify-between">
-          <div class="space-y-8">
+        <nav class="flex-1 overflow-y-auto no-scrollbar pr-2 space-y-6 flex flex-col justify-between">
+          <div class="space-y-6">
+            <!-- PERSONAL CATEGORY -->
             <div class="space-y-1">
-              <p class="px-2 text-[9px] font-black text-white/20 uppercase tracking-[0.2em] mb-3 sidebar-text">Workspace</p>
+              <p class="px-2 text-[9px] font-black text-white/30 uppercase tracking-[0.2em] mb-2 sidebar-text">Personal</p>
               <button id="nav-Profile" onclick="loadPage('Profile')" title="Profile" class="nav-link group">
                 <i class="fas fa-user-circle text-sm w-5 group-hover:scale-110 transition-transform duration-200 shrink-0"></i>
                 <span class="text-xs font-bold uppercase tracking-widest sidebar-text">Profile</span>
@@ -97,27 +98,31 @@
                 <i class="fas fa-edit text-sm w-5 group-hover:scale-110 transition-transform duration-200 shrink-0"></i>
                 <span class="text-xs font-bold uppercase tracking-widest sidebar-text">My Allocations</span>
               </button>
+            </div>
+
+            <!-- ANALYTICS CATEGORY -->
+            <div class="space-y-1">
+              <p class="px-2 text-[9px] font-black text-white/30 uppercase tracking-[0.2em] mb-2 sidebar-text">Analytics & BI</p>
               <button id="nav-AnalyticsHub" onclick="loadPage('AnalyticsHub')" title="Analytics Hub" class="nav-link group">
                 <i class="fas fa-chart-bar text-sm w-5 group-hover:scale-110 transition-transform duration-200 shrink-0"></i>
                 <span class="text-xs font-bold uppercase tracking-widest sidebar-text">Analytics Hub</span>
               </button>
               <button id="nav-OrganizationChart" onclick="loadPage('OrganizationChart')" title="Organization Chart" class="nav-link group">
                 <i class="fas fa-sitemap text-sm w-5 group-hover:scale-110 transition-transform duration-200 shrink-0"></i>
-                <span class="text-xs font-bold uppercase tracking-widest sidebar-text">Organization Chart</span>
+                <span class="text-xs font-bold uppercase tracking-widest sidebar-text">Org Chart</span>
               </button>
             </div>
             <div class="space-y-1 phase-req" data-phase="1">
               <p class="px-2 text-[9px] font-black text-white/20 uppercase tracking-[0.2em] mb-3 sidebar-text">Management</p>
-              <button id="nav-ExecAnalytics" onclick="loadPage('ExecAnalytics')" title="Executive Analytics" class="nav-link group">
+              <button id="nav-ExecAnalytics" onclick="loadPage('ExecAnalytics')" title="Executive Analytics" class="nav-link hidden group">
                 <i class="fas fa-chart-pie text-sm w-5 group-hover:scale-110 transition-transform duration-200 shrink-0"></i>
-                <span class="text-xs font-bold uppercase tracking-widest sidebar-text">Executive Analytics</span>
+                <span class="text-xs font-bold uppercase tracking-widest sidebar-text">Exec Analytics</span>
               </button>
               <!-- AssignProduct.html defines Monthly Product Allocation and has no skill selects -->
               <button id="nav-AssignProduct" onclick="loadPage('AssignProduct')" title="Assign Product" class="nav-link group">
                 <i class="fas fa-cubes text-sm w-5 group-hover:scale-110 transition-transform duration-200 shrink-0"></i>
                 <span class="text-xs font-bold uppercase tracking-widest sidebar-text">Assign Product</span>
               </button>
-              <!-- AssignSkill.html defines Product Proficiencies and contains the Skill levels -->
               <button id="nav-AssignSkill" onclick="loadPage('AssignSkill')" title="Assign Skill Matrix" class="nav-link group">
                 <i class="fas fa-user-tag text-sm w-5 group-hover:scale-110 transition-transform duration-200 shrink-0"></i>
                 <span class="text-xs font-bold uppercase tracking-widest sidebar-text">Assign Skill Matrix</span>
@@ -125,6 +130,19 @@
               <button id="nav-TeamAllocationsReview" onclick="loadPage('TeamAllocationsReview')" title="Team Allocations" class="nav-link group">
                 <i class="fas fa-tasks text-sm w-5 group-hover:scale-110 transition-transform duration-200 shrink-0"></i>
                 <span class="text-xs font-bold uppercase tracking-widest sidebar-text">Team Allocations</span>
+              </button>
+            </div>
+
+            <!-- TECHNICAL DELIVERY CATEGORY (TPM) -->
+            <div id="section-tpm" class="space-y-1 hidden">
+              <p class="px-2 text-[9px] font-black text-white/30 uppercase tracking-[0.2em] mb-2 sidebar-text">Technical Delivery</p>
+              <button id="nav-TpmTimesheet" onclick="loadPage('TpmTimesheet')" title="TPM Timesheet" class="nav-link group">
+                <i class="fas fa-clock text-sm w-5 group-hover:scale-110 transition-transform duration-200 shrink-0"></i>
+                <span class="text-xs font-bold uppercase tracking-widest sidebar-text">TPM Timesheet</span>
+              </button>
+              <button id="nav-TpmDashboard" onclick="loadPage('TpmDashboard')" title="TPM Dashboard" class="nav-link hidden group">
+                <i class="fas fa-calendar-check text-sm w-5 group-hover:scale-110 transition-transform duration-200 shrink-0"></i>
+                <span class="text-xs font-bold uppercase tracking-widest sidebar-text">TPM Compliance</span>
               </button>
             </div>
           </div>
@@ -304,6 +322,26 @@
             execNav.classList.add('hidden');
           }
         }
+
+        // Hide/Show TPM Navigation Section strictly based on isTpmUser
+        const tpmSection = document.getElementById('section-tpm');
+        if (tpmSection) {
+          if (user.isTpmUser) {
+            tpmSection.classList.remove('hidden');
+          } else {
+            tpmSection.classList.add('hidden');
+          }
+        }
+
+        // Hide/Show TPM Dashboard strictly based on isTpmManager
+        const tpmDashNav = document.getElementById('nav-TpmDashboard');
+        if (tpmDashNav) {
+          if (user.isTpmManager) {
+            tpmDashNav.classList.remove('hidden');
+          } else {
+            tpmDashNav.classList.add('hidden');
+          }
+        }
       }
 
       window.nexusState = null;
@@ -390,8 +428,13 @@
         if (cachedSession) {
           try {
             const bootPayload = JSON.parse(cachedSession);
-            initSession(bootPayload);
-            console.log("Instant Boot: Loaded session from sessionStorage cache.");
+            // Only load from cache if NOT a simulated session to prevent profile leakage/desync
+            if (bootPayload && bootPayload.session && !bootPayload.session.isSimulated) {
+              initSession(bootPayload);
+              console.log("Instant Boot: Loaded session from sessionStorage cache.");
+            } else {
+              sessionStorage.removeItem('nexus_session');
+            }
           } catch (e) {
             console.error("Failed to parse cached session:", e);
           }

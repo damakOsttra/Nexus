@@ -1,0 +1,2535 @@
+﻿<!-- ui/Teams/TpmTimesheet.html -->
+<style>
+  /* Prevent horizontal page scroll to keep dynamic drawers properly hidden off-screen */
+  body {
+    overflow-x: hidden !important;
+  }
+  /* Remove native spin buttons (counters) for number inputs to prevent overlapping */
+  input[type="number"]::-webkit-inner-spin-button, 
+  input[type="number"]::-webkit-outer-spin-button { 
+    -webkit-appearance: none; 
+    margin: 0; 
+  }
+  input[type="number"] {
+    -moz-appearance: textfield;
+  }
+  /* Smooth transition for chevrons */
+  .chevron-transition {
+    transition: transform 0.2s ease-in-out;
+  }
+</style>
+<div class="p-8 space-y-8 max-w-7xl mx-auto animate-in fade-in duration-300">
+  <!-- Header -->
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/5 pb-6">
+    <div class="space-y-1">
+      <h2 class="text-2xl font-black uppercase tracking-tighter text-white flex items-center gap-3">
+        <i class="fas fa-clock text-osttra-rubine"></i> TPM Timesheet Entry
+      </h2>
+      <p class="text-xs font-bold text-white/40 uppercase tracking-widest">Logged-in: <span id="timesheet-user-email" class="text-white/60"></span></p>
+    </div>
+    
+    <!-- Week Selector Navigation -->
+    <div class="flex items-center gap-3 bg-white/5 p-1.5 rounded-2xl border border-white/5 relative">
+      <button onclick="changeWeek(-7)" class="w-10 h-10 rounded-xl hover:bg-white/10 active:scale-95 transition-all text-white flex items-center justify-center" title="Previous Week">
+        <i class="fas fa-chevron-left"></i>
+      </button>
+      <div class="px-4 text-center min-w-[200px] select-none">
+        <p id="week-display" class="text-xs font-black uppercase tracking-widest text-white flex items-center justify-center gap-1.5"></p>
+        <p id="week-dates-display" class="text-[9px] font-mono text-white/40 mt-0.5"></p>
+      </div>
+      <!-- Dedicated Visible Calendar Date Picker Button -->
+      <div class="relative px-3.5 py-2 rounded-xl bg-white/5 border border-white/10 hover:border-white/20 hover:bg-white/[0.08] active:scale-95 transition-all text-white flex items-center gap-1.5 cursor-pointer group shadow-sm" title="Jump to Specific Date">
+        <input type="date" id="timesheet-calendar-picker" onchange="handleCalendarSelection(this.value)" class="absolute inset-0 opacity-0 cursor-pointer z-20 w-full h-full">
+        <i class="far fa-calendar-alt text-white/50 group-hover:text-white transition-colors z-10 text-xs"></i>
+        <span class="text-[9px] font-black uppercase tracking-widest text-white/40 group-hover:text-white transition-colors z-10 select-none">Select Week</span>
+      </div>
+      <button onclick="changeWeek(7)" class="w-10 h-10 rounded-xl hover:bg-white/10 active:scale-95 transition-all text-white flex items-center justify-center" title="Next Week">
+        <i class="fas fa-chevron-right"></i>
+      </button>
+    </div>
+  </div>
+
+  <!-- Guidelines & Logic Dialogue (Collapsible) -->
+  <div class="bg-white/[0.02] border border-white/5 rounded-2xl shadow-md overflow-hidden">
+    <button onclick="document.getElementById('guidelines-content').classList.toggle('hidden'); document.getElementById('guidelines-chevron').classList.toggle('rotate-180');" class="w-full p-4 flex items-center justify-between text-left hover:bg-white/[0.04] transition-colors focus:outline-none">
+      <div class="flex items-center gap-3">
+        <i class="fas fa-info-circle text-osttra-rubine text-sm"></i>
+        <span class="text-xs font-bold text-white/80 uppercase tracking-wider">Timesheet Guidelines</span>
+      </div>
+      <i id="guidelines-chevron" class="fas fa-chevron-down text-white/40 text-xs transition-transform duration-200"></i>
+    </button>
+    <div id="guidelines-content" class="hidden p-6 pt-2 border-t border-white/5 space-y-6 text-[13px] text-white/70 leading-relaxed bg-[#1c1c1c]">
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <!-- Panel 1: Sizing & Effort Allocations -->
+        <div class="space-y-3.5 bg-white/[0.01] p-5 rounded-2xl border border-white/5 pr-6">
+          <h4 class="text-osttra-rubine font-black uppercase tracking-widest text-xs flex items-center gap-2 border-b border-white/5 pb-1.5 pr-2">
+            <i class="fas fa-ruler-combined text-osttra-rubine"></i> 1. Sizing & Allocations
+          </h4>
+          <ul class="list-disc pl-4 space-y-2 pr-2">
+            <li><strong class="text-white font-bold">Project Sizing Predictions:</strong> Estimates predict weekly baseline effort: Small = 20 days, Medium = 40 days, Large = 60 days total. Effort is spread across the entire duration of the project.</li>
+            <li><strong class="text-white font-bold">PSS Tickets:</strong> Professional Services Support tickets automatically book 100% of hours to the UAT/Go-Live bucket. Excluded PSS statuses (Declined, RollBacked, Completed, Canceled) lock entry.</li>
+            <li><strong class="text-white font-bold">Monitoring Rule:</strong> Log events >30 mins against specific tickets. Events <30 mins roll up into general <strong class="text-white">Admin</strong>.</li>
+          </ul>
+        </div>
+
+        <!-- Panel 2: Guardrails & Overrides -->
+        <div class="space-y-3.5 bg-white/[0.01] p-5 rounded-2xl border border-white/5 pr-6">
+          <h4 class="text-osttra-rubine font-black uppercase tracking-widest text-xs flex items-center gap-2 border-b border-white/5 pb-1.5 pr-2">
+            <i class="fas fa-shield-alt text-osttra-rubine"></i> 2. Guardrails & Overrides
+          </h4>
+          <ul class="list-disc pl-4 space-y-2 pr-2">
+            <li><strong class="text-white font-bold">Active Whitelists:</strong> Only TPM tickets with active statuses (`Assigned`, `Preparing Deployment`, `Initiation`, `Implementation`, `TPM Handover approved`, `Go Live`, `UAT`, `Technical Go Live`) and PSS tickets with (`Flow Seen`, `Flow Pending`, `Awaiting implementation`, `New`, `4-Eye Approval`, `Review`) are active by default.</li>
+            <li><strong class="text-white font-bold">Hiding & Overrides:</strong> Unwhitelisted tickets are completely hidden by default to keep your grid clean (unless they have active saved hours). Toggle <strong class="text-white">Show Excluded Epics</strong> to reveal and unlock them using the padlock icon on demand.</li>
+            <li><strong class="text-white font-bold">Phase Borders:</strong> Left-side colors show Epic phase:
+              <ul class="list-none pl-1 mt-1 space-y-1">
+                <li>ΓÇó ≡ƒö╣ <span class="text-blue-400 font-bold">Blue:</span> Integration Phase.</li>
+                <li>ΓÇó ≡ƒö╕ <span class="text-osttra-ochre font-bold">Ochre:</span> Client-Testing/UAT Phase.</li>
+                <li>ΓÇó ≡ƒƒó <span class="text-emerald-400 font-bold">Green:</span> Completed / Live.</li>
+              </ul>
+            </li>
+          </ul>
+        </div>
+
+        <!-- Panel 3: Limits, Drafts & Saving -->
+        <div class="space-y-3.5 bg-white/[0.01] p-5 rounded-2xl border border-white/5 pr-6">
+          <h4 class="text-osttra-rubine font-black uppercase tracking-widest text-xs flex items-center gap-2 border-b border-white/5 pb-1.5 pr-2">
+            <i class="fas fa-save text-osttra-rubine"></i> 3. Limits & Navigation
+          </h4>
+          <ul class="list-disc pl-4 space-y-2 pr-2">
+            <li><strong class="text-white font-bold">Daily Limits:</strong> 1 Day JIRA baseline = 8.00h (glows <span class="text-emerald-400">Green</span>). Hard daily cell limit is 24.00h (glows <span class="text-osttra-rubine">Red</span> on over-allocation). Standard weekly goal is 40.00h.</li>
+            <li><strong class="text-white font-bold">Keyboard Navigation (Excel):</strong> Use keyboard \`Enter\` to navigate cells rapidly. Selecting a cell highlights its contents for instant overwrite.</li>
+            <li><strong class="text-white font-bold">Drafts & Resets:</strong> Inputs auto-save locally. Use <strong class="text-white"><i class="fas fa-undo-alt text-white/50"></i> Reset Drafts</strong> to discard unsaved changes and reload original database data.</li>
+            <li><strong class="text-white font-bold">Commit:</strong> You must click <strong class="text-white">Save Timesheet Entries</strong> to push drafts and OOO logs to the permanent database.</li>
+          </ul>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Actions -->
+  <div class="flex flex-wrap items-center justify-between gap-4">
+    <div class="flex flex-wrap items-center gap-3">
+      <!-- Group 1: Data & Synchronization -->
+      <div class="flex items-center gap-2 bg-white/5 p-1 rounded-xl border border-white/5 shadow-inner">
+        <button onclick="loadTimesheetData(true)" class="px-3 py-1.5 rounded-lg hover:bg-white/10 text-white text-[10px] font-black uppercase tracking-widest active:scale-95 transition-all flex items-center gap-1.5 focus:outline-none">
+          <i class="fas fa-sync-alt"></i> Refresh
+        </button>
+        <div class="w-px h-5 bg-white/10"></div>
+        <button id="btn-sync-jira" onclick="triggerJiraSync()" class="px-3 py-1.5 rounded-lg hover:bg-white/10 text-white text-[10px] font-black uppercase tracking-widest active:scale-95 transition-all flex items-center gap-1.5 focus:outline-none">
+          <i class="fab fa-atlassian"></i> Sync Jira
+        </button>
+        <div class="w-px h-5 bg-white/10"></div>
+        <button onclick="resetWeekData()" class="px-3 py-1.5 rounded-lg hover:bg-white/10 text-white/70 hover:text-white text-[10px] font-black uppercase tracking-widest active:scale-95 transition-all flex items-center gap-1.5 focus:outline-none" title="Discard unsaved changes and reload original data">
+          <i class="fas fa-undo-alt"></i> Reset Drafts
+        </button>
+      </div>
+
+      <!-- Group 2: Grid Filters -->
+      <div class="flex items-center gap-2 bg-white/5 p-1 rounded-xl border border-white/5 shadow-inner">
+        <!-- Status Filter Dropdown -->
+        <div class="relative" id="status-filter-container">
+          <button type="button" onclick="toggleStatusDropdown(event)" class="bg-transparent hover:bg-white/10 rounded-lg px-3 py-1.5 text-[10px] font-black uppercase text-white flex items-center gap-1.5 active:scale-95 transition-all outline-none">
+            <span class="text-white/40 font-bold uppercase mr-1">Filter:</span>
+            <span id="status-filter-label">All Statuses</span>
+            <i class="fas fa-chevron-down text-white/40 text-[9px]"></i>
+          </button>
+          <div id="status-filter-dropdown" class="hidden absolute left-0 md:left-auto top-full mt-2 w-48 bg-[#222222] border border-white/10 rounded-xl shadow-2xl z-50 p-2 max-h-[220px] overflow-y-auto scrollbar-thin">
+            <!-- Populated Dynamically with Checkboxes -->
+          </div>
+        </div>
+        <div class="w-px h-5 bg-white/10"></div>
+        <!-- Excluded Epics Toggle -->
+        <div class="px-2">
+          <label class="flex items-center gap-2 cursor-pointer select-none">
+            <input type="checkbox" id="show-all-epics-toggle" onchange="toggleShowAllEpics(this)" class="accent-osttra-rubine w-3.5 h-3.5 rounded border-white/10 bg-[#222222]">
+            <span class="text-[9px] font-black text-white/40 uppercase tracking-widest">Show Excluded Epics</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Group 3: Search & Add Tickets (Unified Searchable Multiselect) -->
+      <div class="relative flex items-center bg-white/5 p-1 rounded-xl border border-white/5 shadow-inner" id="unified-add-container">
+        <span class="text-[9px] font-black text-white/40 uppercase tracking-widest pl-2 pr-2 border-r border-white/10">Add Tickets</span>
+        <div class="relative flex items-center pl-1.5 pr-1">
+          <input type="text" id="unified-search-input" onfocus="showUnifiedDropdown()" oninput="filterUnifiedDropdown()" placeholder="Search TPM/PSS..." class="bg-transparent rounded-lg px-2 py-1 text-xs text-white outline-none focus:border-osttra-rubine w-44 uppercase font-mono placeholder-white/20">
+          <button type="button" onclick="toggleUnifiedDropdown(event)" class="p-1 hover:bg-white/10 rounded text-white/40 hover:text-white transition-all focus:outline-none text-[10px]"><i class="fas fa-chevron-down"></i></button>
+        </div>
+        
+        <!-- Dropdown Popover -->
+        <div id="unified-add-dropdown" class="hidden absolute left-0 md:left-auto top-full mt-2 w-80 bg-[#222222] border border-white/10 rounded-xl shadow-2xl z-50 p-2.5 flex flex-col gap-2">
+          <div class="max-h-[220px] overflow-y-auto scrollbar-thin space-y-1" id="unified-dropdown-list">
+            <!-- Populated dynamically -->
+          </div>
+          <div class="flex items-center justify-between border-t border-white/5 pt-2 mt-1">
+            <span id="selected-count-label" class="text-[8px] text-white/40 uppercase tracking-widest font-black pl-1">0 Selected</span>
+            <button type="button" onclick="addSelectedTickets()" class="px-3 py-1 bg-osttra-rubine hover:brightness-110 rounded-lg text-white text-[9px] font-black uppercase tracking-widest transition-all">Add Selected</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <button id="btn-save-timesheet" onclick="saveTimesheet()" class="px-6 py-3 rounded-xl bg-osttra-rubine hover:brightness-110 text-white text-[10px] font-black uppercase tracking-widest active:scale-95 transition-all flex items-center gap-2 shadow-lg shadow-osttra-rubine/20 focus:outline-none">
+      <i class="fas fa-save"></i> Save Timesheet Entries
+    </button>
+  </div>
+
+  <!-- Gentle Autosave Restore Banner -->
+  <div id="autosave-restore-banner" class="hidden bg-white/[0.02] border border-white/5 rounded-2xl p-4 flex items-center justify-between gap-4 animate-in slide-in-from-top duration-300">
+    <div class="flex items-center gap-3">
+      <div class="w-8 h-8 rounded-xl bg-osttra-ochre/10 border border-osttra-ochre/20 flex items-center justify-center text-osttra-ochre">
+        <i class="fas fa-magic text-sm animate-bounce"></i>
+      </div>
+      <div class="space-y-0.5">
+        <p class="text-xs font-bold text-white">We found an unsaved timesheet draft!</p>
+        <p class="text-[10px] text-white/40 uppercase tracking-widest font-black">You have unstaged timesheet entries from your previous session.</p>
+      </div>
+    </div>
+    <div class="flex items-center gap-2.5">
+      <button onclick="discardAutosaveDraft()" class="px-3.5 py-1.5 bg-white/5 hover:bg-white/10 border border-white/5 rounded-lg text-white/60 text-[9px] font-black uppercase tracking-widest transition-all">Discard</button>
+      <button onclick="restoreAutosaveDraft()" class="px-4 py-1.5 bg-osttra-ochre hover:brightness-110 rounded-lg text-white text-[9px] font-black uppercase tracking-widest transition-all shadow-md shadow-osttra-ochre/10">Restore Draft</button>
+    </div>
+  </div>
+
+  <!-- Timesheet Lock Banner -->
+  <div id="timesheet-lock-banner" class="hidden bg-white/[0.02] border border-white/5 rounded-2xl p-4 flex items-center gap-3 animate-in slide-in-from-top duration-300">
+    <div class="w-8 h-8 rounded-xl bg-osttra-rubine/10 border border-osttra-rubine/20 flex items-center justify-center text-osttra-rubine">
+      <i class="fas fa-lock text-sm"></i>
+    </div>
+    <div class="space-y-0.5">
+      <p class="text-xs font-bold text-white">Timesheet Locked</p>
+      <p class="text-[10px] text-white/40 uppercase tracking-widest font-black">Editing is restricted for older weeks that have already been submitted. Please contact your manager for adjustments.</p>
+    </div>
+  </div>
+
+  <!-- Sticky / Top Compliance Progress Bar Card -->
+  <div id="timesheet-progress-card" class="bg-[#222222] border border-white/5 rounded-3xl p-5 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4 relative overflow-hidden group">
+    <!-- Subtle gradient background pattern -->
+    <div class="absolute -right-16 -bottom-16 text-white/[0.01] text-9xl group-hover:scale-105 transition-transform duration-500 pointer-events-none">
+      <i class="fas fa-clock"></i>
+    </div>
+    
+    <div class="space-y-1 shrink-0">
+      <p class="text-[10px] font-black text-white/40 uppercase tracking-widest">Weekly Logging Progress</p>
+      <h3 id="progress-hours-display" class="text-2xl font-black text-white tracking-tighter">0.00h / 40.00h</h3>
+      <p id="progress-status-desc" class="text-[9px] font-bold text-white/30 uppercase tracking-widest mt-0.5">Standard weekly compliance goal is 40.00h (8.00h/weekday).</p>
+    </div>
+
+    <!-- Animated dynamic progress bar -->
+    <div class="flex-1 max-w-xl w-full space-y-1.5 md:mx-6">
+      <div class="flex justify-between text-[9px] font-mono font-black uppercase tracking-widest">
+        <span id="progress-percent-label" class="text-osttra-rubine">0% Logged</span>
+        <span class="text-white/40">Goal: 40.00 hours</span>
+      </div>
+      <div class="h-3 bg-white/5 border border-white/5 rounded-full overflow-hidden relative">
+        <!-- Progress bar runner -->
+        <div id="progress-bar-runner" class="h-full bg-gradient-to-r from-osttra-rubine to-osttra-ochre rounded-full w-0 transition-all duration-300 shadow-[0_0_8px_rgba(254,149,45,0.3)]"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Timesheet Table Card -->
+  <div class="bg-[#222222] border border-white/5 rounded-3xl overflow-hidden shadow-2xl relative">
+    <div class="w-full overflow-x-auto scrollbar-thin max-h-[70vh]">
+      <table class="w-full text-left border-collapse min-w-[1100px] relative">
+        <thead class="sticky top-0 z-30 bg-[#222222] shadow-[0_4px_6px_-1px_rgba(0,0,0,0.3)]">
+          <tr class="border-b border-white/5 bg-white/[0.02]">
+            <th class="p-4 text-[10px] font-black uppercase tracking-widest text-white/40 pl-6 w-32 cursor-pointer hover:text-white hover:bg-white/5 transition-colors select-none sticky left-0 z-40 bg-[#222222]" onclick="sortEpics('Key')">Jira Key <span id="sort-Key" class="text-osttra-rubine font-black"></span></th>
+            <th class="p-4 text-[10px] font-black uppercase tracking-widest text-white/40 w-48 bg-[#222222]/90 backdrop-blur">Summary</th>
+            <th class="p-4 text-[10px] font-black uppercase tracking-widest text-white/40 w-24 text-center cursor-pointer hover:text-white hover:bg-white/5 transition-colors select-none bg-[#222222]/90 backdrop-blur" onclick="sortEpics('Status')">Status <span id="sort-Status" class="text-osttra-rubine font-black"></span></th>
+            <th class="p-4 text-[10px] font-black uppercase tracking-widest text-white/40 w-20 text-center cursor-pointer hover:text-white hover:bg-white/5 transition-colors select-none bg-[#222222]/90 backdrop-blur" onclick="sortEpics('Project Sizing')">Sizing <span id="sort-Project Sizing" class="text-osttra-rubine font-black"></span></th>
+            <th class="p-4 text-[10px] font-black uppercase tracking-widest text-white/40 w-24 text-center cursor-pointer hover:text-white hover:bg-white/5 transition-colors select-none bg-[#222222]/90 backdrop-blur" onclick="sortEpics('Created')">Created <span id="sort-Created" class="text-osttra-rubine font-black"></span></th>
+            <th class="p-4 text-[10px] font-black uppercase tracking-widest text-white/40 w-24 text-center cursor-pointer hover:text-white hover:bg-white/5 transition-colors select-none bg-[#222222]/90 backdrop-blur" onclick="sortEpics('Updated')">Updated <span id="sort-Updated" class="text-osttra-rubine font-black"></span></th>
+            <th id="th-sun" class="p-4 text-[10px] font-black uppercase tracking-widest text-white/20 text-center w-20 bg-[#222222]/90 backdrop-blur">Sun</th>
+            <th id="th-mon" class="p-4 text-[10px] font-black uppercase tracking-widest text-white/40 text-center w-20 border-l border-white/5 bg-[#222222]/90 backdrop-blur">Mon</th>
+            <th id="th-tue" class="p-4 text-[10px] font-black uppercase tracking-widest text-white/40 text-center w-20 bg-[#222222]/90 backdrop-blur">Tue</th>
+            <th id="th-wed" class="p-4 text-[10px] font-black uppercase tracking-widest text-white/40 text-center w-20 bg-[#222222]/90 backdrop-blur">Wed</th>
+            <th id="th-thu" class="p-4 text-[10px] font-black uppercase tracking-widest text-white/40 text-center w-20 bg-[#222222]/90 backdrop-blur">Thu</th>
+            <th id="th-fri" class="p-4 text-[10px] font-black uppercase tracking-widest text-white/40 text-center w-20 bg-[#222222]/90 backdrop-blur">Fri</th>
+            <th id="th-sat" class="p-4 text-[10px] font-black uppercase tracking-widest text-white/20 text-center w-20 border-l border-white/5 pr-6 bg-[#222222]/90 backdrop-blur">Sat</th>
+          </tr>
+        </thead>
+        <tbody id="timesheet-grid-body">
+          <!-- Populated Dynamically -->
+        </tbody>
+        <tfoot class="sticky bottom-0 z-30 bg-[#1a1a1a] shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.3)] border-t border-white/10">
+          <tr>
+            <td colspan="6" class="p-4 pl-6 font-black uppercase tracking-widest text-[10px] text-white/60 text-right sticky left-0 z-40 bg-[#1a1a1a]">
+              Daily Target / Limits
+            </td>
+            <td class="p-3 text-center"><div id="total-sun" class="text-[10px] font-mono font-bold bg-black/40 px-2 py-1 rounded-md text-white/20 transition-colors">0.00h</div></td>
+            <td class="p-3 text-center border-l border-white/5"><div id="total-mon" class="text-[10px] font-mono font-bold bg-white/5 px-2 py-1 rounded-md text-white/40 transition-colors">0.00h</div></td>
+            <td class="p-3 text-center"><div id="total-tue" class="text-[10px] font-mono font-bold bg-white/5 px-2 py-1 rounded-md text-white/40 transition-colors">0.00h</div></td>
+            <td class="p-3 text-center"><div id="total-wed" class="text-[10px] font-mono font-bold bg-white/5 px-2 py-1 rounded-md text-white/40 transition-colors">0.00h</div></td>
+            <td class="p-3 text-center"><div id="total-thu" class="text-[10px] font-mono font-bold bg-white/5 px-2 py-1 rounded-md text-white/40 transition-colors">0.00h</div></td>
+            <td class="p-3 text-center"><div id="total-fri" class="text-[10px] font-mono font-bold bg-white/5 px-2 py-1 rounded-md text-white/40 transition-colors">0.00h</div></td>
+            <td class="p-3 text-center border-l border-white/5 pr-6"><div id="total-sat" class="text-[10px] font-mono font-bold bg-black/40 px-2 py-1 rounded-md text-white/20 transition-colors">0.00h</div></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+  // State management (with strict date sanitization to protect against SPA tab-persistence corruption)
+  var currentSunday = sessionStorage.getItem('tpm_current_sunday');
+  if (!currentSunday || !/^\d{4}-\d{2}-\d{2}$/.test(currentSunday)) {
+    const d = new Date();
+    const day = d.getDay();
+    const diff = d.getDate() - day; // Sunday is day 0
+    const sunday = new Date(d.setDate(diff));
+    currentSunday = formatDateString(sunday);
+    sessionStorage.setItem('tpm_current_sunday', currentSunday);
+  }
+  var showAllEpics = false;
+  var activeEpics = [];
+  var childTickets = [];
+  var existingLogs = [];
+  var weekDates = [];
+  var oooDates = []; // Track daily OOO state
+  var manuallyAddedTickets = []; // User manually added ticket keys
+  var manuallyAddedTicketObjects = []; // User manually added ticket full objects
+  var allSearchableTickets = []; // Unified list of cached active Epics and PSS tickets
+  var manuallyUnlockedTickets = []; // Track ticket keys manually unlocked by user
+  var historicalLoggedKeys = []; // Track keys historically logged by the user
+  var autosaveTimeout = null;
+  var isTimesheetLockedGlobal = false;
+  var isChangingWeekGlobal = false;
+
+  // --- BACKGROUND AUTOSAVE & RESTORE HANDLERS ---
+  function triggerAutosave() {
+    if (autosaveTimeout) clearTimeout(autosaveTimeout);
+    autosaveTimeout = setTimeout(executeAutosave, 1000); // 1-second debounce
+  }
+
+  function executeAutosave() {
+    if (!window.currentUser || weekDates.length < 7) return;
+    const userEmail = window.currentUser.email.toLowerCase().trim();
+    const saveKey = `tpm_timesheet_autosave_${userEmail}_${currentSunday}`;
+    
+    const logs = getFormData();
+    
+    // Save to localStorage
+    localStorage.setItem(saveKey, JSON.stringify(logs));
+    localStorage.setItem(`tpm_timesheet_has_autosave_${userEmail}_${currentSunday}`, "true");
+  }
+
+  function checkAndOfferAutosave() {
+    if (!window.currentUser || weekDates.length < 7) return;
+    const userEmail = window.currentUser.email.toLowerCase().trim();
+    const saveKey = `tpm_timesheet_autosave_${userEmail}_${currentSunday}`;
+    const hasAutosave = localStorage.getItem(`tpm_timesheet_has_autosave_${userEmail}_${currentSunday}`);
+    
+    if (hasAutosave === "true") {
+      const autosaveStr = localStorage.getItem(saveKey);
+      if (autosaveStr) {
+        try {
+          const autosaveLogs = JSON.parse(autosaveStr);
+          
+          // Compare autosave with existingLogs to ensure differences exist
+          const simplAutosave = autosaveLogs.map(l => `${l.jiraKey}_${l.date}_${l.hours}`).sort().join('|');
+          const simplExisting = existingLogs.map(l => `${l.Jira_Key}_${l.Date_Logged}_${parseFloat(l.Hours_Logged) || 0}`).sort().join('|');
+          
+          if (simplAutosave !== simplExisting && autosaveLogs.length > 0) {
+            const banner = document.getElementById('autosave-restore-banner');
+            if (banner) banner.classList.remove('hidden');
+          } else {
+            // No actual differences, clean up
+            clearAutosaveDraft();
+          }
+        } catch (e) {
+          console.error("Autosave compare failed", e);
+        }
+      }
+    }
+  }
+
+  function clearAutosaveDraft() {
+    if (!window.currentUser) return;
+    const userEmail = window.currentUser.email.toLowerCase().trim();
+    localStorage.removeItem(`tpm_timesheet_autosave_${userEmail}_${currentSunday}`);
+    localStorage.removeItem(`tpm_timesheet_has_autosave_${userEmail}_${currentSunday}`);
+    const banner = document.getElementById('autosave-restore-banner');
+    if (banner) banner.classList.add('hidden');
+  }
+
+  function discardAutosaveDraft() {
+    if (confirm("Are you sure you want to permanently discard this local draft?")) {
+      clearAutosaveDraft();
+    }
+  }
+
+  function restoreAutosaveDraft() {
+    if (!window.currentUser) return;
+    const userEmail = window.currentUser.email.toLowerCase().trim();
+    const saveKey = `tpm_timesheet_autosave_${userEmail}_${currentSunday}`;
+    const autosaveStr = localStorage.getItem(saveKey);
+    
+    if (autosaveStr) {
+      try {
+        const autosaveLogs = JSON.parse(autosaveStr);
+        
+        // Push missing keys to manuallyAddedTickets so inputs are rendered
+        let addedAny = false;
+        autosaveLogs.forEach(l => {
+          const key = String(l.jiraKey).toUpperCase().trim();
+          if (key === 'ooo' || key === 'ADMIN' || key === 'MGMT') return;
+          if (!manuallyAddedTickets.includes(key)) {
+            manuallyAddedTickets.push(key);
+            addedAny = true;
+          }
+        });
+        
+        // Re-render grid so the manually added keys' inputs exist
+        renderTimesheetGrid();
+        
+        // Clear all current inputs
+        document.querySelectorAll('input[data-key]').forEach(input => {
+          input.value = input.getAttribute('data-date') === 'ooo' ? '' : '0.00';
+        });
+
+        // Set inputs based on autosave logs
+        autosaveLogs.forEach(l => {
+          const key = String(l.jiraKey).toUpperCase().trim();
+          const date = l.date;
+          
+          // Set splits if it's an Epic
+          const hasSplits = l.intHours > 0 || l.uatHours > 0;
+          if (hasSplits || key.startsWith('TPM-')) {
+            const splitIntEl = document.getElementById(`split-int-${key}-${date}`);
+            const splitUatGoEl = document.getElementById(`split-uatgo-${key}-${date}`);
+            const splitOtherEl = document.getElementById(`split-other-${key}-${date}`);
+            
+            const totalSplit = parseFloat(l.hours) || 0;
+            const intSplit = parseFloat(l.intHours) || 0;
+            const uatSplit = parseFloat(l.uatHours) || 0;
+            const otherSplit = Math.max(totalSplit - (intSplit + uatSplit), 0);
+            
+            if (splitIntEl) splitIntEl.value = intSplit > 0 ? intSplit.toFixed(2) : '0.00';
+            if (splitUatGoEl) splitUatGoEl.value = uatSplit > 0 ? uatSplit.toFixed(2) : '0.00';
+            if (splitOtherEl) splitOtherEl.value = otherSplit > 0 ? otherSplit.toFixed(2) : '0.00';
+            
+            const mainInput = document.querySelector(`input[data-key="${key}"][data-date="${date}"]:not([data-bucket])`);
+            if (mainInput) mainInput.value = totalSplit > 0 ? totalSplit.toFixed(2) : '0.00';
+          } else {
+            const input = document.querySelector(`input[data-key="${key}"][data-date="${date}"]:not([data-bucket])`);
+            if (input) {
+              input.value = parseFloat(l.hours) > 0 ? parseFloat(l.hours).toFixed(2) : '0.00';
+            }
+          }
+        });
+
+        // Update totals & hide banner
+        updateDailyTotals();
+        const banner = document.getElementById('autosave-restore-banner');
+        if (banner) banner.classList.add('hidden');
+      } catch (e) {
+        console.error("Failed to restore autosave", e);
+        showNotification('error', 'Restore Failed', 'Could not parse the local timesheet draft.');
+      }
+    }
+  }
+
+  function toggleTicketUnlock(key) {
+    const idx = manuallyUnlockedTickets.indexOf(key);
+    if (idx !== -1) {
+      manuallyUnlockedTickets.splice(idx, 1);
+    } else {
+      manuallyUnlockedTickets.push(key);
+    }
+    renderTimesheetGrid();
+  }
+  
+  // Sorting state
+  var sortConfig = { key: 'Key', asc: true };
+
+  function sortEpics(column) {
+    if (sortConfig.key === column) {
+      sortConfig.asc = !sortConfig.asc;
+    } else {
+      sortConfig.key = column;
+      sortConfig.asc = true;
+    }
+    renderTimesheetGrid();
+  }
+
+  // Custom Status Filter Dropdown State & Handlers
+  var selectedStatuses = ['ALL'];
+
+  function toggleStatusDropdown(event) {
+    event.stopPropagation();
+    const dropdown = document.getElementById('status-filter-dropdown');
+    dropdown.classList.toggle('hidden');
+  }
+
+  function handleStatusChange(cb) {
+    const val = cb.value;
+    const allCb = document.querySelector('#status-filter-dropdown input[value="ALL"]');
+    
+    if (val === 'ALL') {
+      if (cb.checked) {
+        selectedStatuses = ['ALL'];
+        // Uncheck all other boxes
+        document.querySelectorAll('#status-filter-dropdown input.status-cb').forEach(c => c.checked = false);
+      } else {
+        selectedStatuses = [];
+      }
+    } else {
+      if (allCb) allCb.checked = false;
+      selectedStatuses = selectedStatuses.filter(s => s !== 'ALL');
+      
+      if (cb.checked) {
+        selectedStatuses.push(val);
+      } else {
+        selectedStatuses = selectedStatuses.filter(s => s !== val);
+      }
+      
+      if (selectedStatuses.length === 0) {
+        selectedStatuses = ['ALL'];
+        if (allCb) allCb.checked = true;
+      }
+    }
+    
+    updateStatusFilterLabel();
+    renderTimesheetGrid();
+  }
+
+  function updateStatusFilterLabel() {
+    const label = document.getElementById('status-filter-label');
+    if (!label) return;
+    
+    if (selectedStatuses.includes('ALL')) {
+      label.textContent = 'All Statuses';
+    } else if (selectedStatuses.length === 1) {
+      label.textContent = selectedStatuses[0];
+    } else {
+      label.textContent = `${selectedStatuses.length} Selected`;
+    }
+  }
+
+  // Close dropdown when clicking anywhere else on the document
+  document.addEventListener('click', function(event) {
+    const container = document.getElementById('status-filter-container');
+    if (container && !container.contains(event.target)) {
+      const dropdown = document.getElementById('status-filter-dropdown');
+      if (dropdown) dropdown.classList.add('hidden');
+    }
+  });
+
+  // Centralized Excel-Style Keyboard Navigation for Timesheet Grid Cells (Enter key vertical navigation)
+  document.addEventListener('keydown', function(e) {
+    const active = document.activeElement;
+    if (!active || active.tagName !== 'INPUT' || !active.hasAttribute('data-key') || !active.hasAttribute('data-date')) return;
+    
+    // Skip if editing split detail sub-buckets
+    if (active.hasAttribute('data-bucket')) return;
+
+    if (e.key === 'Enter') {
+      e.preventDefault(); // Prevent accidental form submit
+      const key = active.getAttribute('data-key');
+      const date = active.getAttribute('data-date');
+      
+      const inputs = Array.from(document.querySelectorAll('#timesheet-grid-body input[data-key][data-date]:not([data-bucket]):not([disabled])'));
+      if (inputs.length === 0) return;
+
+      const activeIdx = inputs.indexOf(active);
+      if (activeIdx === -1) return;
+
+      const keysInOrder = [...new Set(inputs.map(i => i.getAttribute('data-key')))];
+      const numRows = keysInOrder.length;
+
+      const findInput = (k, d) => {
+        return inputs.find(i => i.getAttribute('data-key') === k && i.getAttribute('data-date') === d);
+      };
+
+      const curRowIdx = keysInOrder.indexOf(key);
+
+      if (curRowIdx < numRows - 1) {
+        const nextInput = findInput(keysInOrder[curRowIdx + 1], date);
+        if (nextInput) {
+          nextInput.focus();
+          nextInput.select(); // Highlight text for instant vertical overwrite
+        }
+      }
+    }
+  });
+
+  // Initialize view when session state is ready
+  (function() {
+    function initTpmTimesheet() {
+      const user = window.currentUser;
+      const tbody = document.getElementById('timesheet-grid-body');
+
+      // Wait for BOTH the global user object AND the DOM table to be fully attached
+      if (!user || !user.email || !tbody) {
+        setTimeout(initTpmTimesheet, 100);
+        return;
+      }
+
+      const savedMonday = sessionStorage.getItem('tpm_current_sunday');
+      if (savedMonday && /^\d{4}-\d{2}-\d{2}$/.test(savedMonday)) {
+        currentSunday = savedMonday;
+      } else {
+        const d = new Date();
+        const day = d.getDay();
+        const diff = d.getDate() - day; // Sunday is day 0
+        const sunday = new Date(d.setDate(diff));
+        currentSunday = formatDateString(sunday);
+        sessionStorage.setItem('tpm_current_sunday', currentSunday);
+      }
+
+      const emailEl = document.getElementById('timesheet-user-email');
+      if (emailEl) emailEl.innerText = user.email;
+
+      loadTimesheetData();
+    }
+
+    initTpmTimesheet();
+  })();
+
+  function formatDateString(date) {
+    const yyyy = date.getFullYear();
+    const mm = String(date.getMonth() + 1).padStart(2, '0');
+    const dd = String(date.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  }
+
+  function formatEpicDate(val) {
+    if (!val || String(val).trim().toUpperCase() === 'N/A' || String(val).trim() === '') return 'N/A';
+    try {
+      const d = new Date(val);
+      if (isNaN(d.getTime())) return val;
+      const yyyy = d.getFullYear();
+      const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+      const mmm = months[d.getMonth()];
+      const dd = String(d.getDate()).padStart(2, '0');
+      return `${dd} ${mmm} ${yyyy}`;
+    } catch (e) {
+      return val;
+    }
+  }
+
+  function formatDateFriendly(dateStr) {
+    if (!dateStr) return 'N/A';
+    const parts = dateStr.split('-');
+    if (parts.length !== 3) return dateStr;
+    const monthIdx = parseInt(parts[1], 10) - 1;
+    const day = String(parseInt(parts[2], 10)).padStart(2, '0');
+    const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    return `${day} ${months[monthIdx]}`;
+  }
+
+  function changeWeek(daysOffset) {
+    const parts = currentSunday.split('-');
+    const date = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+    date.setDate(date.getDate() + daysOffset);
+    
+    // Block navigation to future weeks
+    const today = new Date();
+    const currentWeekSunday = new Date(today.setDate(today.getDate() - today.getDay()));
+    currentWeekSunday.setHours(0,0,0,0);
+    date.setHours(0,0,0,0);
+    
+    if (date > currentWeekSunday) {
+      showNotification('warning', 'Future Week Locked', 'You cannot navigate to or enter time for future weeks.');
+      return;
+    }
+
+    currentSunday = formatDateString(date);
+    sessionStorage.setItem('tpm_current_sunday', currentSunday);
+    loadTimesheetData();
+  }
+
+  function renderTimesheetSkeleton() {
+    const tbody = document.getElementById('timesheet-grid-body');
+    if (!tbody) return;
+    
+    let html = '';
+    // Render 5 elegant pulsing skeleton rows
+    for (let i = 0; i < 5; i++) {
+      html += `
+        <tr class="animate-pulse border-b border-white/5">
+          <td class="p-4 pl-6 sticky left-0 bg-[#222222] shadow-[4px_0_8px_-4px_rgba(0,0,0,0.6)] border-r border-white/5"><div class="h-4.5 bg-white/10 rounded w-16"></div></td>
+          <td class="p-4"><div class="h-4.5 bg-white/5 rounded w-48"></div></td>
+          <td class="p-4"><div class="h-4.5 bg-white/5 rounded-full w-14 mx-auto"></div></td>
+          <td class="p-4"><div class="h-4.5 bg-white/5 rounded w-8 mx-auto"></div></td>
+          <td class="p-4"><div class="h-4 bg-white/5 rounded w-16 mx-auto"></div></td>
+          <td class="p-4"><div class="h-4 bg-white/5 rounded w-16 mx-auto"></div></td>
+          <td class="p-2"><div class="w-16 h-8 bg-white/5 rounded-lg mx-auto"></div></td>
+          <td class="p-2 border-l border-white/5"><div class="w-16 h-8 bg-white/5 rounded-lg mx-auto"></div></td>
+          <td class="p-2"><div class="w-16 h-8 bg-white/5 rounded-lg mx-auto"></div></td>
+          <td class="p-2"><div class="w-16 h-8 bg-white/5 rounded-lg mx-auto"></div></td>
+          <td class="p-2"><div class="w-16 h-8 bg-white/5 rounded-lg mx-auto"></div></td>
+          <td class="p-2"><div class="w-16 h-8 bg-white/5 rounded-lg mx-auto"></div></td>
+          <td class="p-2 border-l border-white/5 pr-6"><div class="w-16 h-8 bg-white/5 rounded-lg mx-auto"></div></td>
+        </tr>
+      `;
+    }
+    tbody.innerHTML = html;
+  }
+
+  function processTimesheetPayload(data, isFromCache) {
+    if (!data) return;
+    activeEpics = data.epics || [];
+    childTickets = data.childTickets || [];
+
+    // Re-inject manually added unassigned tickets to ensure they survive the backend fetch reload
+    manuallyAddedTicketObjects.forEach(ticket => {
+      const key = String(ticket["Key"] || "").toUpperCase().trim();
+      if (!key) return;
+
+      // Prevent duplicate rendering of any ticket key across activeEpics and childTickets
+      const existsInEpics = activeEpics.some(e => String(e["Key"] || "").toUpperCase().trim() === key);
+      const existsInChildren = childTickets.some(c => String(c["Key"] || "").toUpperCase().trim() === key);
+      if (existsInEpics || existsInChildren) return;
+
+      const isEpic = String(ticket["Issue_Type"] || "Epic").toLowerCase() === "epic";
+      if (isEpic) {
+        activeEpics.push(ticket);
+      } else {
+        childTickets.push(ticket);
+      }
+    });
+
+    existingLogs = data.logs || [];
+    weekDates = data.weekDates || [];
+    historicalLoggedKeys = data.historicalLoggedKeys || [];
+    
+    // Check for autosave discrepancies on fetch
+    checkAndOfferAutosave();
+    
+    // Populate actual Jira statuses for all tickets in the dropdown filter
+    const allTicketsList = [...activeEpics, ...childTickets];
+    const statuses = [...new Set(allTicketsList.map(t => String(t["Status"] || t["status"] || "Active").trim()).filter(Boolean))].sort();
+    const dropdown = document.getElementById('status-filter-dropdown');
+    if (dropdown) {
+      let html = `
+        <label class="flex items-center gap-2 p-1.5 hover:bg-white/5 rounded-lg cursor-pointer text-white text-[10px] font-bold uppercase select-none">
+          <input type="checkbox" value="ALL" onchange="handleStatusChange(this)" class="accent-osttra-rubine" ${selectedStatuses.includes('ALL') ? 'checked' : ''}>
+          All Statuses
+        </label>
+        <div class="h-px bg-white/10 my-1 font-normal"></div>
+      `;
+      statuses.forEach(s => {
+        const isChecked = selectedStatuses.includes(s) && !selectedStatuses.includes('ALL');
+        html += `
+          <label class="flex items-center gap-2 p-1.5 hover:bg-white/5 rounded-lg cursor-pointer text-white text-[10px] font-bold uppercase select-none">
+            <input type="checkbox" value="${s}" onchange="handleStatusChange(this)" class="accent-osttra-rubine status-cb" ${isChecked ? 'checked' : ''}>
+            ${s}
+          </label>
+        `;
+      });
+      dropdown.innerHTML = html;
+    }
+    updateStatusFilterLabel();
+
+    // Merge active Epics and PSS tickets into a single searchable list
+    allSearchableTickets = [];
+    if (data.allEpics) {
+      data.allEpics.forEach(e => {
+        allSearchableTickets.push({ key: e.key, summary: e.summary, type: 'Epic' });
+      });
+    }
+    if (data.allPssTickets) {
+      data.allPssTickets.forEach(p => {
+        allSearchableTickets.push({ key: p.key, summary: p.summary, type: 'PSS' });
+      });
+    }
+    renderUnifiedDropdown();
+
+    const userEmail = window.currentUser.email.toLowerCase().trim();
+    const draftKey = `tpm_draft_${userEmail}_${currentSunday}`;
+    const oooDraftKey = `tpm_ooo_draft_${userEmail}_${currentSunday}`;
+    const localDraft = localStorage.getItem(draftKey);
+    const localOooDraft = localStorage.getItem(oooDraftKey);
+
+    // Check if there is an unsaved local draft for this week
+    if (localDraft || localOooDraft) {
+      // Show notification only on active manual loading/refresh to avoid nagging on silent tab switching
+      if (!isFromCache) {
+        showNotification('warning', 'Draft Restored', '💾 Loaded your unsaved draft for this week.');
+      }
+      
+      if (localOooDraft) {
+        oooDates = JSON.parse(localOooDraft);
+      } else {
+        oooDates = existingLogs
+          .filter(l => String(l["Jira_Key"]).toLowerCase() === 'ooo')
+          .map(l => String(l["Date_Logged"]).trim());
+      }
+
+      if (localDraft) {
+        const draftLogs = JSON.parse(localDraft);
+        existingLogs = draftLogs.map(d => ({
+          "Jira_Key": d.jiraKey,
+          "Date_Logged": d.date,
+          "Hours_Logged": d.hours,
+          "UAT_Hours": d.uatHours || 0,
+          "Int_Hours": d.intHours || 0,
+          "GoLive_Hours": d.goLiveHours || 0
+        }));
+        
+        oooDates.forEach(date => {
+          const hasOooLog = existingLogs.some(l => l["Jira_Key"] === 'ooo' && l["Date_Logged"] === date);
+          if (!hasOooLog) {
+            existingLogs.push({ "Jira_Key": "ooo", "Date_Logged": date, "Hours_Logged": 8, "UAT_Hours": 0, "Int_Hours": 0, "GoLive_Hours": 0 });
+          }
+        });
+      }
+    } else {
+      // Standard OOO extraction from logs
+      oooDates = existingLogs
+        .filter(l => String(l["Jira_Key"]).toLowerCase() === 'ooo')
+        .map(l => String(l["Date_Logged"]).trim());
+    }
+
+    // Evaluate Grace-Period Strict Older-Week Locking Rule
+    try {
+      const today = new Date();
+      const todayDay = today.getDay();
+      const todayDiff = today.getDate() - todayDay;
+      const currentWeekSundayObj = new Date(today.setDate(todayDiff));
+      currentWeekSundayObj.setHours(0,0,0,0);
+
+      const prevWeekSundayObj = new Date(currentWeekSundayObj);
+      prevWeekSundayObj.setDate(prevWeekSundayObj.getDate() - 7);
+      prevWeekSundayObj.setHours(0,0,0,0);
+
+      const parts = currentSunday.split('-');
+      const loadedSundayObj = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+      loadedSundayObj.setHours(0,0,0,0);
+
+      // Strictly lock any week that is older than the previous week (strictly locked for all users, 0.00h or not!)
+      const isOlderWeek = loadedSundayObj < prevWeekSundayObj;
+      if (isOlderWeek) {
+        isTimesheetLockedGlobal = true;
+      } else {
+        isTimesheetLockedGlobal = false;
+      }
+    } catch (e) {
+      console.error("Lock validation error", e);
+      isTimesheetLockedGlobal = false;
+    }
+
+    const lockBanner = document.getElementById('timesheet-lock-banner');
+    if (lockBanner) {
+      if (isTimesheetLockedGlobal) {
+        lockBanner.classList.remove('hidden');
+      } else {
+        lockBanner.classList.add('hidden');
+      }
+    }
+
+    renderWeekDisplay();
+    renderTimesheetGrid();
+  }
+
+  function loadTimesheetData(forceRefresh = false) {
+    const userEmail = window.currentUser ? window.currentUser.email.toLowerCase().trim() : '';
+    const cacheKey = `tpm_timesheet_cache_${userEmail}_${currentSunday}`;
+    
+    if (forceRefresh && userEmail) {
+      sessionStorage.removeItem(cacheKey);
+      showLoading('Clearing server caches and fetching fresh database logs...');
+    }
+
+    const cachedDataStr = userEmail ? sessionStorage.getItem(cacheKey) : null;
+
+    // Explicitly reset global state variables to prevent variable leaking between weeks
+    activeEpics = [];
+    childTickets = [];
+    existingLogs = [];
+    weekDates = [];
+    oooDates = [];
+    allSearchableTickets = [];
+    historicalLoggedKeys = [];
+
+    if (cachedDataStr) {
+      // 1. Instant Render Loop: Instantly render cached dataset from Tab Persistence (zero delay)
+      try {
+        const cachedData = JSON.parse(cachedDataStr);
+        processTimesheetPayload(cachedData, true);
+      } catch (e) {
+        console.error("Failed to parse timesheet cache", e);
+        sessionStorage.removeItem(cacheKey);
+      }
+    } else {
+      // 2. Render Modern pulsing skeleton placeholder inside table body (No lockscreen)
+      renderTimesheetSkeleton();
+    }
+
+    // 3. Silent/Background fetch sync
+    google.script.run
+      .withSuccessHandler(data => {
+        if (forceRefresh) hideLoading();
+        // Cache the fresh dataset for future seamless navigation
+        if (userEmail) {
+          sessionStorage.setItem(cacheKey, JSON.stringify(data));
+        }
+        processTimesheetPayload(data, false);
+      })
+      .withFailureHandler(err => {
+        if (forceRefresh) hideLoading();
+        console.error("getTpmTimesheetData failed:", err);
+        showNotification('error', 'Fetch Failed', getErrorMessage(err));
+        
+        // If there was no cached data to fall back on, display the fail message
+        if (!cachedDataStr) {
+          const tbody = document.getElementById('timesheet-grid-body');
+          if (tbody) tbody.innerHTML = `<tr><td colspan="13" class="p-6 text-center text-xs text-osttra-rubine font-bold uppercase tracking-widest bg-black/10 select-none">Fetch Failed: ${getErrorMessage(err)}</td></tr>`;
+        }
+      })
+      .getTpmTimesheetData(currentSunday, showAllEpics, forceRefresh);
+  }
+
+  function toggleShowAllEpics(checkbox) {
+    showAllEpics = checkbox.checked;
+    loadTimesheetData(true); // Force clear cache to fetch complete epic dataset
+  }
+
+  function renderWeekDisplay() {
+    if (weekDates.length < 7) return;
+    
+    const weekStart = new Date(weekDates[0]);
+    const weekEnd = new Date(weekDates[6]);
+    
+    const options = { month: 'short', day: 'numeric', year: 'numeric' };
+    const weekDisplay = document.getElementById('week-display');
+    if (weekDisplay) {
+      weekDisplay.innerHTML = `Week of ${weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} <i class="far fa-calendar-alt text-white/40 group-hover:text-osttra-ochre transition-colors"></i>`;
+    }
+    document.getElementById('week-dates-display').innerText = `${weekStart.toLocaleDateString('en-US', options)} - ${weekEnd.toLocaleDateString('en-US', options)}`;
+
+    const todayStr = formatDateString(new Date());
+
+    // Inject formatted dates and OOO toggles directly into table headers (Sun-Sat)
+    const days = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+    days.forEach((day, idx) => {
+      const dateStr = weekDates[idx];
+      const formatted = formatDateFriendly(dateStr);
+      const isOoo = oooDates.includes(dateStr);
+      const isFuture = dateStr > todayStr;
+
+      const th = document.getElementById(`th-${day}`);
+      th.innerHTML = '';
+
+      const daySpan = document.createElement('span');
+      daySpan.textContent = day.toUpperCase();
+      th.appendChild(daySpan);
+
+      const br = document.createElement('br');
+      th.appendChild(br);
+
+      const dateSpan = document.createElement('span');
+      dateSpan.className = 'text-[11px] font-mono text-white opacity-100 font-black block mt-0.5 tracking-normal';
+      dateSpan.textContent = formatted;
+      th.appendChild(dateSpan);
+
+      const oooBtn = document.createElement('button');
+      oooBtn.className = `mt-1.5 px-2 py-0.5 rounded-md text-[8px] font-black uppercase flex items-center gap-1 mx-auto transition-all ${isOoo ? 'bg-osttra-rubine text-white' : 'bg-white/5 text-white/40 hover:bg-white/10'}`;
+      if (isFuture) {
+        oooBtn.disabled = true;
+        oooBtn.style.opacity = '0.3';
+        oooBtn.style.cursor = 'not-allowed';
+        oooBtn.title = 'Cannot set OOO for future dates';
+      } else {
+        oooBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          toggleDayOOO(dateStr);
+        });
+        oooBtn.title = isOoo ? 'Cancel OOO for this day' : 'Mark this day as Out of Office';
+      }
+
+      const planeIcon = document.createElement('i');
+      planeIcon.className = 'fas fa-plane';
+      oooBtn.appendChild(planeIcon);
+      oooBtn.appendChild(document.createTextNode(' OOO'));
+
+      th.appendChild(oooBtn);
+    });
+  }
+
+  function toggleDayOOO(dateStr) {
+    const idx = oooDates.indexOf(dateStr);
+    if (idx !== -1) {
+      oooDates.splice(idx, 1);
+    } else {
+      oooDates.push(dateStr);
+      // Clear any typed hours for this OOO day
+      document.querySelectorAll(`input[data-date="${dateStr}"]`).forEach(input => {
+        input.value = '';
+      });
+      // Filter out any loaded/typed hours for this date in memory to prevent DB leakage
+      existingLogs = existingLogs.filter(l => {
+        let rowDate = String(l["Date_Logged"] || "").trim().substring(0, 10);
+        return !(rowDate === dateStr && String(l["Jira_Key"]).toLowerCase() !== "ooo");
+      });
+    }
+    saveLocalDraft();
+    renderWeekDisplay(); // Redraw header OOO buttons
+    renderTimesheetGrid(); // Redraw inputs
+  }
+
+  function toggleCategory(categoryId) {
+    const headerChevron = document.getElementById(`chevron-cat-${categoryId}`);
+    if (!headerChevron) return;
+
+    const isCollapsing = !headerChevron.classList.contains('-rotate-90');
+
+    if (isCollapsing) {
+      // Collapse the category
+      headerChevron.classList.add('-rotate-90');
+      document.querySelectorAll(`.${categoryId}.main-row`).forEach(el => el.classList.add('hidden'));
+
+      // BUG FIX: Close any open Epic split-drawers (subset dropdowns) in this category
+      document.querySelectorAll(`.${categoryId}.split-row`).forEach(el => el.classList.add('hidden'));
+      document.querySelectorAll(`.${categoryId}.main-row button i[id^="epic-chev-"]`).forEach(i => i.classList.remove('rotate-90'));
+    } else {
+      // Expand the category
+      headerChevron.classList.remove('-rotate-90');
+      document.querySelectorAll(`.${categoryId}.main-row`).forEach(el => el.classList.remove('hidden'));
+    }
+  }
+
+  function addPssTicket() {
+    const select = document.getElementById('pss-ticket-select');
+    if (!select) return;
+    const val = select.value.trim().toUpperCase();
+    if (!val) return;
+
+    // Check if ticket already exists in view
+    const exists = activeEpics.some(e => e["Key"] === val) || childTickets.some(c => c["Key"] === val) || manuallyAddedTickets.some(m => m["Key"] === val);
+    if (exists) {
+      showNotification('warning', 'Already Added', `Ticket ${val} is already available in your list.`);
+      select.value = '';
+      return;
+    }
+
+    showLoading('Fetching PSS ticket details from Jira...');
+    google.script.run
+     .withSuccessHandler(ticketDetails => {
+       hideLoading();
+       select.value = '';
+
+       let newTicket;
+       if (ticketDetails) {
+         newTicket = {
+           "Key": ticketDetails["Key"],
+           "Issue_Type": ticketDetails["Issue_Type"],
+           "Summary": ticketDetails["Summary"],
+           "Status": ticketDetails["Status"],
+           "Assignee_Email": ticketDetails["Assignee_Email"],
+           "Secondary_Assignee_Email": ticketDetails["Secondary_Assignee_Email"] || ""
+         };
+       } else {
+          newTicket = {
+            "Key": val,
+            "Issue_Type": "pss",
+            "Summary": "Professional Services Support Ticket",
+            "Status": "Active",
+            "Assignee_Email": window.currentUser.email,
+            "Secondary_Assignee_Email": ""
+          };
+        }
+
+        childTickets.push(newTicket);
+        manuallyAddedTickets.push(val);
+        manuallyAddedTicketObjects.push(newTicket);
+        showNotification('success', 'Ticket Added', `Added ${val} to your timesheet grid.`);
+        loadTimesheetData();
+      })
+      .withFailureHandler(err => {
+        hideLoading();
+        select.value = '';
+        showNotification('error', 'Fetch Failed', err.message);
+      })
+      .fetchJiraTicketSummary(val);
+  }
+
+  function addManualTicket() {
+    const val = document.getElementById('manual-ticket-input').value.trim().toUpperCase();
+    if (!val) return;
+    
+    // Check if ticket already exists in view
+    const exists = activeEpics.some(e => e["Key"] === val) || childTickets.some(c => c["Key"] === val) || manuallyAddedTickets.some(m => m["Key"] === val);
+    if (exists) {
+      showNotification('warning', 'Already Added', `Ticket ${val} is already available in your list.`);
+      return;
+    }
+
+    showLoading('Fetching ticket details from Jira...');
+    google.script.run
+      .withSuccessHandler(ticketDetails => {
+        hideLoading();
+        
+        let newTicket;
+        if (ticketDetails) {
+          newTicket = {
+            "Key": ticketDetails["Key"],
+            "Issue_Type": ticketDetails["Issue_Type"],
+            "Summary": ticketDetails["Summary"],
+            "Status": ticketDetails["Status"],
+            "Assignee_Email": ticketDetails["Assignee_Email"],
+            "Secondary_Assignee_Email": ticketDetails["Secondary_Assignee_Email"] || ""
+          };
+        } else {
+          // Fallback if not found or API fails
+          const isEpicType = val.startsWith('TPM-');
+          const summary = isEpicType ? 'Manually Added TPM Epic Project' : 'Manually Added Support Ticket';
+          
+          // Preserves the existing DB status if available to prevent overwriting with "Active"
+          const existingLog = existingLogs.find(l => String(l["Jira_Key"] || l["jiraKey"] || "").toUpperCase().trim() === val);
+          const fallbackStatus = existingLog && (existingLog["Jira_Status"] || existingLog["jiraStatus"]) ? (existingLog["Jira_Status"] || existingLog["jiraStatus"]) : "Active";
+
+          newTicket = {
+            "Key": val,
+            "Issue_Type": isEpicType ? 'Epic' : 'Task',
+            "Summary": summary,
+            "Status": fallbackStatus,
+            "Assignee_Email": window.currentUser.email,
+            "Secondary_Assignee_Email": ""
+          };
+        }
+
+        const isEpic = String(newTicket["Issue_Type"] || "Epic").toLowerCase() === "epic";
+        if (isEpic) {
+          activeEpics.push(newTicket);
+        } else {
+          childTickets.push(newTicket);
+        }
+
+        manuallyAddedTickets.push(val);
+        manuallyAddedTicketObjects.push(newTicket);
+        document.getElementById('manual-ticket-input').value = '';
+        showNotification('success', 'Ticket Added', `Added ${val} to your timesheet grid.`);
+        loadTimesheetData();
+      })
+      .withFailureHandler(err => {
+        hideLoading();
+        showNotification('error', 'Fetch Failed', err.message);
+      })
+      .fetchJiraTicketSummary(val);
+  }
+
+  function getEpicPrediction(ticket, date, bucket) {
+    const status = String(ticket["Status"] || "").toLowerCase().trim();
+    const activeIntStatuses = ['assigned', 'preparing deployment', 'initiation', 'implementation'];
+    const activeUatStatuses = ['tpm handover approved', 'go live', 'go-live', 'uat', 'technical go live', 'technical go-live'];
+    
+    const d = new Date(date);
+    const day = d.getDay();
+    const isWeekend = (day === 0 || day === 6); // Sun=0, Sat=6
+    if (isWeekend) return 0;
+
+    const sizing = String(ticket["Project Sizing"] || "").toLowerCase().trim();
+    // Rob Cresdee's specifications: Small = 20 days, Medium = 40 days, Large = 60 days total.
+    const totalDuration = sizing === 'medium' ? 40 : (sizing === 'large' ? 60 : 20); // Small/blank is default (20 days)
+
+    if (activeIntStatuses.includes(status) && bucket === 'INT') {
+      const est = parseFloat(ticket["Effort Estimate (Effort days)"]) || 0;
+      if (est > 0) {
+        return (est / totalDuration) * 8;
+      }
+    } else if (activeUatStatuses.includes(status) && bucket === 'UAT_GO') {
+      const uatEst = parseFloat(ticket["UAT Estimate"]) || 0;
+      const goEst = parseFloat(ticket["Go Live & Onboarding EE"]) || 0;
+      const est = uatEst + goEst;
+      if (est > 0) {
+        return (est / totalDuration) * 8;
+      }
+    }
+    return 0;
+  }
+
+  function getFormData() {
+    const logs = [];
+
+    const getTicketStatus = function(key) {
+      if (!key) return "Active";
+      const upper = key.toUpperCase();
+      if (upper === 'ADMIN' || upper === 'MGMT' || upper === 'ooo') return 'Persistent';
+
+      const epic = activeEpics.find(e => String(e["Key"]).toUpperCase().trim() === upper);
+      if (epic) return epic["Status"] || 'Active';
+
+      const child = childTickets.find(c => String(c["Key"]).toUpperCase().trim() === upper);
+      if (child) return child["Status"] || 'Active';
+
+      return 'Active';
+    };
+
+    // 1. Gather Epic split inputs (INT, UAT/GO, and OTHER)
+    document.querySelectorAll('input[data-bucket]').forEach(input => {
+      const key = String(input.getAttribute('data-key') || "").toUpperCase().trim();
+      const date = String(input.getAttribute('data-date') || "").trim();
+      const bucket = String(input.getAttribute('data-bucket') || "").trim();
+      const hours = parseFloat(input.value) || 0;
+      if (hours <= 0) return;
+
+      let log = logs.find(l => l.jiraKey === key && l.date === date);
+      if (!log) {
+        log = { jiraKey: key, date: date, hours: 0, uatHours: 0, intHours: 0, jiraStatus: getTicketStatus(key) };
+        logs.push(log);
+      }
+
+      if (bucket === 'INT') {
+        log.intHours += hours;
+      } else if (bucket === 'UAT_GO') {
+        log.uatHours += hours; // Map UAT/GO bucket to uatHours (combined UAT & Go Live)
+      } else if (bucket === 'OTHER') {
+        // We accumulate other hours locally, but don't need to write them to payload 
+        // since the backend naturally derives Other_Hours as Hours - (INT + UAT).
+        // However, we MUST include them in log.hours below.
+      }
+
+      // Compute total Epic hours strictly by summing its split buckets
+      // To ensure correct math, we calculate the sum of INT split + UAT split + OTHER split
+      const splitIntEl = document.getElementById(`split-int-${key}-${date}`);
+      const splitUatGoEl = document.getElementById(`split-uatgo-${key}-${date}`);
+      const splitOtherEl = document.getElementById(`split-other-${key}-${date}`);
+
+      const intHrs = splitIntEl ? (parseFloat(splitIntEl.value) || 0) : 0;
+      const uatHrs = splitUatGoEl ? (parseFloat(splitUatGoEl.value) || 0) : 0;
+      const otherHrs = splitOtherEl ? (parseFloat(splitOtherEl.value) || 0) : 0;
+
+      log.hours = intHrs + uatHrs + otherHrs;
+    });
+
+    // 2. Gather Non-Epic main inputs (Tasks, PSS, Admin, MGMT, etc.)
+    document.querySelectorAll('input[data-key]:not([data-bucket])').forEach(input => {
+      const key = String(input.getAttribute('data-key') || "").toUpperCase().trim();
+      const date = String(input.getAttribute('data-date') || "").trim();
+      const hours = parseFloat(input.value) || 0;
+      if (hours <= 0) return;
+
+      // Crucial: Skip Epics entirely here. Their hours are strictly and completely 
+      // gathered from the split inputs in Step 1. This prevents any double-counting or doubling.
+      const epicInArray = activeEpics.find(e => String(e["Key"]).toUpperCase().trim() === key);
+      const hasSplitInputs = document.querySelector(`input[data-key="${key}"][data-bucket]`) !== null;
+      
+      // Removed key.startsWith('TPM-') check here so that non-Epic TPM tickets 
+      // (like L1 Escalations, Product Requests, and Tasks) are correctly processed.
+      if (epicInArray || hasSplitInputs) return;
+
+      let log = logs.find(l => l.jiraKey === key && l.date === date);
+      if (!log) {
+        log = { jiraKey: key, date: date, hours: 0, uatHours: 0, intHours: 0, jiraStatus: getTicketStatus(key) };
+        logs.push(log);
+      }
+
+      log.hours += hours;
+
+      // Ensure PSS tickets are bucketed under UAT/Go-Live
+      const child = childTickets.find(c => c["Key"] === key);
+      const isPss = key.startsWith('PSS-') || (child && String(child["Issue_Type"] || "").toLowerCase() === 'pss');
+      if (isPss) {
+        log.uatHours += hours;
+      }
+    });
+    
+    return logs;
+  }
+
+  function updateDailyTotals() {
+    if (weekDates.length < 7) return;
+    
+    const days = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+    let weeklyTotal = 0;
+    
+    weekDates.forEach((date, idx) => {
+      const dayKey = days[idx];
+      const el = document.getElementById(`total-${dayKey}`);
+      if (!el) return;
+
+      let sum = 0;
+      // Fetch only unique main inputs to avoid double-counting Epic split inputs
+      document.querySelectorAll(`input[data-date="${date}"]:not([data-bucket])`).forEach(input => {
+        sum += parseFloat(input.value) || 0;
+      });
+
+      el.textContent = sum.toFixed(2) + 'h';
+      weeklyTotal += sum;
+      
+      // Reset classes
+      el.className = "text-[10px] font-mono font-bold px-2 py-1 rounded-md transition-all duration-200 shadow-sm";
+      
+      if (sum > 24.00) {
+        // Glowing Red (Critical limit exceeded - strictly no more than 24 hours per day)
+        el.className += " text-osttra-rubine bg-osttra-rubine/10 border border-osttra-rubine/20 shadow-[0_0_8px_rgba(224,0,77,0.25)]";
+      } else if (sum >= 8.00) {
+        // Glowing Green (Met daily 8.00h workday target allocation baseline)
+        el.className += " text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 shadow-[0_0_8px_rgba(16,185,129,0.25)]";
+      } else if (sum > 0) {
+        // Active blue (Time entered but below 8-hr target)
+        el.className += " text-blue-400 bg-blue-500/10 border border-blue-500/10";
+      } else {
+        // Empty gray
+        el.className += " text-white/20 bg-white/5";
+      }
+    });
+
+    // Update sticky compliance progress card
+    const hoursDisplay = document.getElementById('progress-hours-display');
+    const barRunner = document.getElementById('progress-bar-runner');
+    const percentLabel = document.getElementById('progress-percent-label');
+    const statusDesc = document.getElementById('progress-status-desc');
+
+    if (hoursDisplay && barRunner && percentLabel) {
+      hoursDisplay.textContent = `${weeklyTotal.toFixed(2)}h / 40.00h`;
+      
+      const percent = Math.min((weeklyTotal / 40) * 100, 100);
+      percentLabel.textContent = `${percent.toFixed(0)}% Logged`;
+      
+      barRunner.style.width = `${percent}%`;
+      
+      if (weeklyTotal >= 40.00) {
+        barRunner.className = "h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full transition-all duration-300 shadow-[0_0_8px_rgba(16,185,129,0.5)]";
+        percentLabel.className = "text-emerald-400 font-mono font-black";
+        if (statusDesc) statusDesc.textContent = "Weekly requirement met! Ready to save timesheet entries.";
+      } else if (weeklyTotal >= 32.00) {
+        barRunner.className = "h-full bg-gradient-to-r from-osttra-ochre to-emerald-500 rounded-full transition-all duration-300 shadow-[0_0_8px_rgba(254,149,45,0.3)]";
+        percentLabel.className = "text-osttra-ochre font-mono font-black";
+        if (statusDesc) statusDesc.textContent = "Almost there! Complete your remaining hours to reach compliance.";
+      } else {
+        barRunner.className = "h-full bg-gradient-to-r from-osttra-rubine to-osttra-ochre rounded-full transition-all duration-300 shadow-[0_0_8px_rgba(224,0,77,0.25)]";
+        percentLabel.className = "text-osttra-rubine font-mono font-black";
+        if (statusDesc) statusDesc.textContent = "Standard weekly compliance goal is 40.00h (8.00h/weekday).";
+      }
+    }
+  }
+
+  // --- UNIFIED SEARCHABLE MULTISELECT DROPDOWN HANDLERS ---
+
+  function renderUnifiedDropdown() {
+    const list = document.getElementById('unified-dropdown-list');
+    if (!list) return;
+
+    if (allSearchableTickets.length === 0) {
+      list.innerHTML = '<div class="text-white/30 italic text-[10px] p-2 text-center">No available tickets in cache.</div>';
+      return;
+    }
+
+    let html = '';
+    allSearchableTickets.forEach(ticket => {
+      const isEpic = ticket.type === 'Epic';
+      const badgeClass = isEpic ? 'bg-osttra-rubine/10 text-osttra-rubine border-osttra-rubine/20' : 'bg-blue-500/10 text-blue-400 border-blue-500/20';
+      const datesHtml = (!isEpic && ticket.plannedStart && ticket.plannedEnd && ticket.plannedStart !== 'N/A' && ticket.plannedEnd !== 'N/A') 
+        ? `<span class="text-[8px] text-white/30 font-mono mt-0.5 block"><i class="far fa-calendar-alt text-[7px]"></i> S: ${formatEpicDate(ticket.plannedStart)} | E: ${formatEpicDate(ticket.plannedEnd)}</span>`
+        : '';
+      
+      html += `
+        <label class="dropdown-item-row flex items-start gap-2.5 p-1.5 hover:bg-white/5 rounded-lg cursor-pointer text-white text-[10px] select-none transition-colors border border-transparent hover:border-white/5" data-search="${ticket.key.toLowerCase()} ${ticket.summary.toLowerCase()}">
+          <input type="checkbox" value="${ticket.key}" data-type="${ticket.type}" onchange="updateSelectedCount()" class="accent-osttra-rubine w-3.5 h-3.5 mt-0.5 rounded cursor-pointer">
+          <div class="flex flex-col min-w-0 flex-1">
+            <div class="flex items-center gap-1.5">
+              <span class="font-mono font-black tracking-wide text-white/90">${ticket.key}</span>
+              <span class="px-1 py-0.2 rounded text-[7px] font-black uppercase border ${badgeClass}">${ticket.type}</span>
+            </div>
+            <span class="text-[9px] text-white/50 font-semibold truncate mt-0.5" title="${ticket.summary}">${ticket.summary}</span>
+            ${datesHtml}
+          </div>
+        </label>
+      `;
+    });
+    list.innerHTML = html;
+    updateSelectedCount();
+  }
+
+  function filterUnifiedDropdown() {
+    const query = document.getElementById('unified-search-input').value.toLowerCase().trim();
+    const dropdown = document.getElementById('unified-add-dropdown');
+    if (dropdown) dropdown.classList.remove('hidden');
+
+    document.querySelectorAll('.dropdown-item-row').forEach(row => {
+      const searchData = row.dataset.search;
+      if (searchData.includes(query)) {
+        row.classList.remove('hidden');
+      } else {
+        row.classList.add('hidden');
+      }
+    });
+  }
+
+  function showUnifiedDropdown() {
+    const dropdown = document.getElementById('unified-add-dropdown');
+    if (dropdown) dropdown.classList.remove('hidden');
+  }
+
+  function toggleUnifiedDropdown(event) {
+    event.stopPropagation();
+    const dropdown = document.getElementById('unified-add-dropdown');
+    if (dropdown) dropdown.classList.toggle('hidden');
+  }
+
+  // Close dropdown on outside click
+  document.addEventListener('click', function(event) {
+    const container = document.getElementById('unified-add-container');
+    if (container && !container.contains(event.target)) {
+      const dropdown = document.getElementById('unified-add-dropdown');
+      if (dropdown) dropdown.classList.add('hidden');
+    }
+  });
+
+  function updateSelectedCount() {
+    const checked = document.querySelectorAll('#unified-dropdown-list input[type="checkbox"]:checked');
+    const label = document.getElementById('selected-count-label');
+    if (label) {
+      label.textContent = `${checked.length} Selected`;
+    }
+  }
+
+  function addSelectedTickets() {
+    const checked = document.querySelectorAll('#unified-dropdown-list input[type="checkbox"]:checked');
+    if (checked.length === 0) {
+      showNotification('warning', 'No Tickets Selected', 'Please check at least one ticket first.');
+      return;
+    }
+
+    const keysToAdd = [];
+    checked.forEach(cb => {
+      keysToAdd.push({ key: cb.value, type: cb.dataset.type });
+    });
+
+    const added = [];
+    const skipped = [];
+
+    // Separate lookups for speed
+    const activeEpicKeys = activeEpics.map(e => String(e["Key"]).trim().toUpperCase());
+    const childTicketKeys = childTickets.map(c => String(c["Key"]).trim().toUpperCase());
+
+    let fetchedCount = 0;
+    showLoading(`Importing ${keysToAdd.length} selected tickets...`);
+
+    keysToAdd.forEach(item => {
+      const val = item.key;
+      const isEpicType = item.type === 'Epic';
+      const exists = activeEpicKeys.includes(val) || childTicketTicketKeysExist(val);
+      
+      if (exists) {
+        skipped.push(val);
+        checkCompletion();
+        return;
+      }
+
+      google.script.run
+        .withSuccessHandler(ticketDetails => {
+          let newTicket;
+          if (ticketDetails) {
+            newTicket = {
+              "Key": ticketDetails["Key"],
+              "Issue_Type": ticketDetails["Issue_Type"],
+              "Summary": ticketDetails["Summary"],
+              "Status": ticketDetails["Status"],
+              "Assignee_Email": ticketDetails["Assignee_Email"],
+              "Secondary_Assignee_Email": ticketDetails["Secondary_Assignee_Email"] || ""
+            };
+          } else {
+            newTicket = {
+              "Key": val,
+              "Issue_Type": isEpicType ? 'Epic' : 'Task',
+              "Summary": isEpicType ? 'Manually Added TPM Epic' : 'Manually Added Support Ticket',
+              "Status": "Active",
+              "Assignee_Email": window.currentUser.email,
+              "Secondary_Assignee_Email": ""
+            };
+          }
+
+          if (isEpicType) {
+            activeEpics.push(newTicket);
+          } else {
+            childTickets.push(newTicket);
+          }
+          manuallyAddedTickets.push(val);
+          manuallyAddedTicketObjects.push(newTicket);
+          added.push(val);
+          checkCompletion();
+        })
+        .withFailureHandler(err => {
+          console.error(`Failed to fetch ${val}: ${err.message}`);
+          checkCompletion();
+        })
+        .fetchJiraTicketSummary(val);
+    });
+
+    function childTicketTicketKeysExist(keyVal) {
+      return childTicketKeys.includes(keyVal);
+    }
+
+    function checkCompletion() {
+      fetchedCount++;
+      if (fetchedCount === keysToAdd.length) {
+        hideLoading();
+        
+        // Hide popover and reset inputs
+        const dropdown = document.getElementById('unified-add-dropdown');
+        if (dropdown) dropdown.classList.add('hidden');
+        const input = document.getElementById('unified-search-input');
+        if (input) input.value = '';
+
+        // Reset check boxes
+        document.querySelectorAll('#unified-dropdown-list input[type="checkbox"]').forEach(cb => cb.checked = false);
+        updateSelectedCount();
+
+        if (added.length > 0) {
+          showNotification('success', 'Tickets Added', `Added ${added.length} ticket(s) to your timesheet grid.`);
+        }
+        if (skipped.length > 0) {
+          showNotification('info', 'Some Skipped', `Skipped ${skipped.length} ticket(s) (already present).`);
+        }
+
+        loadTimesheetData();
+      }
+    }
+  }
+
+  function renderTimesheetGrid() {
+    const tbody = document.getElementById('timesheet-grid-body');
+    if (!tbody) return;
+
+    // Preserve unsaved user inputs across redraws (e.g. padlock, OOO toggle, sorting, filtering)
+    const activeInputs = document.querySelectorAll('input[data-key]:not([data-bucket])');
+    if (activeInputs.length > 0) {
+      const currentTypedLogs = getFormData();
+      existingLogs = currentTypedLogs.map(l => {
+        return {
+          "Jira_Key": l.jiraKey,
+          "Date_Logged": l.date,
+          "Hours_Logged": l.hours,
+          "UAT_Hours": l.uatHours || 0,
+          "Int_Hours": l.intHours || 0,
+          "GoLive_Hours": l.goLiveHours || 0,
+          "Other_Hours": Math.max(0, l.hours - ((l.intHours || 0) + (l.uatHours || 0)))
+        };
+      });
+    }
+
+    tbody.innerHTML = '';
+
+    const isStatusMatch = (status) => {
+      if (selectedStatuses.includes("ALL")) return true;
+      return selectedStatuses.map(v => v.toLowerCase().trim()).includes(String(status || "").toLowerCase().trim());
+    };
+
+    // Update sort UI arrows
+    document.querySelectorAll('[id^="sort-"]').forEach(el => el.innerHTML = '');
+    const sortSpan = document.getElementById(`sort-${sortConfig.key}`);
+    if (sortSpan) {
+      sortSpan.innerHTML = sortConfig.asc ? ' &uarr;' : ' &darr;';
+    }
+
+    // Build existing logs lookup: key -> date -> log details (strictly uppercase to prevent case leakage)
+    const logsLookup = {};
+    existingLogs.forEach(l => {
+     const key = String(l["Jira_Key"] || "").toUpperCase().trim();
+     
+     // CRITICAL FIX: Ensure the backend Date_Logged is safely converted to YYYY-MM-DD
+     // This matches the weekDates array format so the UI inputs can successfully find their data.
+     let dateStr = String(l["Date_Logged"] || "").trim();
+     if (dateStr.length > 10 && dateStr.includes("T")) {
+       dateStr = dateStr.split("T")[0]; // Handle ISO "YYYY-MM-DDTHH:MM:SS"
+     } else if (dateStr.length > 10) {
+       try {
+         const d = new Date(dateStr);
+         if (!isNaN(d.getTime())) {
+           const pyyyy = d.getFullYear();
+           const pmm = String(d.getMonth() + 1).padStart(2, '0');
+           const pdd = String(d.getDate()).padStart(2, '0');
+           dateStr = `${pyyyy}-${pmm}-${pdd}`;
+         }
+       } catch(e) {}
+     }
+     
+     if (!logsLookup[key]) logsLookup[key] = {};
+     logsLookup[key][dateStr] = {
+       hours: parseFloat(l["Hours_Logged"]) || 0,
+       uat: parseFloat(l["UAT_Hours"]) || 0,
+       int: parseFloat(l["Int_Hours"]) || 0,
+       go: parseFloat(l["GoLive_Hours"]) || 0,
+       other: parseFloat(l["Other_Hours"]) || 0
+     };
+    });
+
+    // We have 5 collapsible categories:
+    const categories = [
+      { id: 'cat-projects', name: 'Projects / Epics (BAU)', icon: 'fa-project-diagram', color: 'text-osttra-rubine' },
+      { id: 'cat-pss', name: 'Professional Services Support (PSS)', icon: 'fa-server', color: 'text-blue-400' },
+      { id: 'cat-support', name: 'L1 Escalations & Tasks', icon: 'fa-tasks', color: 'text-osttra-ochre' },
+      { id: 'cat-general', name: 'General & Product Testing', icon: 'fa-vial', color: 'text-purple-400' },
+      { id: 'cat-admin', name: 'Admin', icon: 'fa-coffee', color: 'text-gray-400' }
+    ];
+
+    categories.forEach(cat => {
+      // Gather tickets belonging to this category
+      let tickets = [];
+      if (cat.id === 'cat-projects') {
+        tickets = activeEpics;
+      } else if (cat.id === 'cat-pss') {
+        tickets = childTickets.filter(c => {
+          const type = String(c["Issue_Type"] || "").toLowerCase();
+          const key = String(c["Key"] || "").toUpperCase();
+          return type === 'pss' || key.startsWith('PSS-');
+        });
+      } else if (cat.id === 'cat-support') {
+        tickets = childTickets.filter(c => {
+          const type = String(c["Issue_Type"] || "").toLowerCase();
+          const key = String(c["Key"] || "").toUpperCase();
+          return !key.startsWith('PSS-') && type !== 'pss' && (type === 'task' || type === 'sub-task' || type === 'bug');
+        });
+      } else if (cat.id === 'cat-general') {
+        tickets = childTickets.filter(c => {
+          const type = String(c["Issue_Type"] || "").toLowerCase();
+          const key = String(c["Key"] || "").toUpperCase();
+          return !key.startsWith('PSS-') && type !== 'pss' && type !== 'task' && type !== 'sub-task' && type !== 'bug';
+        });
+      } else if (cat.id === 'cat-admin') {
+        tickets = [
+          { Key: 'ADMIN', Summary: 'Administration & Internal Syncs: Meetings, training, administrative tasks, and helper duties.', Status: 'Persistent', Issue_Type: 'Admin' }
+        ];
+        if (window.currentUser && window.currentUser.isTpmManager) {
+          tickets.push({ Key: 'MGMT', Summary: 'Team Management: Resource allocation, line management, and reporting.', Status: 'Persistent', Issue_Type: 'Admin' });
+        }
+      }
+
+      // Filter by selected statuses (except for static Admin category, manually added, or historically logged tickets)
+      if (cat.id !== 'cat-admin') {
+        tickets = tickets.filter(t => {
+          const key = String(t["Key"] || t["key"] || "").toUpperCase().trim();
+          if (manuallyAddedTickets.includes(key) || historicalLoggedKeys.includes(key)) return true;
+          return isStatusMatch(t["Status"]);
+        });
+      }
+
+      // Hide unwhitelisted tickets completely if showAllEpics is false
+      if (!showAllEpics && cat.id !== 'cat-admin') {
+        const activeTpmStatuses = [
+          'assigned', 'preparing deployment', 'initiation', 'implementation', 
+          'tpm handover approved', 'go live', 'uat', 'technical go live'
+        ];
+        const activePssStatuses = [
+          'flow seen', 'flow pending', 'awaiting implementation', 'new', 
+          '4-eye approval', 'review'
+        ];
+
+        tickets = tickets.filter(t => {
+          const key = String(t["Key"] || t["key"] || "").toUpperCase().trim();
+          
+          // Safeguard 1: ALWAYS showcase tickets with existing logged hours, manually added, or historically logged keys to prevent data loss or hiding
+          const hasLoggedHours = logsLookup[key] && Object.values(logsLookup[key]).some(logDetails => {
+            const totalSum = (logDetails.hours || 0) + (logDetails.int || 0) + (logDetails.uat || 0) + (logDetails.go || 0) + (logDetails.other || 0);
+            return totalSum > 0;
+          });
+          if (hasLoggedHours || manuallyAddedTickets.includes(key) || historicalLoggedKeys.includes(key)) {
+            return true;
+          }
+
+          const statusLower = String(t["Status"] || "Active").toLowerCase().trim();
+          if (cat.id === 'cat-pss') {
+            return activePssStatuses.includes(statusLower);
+          } else {
+            return activeTpmStatuses.includes(statusLower);
+          }
+        });
+      }
+
+      // Sort tickets dynamically
+      tickets.sort((a, b) => {
+        let valA = String(a[sortConfig.key] || '').toLowerCase();
+        let valB = String(b[sortConfig.key] || '').toLowerCase();
+        if (valA < valB) return sortConfig.asc ? -1 : 1;
+        if (valA > valB) return sortConfig.asc ? 1 : -1;
+        return 0;
+      });
+
+      if (tickets.length === 0) return;
+
+      // Section Header Row (Collapsible Accordion)
+      const headerTr = document.createElement('tr');
+      headerTr.className = 'bg-[#1a1a1a] border-y border-white/10 cursor-pointer hover:bg-white/[0.04] transition-all select-none';
+      headerTr.addEventListener('click', () => toggleCategory(cat.id));
+      
+      headerTr.innerHTML = `
+        <td colspan="10" class="p-3 pl-6">
+          <div class="flex items-center gap-3">
+            <i id="chevron-cat-${cat.id}" class="fas fa-chevron-down text-[10px] text-white/40 transition-transform chevron-transition"></i>
+            <i class="fas ${cat.icon} ${cat.color}"></i>
+            <span class="text-xs font-black uppercase tracking-widest ${cat.color}">${cat.name}</span>
+            <span class="text-[9px] bg-white/10 px-2 py-0.5 rounded-full text-white/50">${tickets.length}</span>
+          </div>
+        </td>
+      `;
+      tbody.appendChild(headerTr);
+
+      // Render items for this category
+      tickets.forEach((ticket, idx) => {
+        const tr = document.createElement('tr');
+        
+        const key = ticket["Key"];
+        const summary = ticket["Summary"] || 'No Summary';
+        const status = ticket["Status"] || 'Active';
+        const isEpic = cat.id === 'cat-projects';
+
+        const statusLower = status.toLowerCase().trim();
+        let rawStatusDisabled = false;
+
+        const activeTpmStatuses = [
+          'assigned', 'preparing deployment', 'initiation', 'implementation', 
+          'tpm handover approved', 'go live', 'uat', 'technical go live'
+        ];
+        const activePssStatuses = [
+          'flow seen', 'flow pending', 'awaiting implementation', 'new', 
+          '4-eye approval', 'review'
+        ];
+
+        if (cat.id === 'cat-pss') {
+          if (!activePssStatuses.includes(statusLower)) {
+            rawStatusDisabled = true;
+          }
+        } else if (cat.id !== 'cat-nonbau' && cat.id !== 'cat-admin') {
+          if (!activeTpmStatuses.includes(statusLower)) {
+            rawStatusDisabled = true;
+          }
+        }
+
+        const isManuallyUnlocked = manuallyUnlockedTickets.includes(key);
+
+        // Choose left border based on active phase status (Phase-Specific Borders)
+        let phaseBorder = 'border-l-4 border-l-transparent';
+        if (['initiation', 'implementation'].includes(statusLower)) {
+          phaseBorder = 'border-l-4 border-l-blue-500';
+        } else if (['uat', 'technical go live', 'technical go-live', 'go live', 'go-live'].includes(statusLower)) {
+          phaseBorder = 'border-l-4 border-l-osttra-ochre';
+        } else if (['closed', 'done', 'resolved', 'live', 'completed'].includes(statusLower)) {
+          phaseBorder = 'border-l-4 border-l-emerald-500';
+        }
+
+        tr.className = `${cat.id} main-row hover:bg-white/[0.03] transition-colors border-b border-white/5 ${phaseBorder}`;
+
+        // Choose status color
+        let statusClass = 'text-gray-400 bg-gray-500/10 border-gray-500/20';
+        if (['In Progress', 'Active', 'Implementation', 'UAT'].includes(status)) statusClass = 'text-osttra-ochre bg-osttra-ochre/10 border-osttra-ochre/20';
+        if (['Closed', 'Done', 'Resolved', 'Live', 'Completed'].includes(status)) statusClass = 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20';
+
+        // TD 1: Key (with Secondary Assignee badge support & Sticky Left-lock)
+        const tdKey = document.createElement('td');
+        tdKey.className = 'p-4 pl-6 border-b border-white/5 font-mono text-xs font-black sticky left-0 z-10 bg-[#222222] shadow-[4px_0_8px_-4px_rgba(0,0,0,0.6)] border-r border-white/5 transition-colors group-hover:bg-white/[0.04]';
+
+        const assignee = String(ticket["Assignee_Email"] || "").toLowerCase().trim();
+        const secondary = String(ticket["Secondary_Assignee_Email"] || "").toLowerCase().trim();
+        const myEmail = window.currentUser.email.toLowerCase().trim();
+        const isSecondary = (secondary === myEmail && assignee !== myEmail);
+
+        let secondaryBadge = null;
+        if (isSecondary) {
+          secondaryBadge = document.createElement('span');
+          secondaryBadge.className = 'ml-1.5 px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider bg-blue-500/10 text-blue-400 border border-blue-500/20';
+          secondaryBadge.textContent = 'Secondary';
+          secondaryBadge.title = 'You are the Secondary Assignee on this ticket';
+        }
+
+        const keyContainer = document.createElement('div');
+        keyContainer.className = 'flex items-center gap-1.5';
+        
+        // Add Lock/Unlock Override Icon if the raw status is disabled
+        if (rawStatusDisabled) {
+          const lockBtn = document.createElement('button');
+          lockBtn.type = 'button';
+          lockBtn.className = 'w-5 h-5 rounded hover:bg-white/10 text-[9px] flex items-center justify-center focus:outline-none transition-all shrink-0';
+          if (isManuallyUnlocked) {
+            lockBtn.innerHTML = `<i class="fas fa-unlock text-osttra-ochre"></i>`;
+            lockBtn.title = 'Ticket unlocked. Click to re-lock.';
+          } else {
+            lockBtn.innerHTML = `<i class="fas fa-lock text-white/30"></i>`;
+            lockBtn.title = 'Locked by Status. Click to override and enter time.';
+          }
+          lockBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggleTicketUnlock(key);
+          });
+          keyContainer.appendChild(lockBtn);
+        }
+
+        const isPss = cat.id === 'cat-pss';
+
+        if (isEpic) {
+          const splitBtn = document.createElement('button');
+          splitBtn.type = 'button';
+          splitBtn.className = 'w-5 h-5 rounded bg-white/5 hover:bg-white/10 text-[9px] flex items-center justify-center focus:outline-none transition-all';
+          splitBtn.innerHTML = `<i id="epic-chev-${key}" class="fas fa-chevron-right transition-transform duration-200"></i>`;
+          splitBtn.title = 'Toggle Epic Details & Phase Splits';
+          splitBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const drawer = document.getElementById(`split-drawer-${key}`);
+            const chev = document.getElementById(`epic-chev-${key}`);
+            if (drawer) {
+              drawer.classList.toggle('hidden');
+              if (drawer.classList.contains('hidden')) {
+                chev.classList.remove('rotate-90');
+              } else {
+                chev.classList.add('rotate-90');
+              }
+            }
+          });
+          keyContainer.appendChild(splitBtn);
+        } else if (isPss) {
+          const splitBtn = document.createElement('button');
+          splitBtn.type = 'button';
+          splitBtn.className = 'w-5 h-5 rounded bg-white/5 hover:bg-white/10 text-[9px] flex items-center justify-center focus:outline-none transition-all';
+          splitBtn.innerHTML = `<i id="pss-chev-${key}" class="fas fa-chevron-right transition-transform duration-200"></i>`;
+          splitBtn.title = 'Toggle PSS Details';
+          splitBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const drawer = document.getElementById(`pss-drawer-${key}`);
+            const chev = document.getElementById(`pss-chev-${key}`);
+            if (drawer) {
+              drawer.classList.toggle('hidden');
+              if (drawer.classList.contains('hidden')) {
+                chev.classList.remove('rotate-90');
+              } else {
+                chev.classList.add('rotate-90');
+              }
+            }
+          });
+          keyContainer.appendChild(splitBtn);
+        }
+
+        const keySpan = document.createElement('span');
+        keySpan.className = cat.color;
+        keySpan.textContent = key;
+        keyContainer.appendChild(keySpan);
+        if (secondaryBadge) {
+          keyContainer.appendChild(secondaryBadge);
+        }
+        tdKey.appendChild(keyContainer);
+        tr.appendChild(tdKey);
+
+        // TD 2: Summary
+        const tdSummary = document.createElement('td');
+        tdSummary.className = 'p-4 text-xs font-medium text-white/60 border-b border-white/5 whitespace-normal';
+        tdSummary.textContent = summary;
+        tr.appendChild(tdSummary);
+
+        // TD 3: Status
+        const tdStatus = document.createElement('td');
+        tdStatus.className = 'p-4 text-center border-b border-white/5';
+        tdStatus.innerHTML = `<span class="px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-wider border ${statusClass}">${status}</span>`;
+        tr.appendChild(tdStatus);
+
+        // TD 3.5: Project Sizing
+        const tdSizing = document.createElement('td');
+        tdSizing.className = 'p-4 text-center text-[10px] font-black text-white/50 border-b border-white/5 uppercase tracking-wider';
+        const sizingVal = String(ticket["Project Sizing"] || "-").trim();
+        tdSizing.textContent = sizingVal;
+        tr.appendChild(tdSizing);
+
+        // TD 4: Created Date
+        const tdCreated = document.createElement('td');
+        tdCreated.className = 'p-4 text-center text-[10px] font-mono text-white/40 border-b border-white/5';
+        tdCreated.textContent = formatEpicDate(ticket["Created"]);
+        tr.appendChild(tdCreated);
+
+        // TD 5: Updated (Last Modified) Date
+        const tdUpdated = document.createElement('td');
+        tdUpdated.className = 'p-4 text-center text-[10px] font-mono text-white/40 border-b border-white/5';
+        tdUpdated.textContent = formatEpicDate(ticket["Updated"]);
+        tr.appendChild(tdUpdated);
+
+        // Build Epic split-drawer row immediately
+        let splitTr = null;
+        if (isEpic) {
+          splitTr = document.createElement('tr');
+          splitTr.id = `split-drawer-${key}`;
+          splitTr.className = `${cat.id} split-row hidden bg-[#161616] border-b border-white/5 shadow-inner`;
+          
+          const tdLabel = document.createElement('td');
+          tdLabel.colSpan = 6;
+          tdLabel.className = 'p-4 pl-12 text-[10px] text-white/50 align-top';
+          
+          const uatEst = parseFloat(ticket["UAT Estimate"]) || 0;
+          const goEst = parseFloat(ticket["Go Live & Onboarding EE"]) || 0;
+          const intEst = parseFloat(ticket["Effort Estimate (Effort days)"]) || 0;
+          
+          const accountName = ticket["Account_Name"] || "N/A";
+          const projStart = formatEpicDate(ticket["Project start date"] || ticket["Expected project start date"]);
+          const uatStart = formatEpicDate(ticket["UAT start date"] || ticket["Expected UAT start date"]);
+          const goLive = formatEpicDate(ticket["Go-live date"] || ticket["Expected Go Live Date"] || ticket["Technical go-live date"]);
+
+          // Helper to safely render dates or return a styled "N/A" fallback
+          const renderDateVal = (val) => {
+            if (!val || String(val).trim().toUpperCase() === 'N/A' || String(val).trim() === '') {
+              return '<span class="text-white/25 italic">N/A</span>';
+            }
+            return formatEpicDate(val);
+          };
+
+          const oppCloseVal = renderDateVal(ticket["Opportunity Close Date"]);
+          const expProjStartVal = renderDateVal(ticket["Expected project start date"]);
+          const expUatStartVal = renderDateVal(ticket["Expected UAT start date"]);
+          const expGoLiveVal = renderDateVal(ticket["Expected Go Live Date"]);
+          const projStartVal = renderDateVal(ticket["Project start date"]);
+          const uatStartVal = renderDateVal(ticket["UAT start date"]);
+          const techGoLiveVal = renderDateVal(ticket["Technical go-live date"]);
+          const goLiveVal = renderDateVal(ticket["Go-live date"]);
+
+          const datesGridHtml = `
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2.5 mt-2 bg-black/25 p-4 rounded-xl border border-white/5 shadow-inner text-[10px] font-mono">
+              <!-- Row 1 -->
+              <div class="flex justify-between items-center border-b border-white/5 pb-1.5">
+                <span class="text-white/40 uppercase tracking-widest font-black text-[8px]">Opportunity Close Date</span>
+                <span class="text-white/80 font-bold">${oppCloseVal}</span>
+              </div>
+              <div class="flex justify-between items-center border-b border-white/5 pb-1.5">
+                <span class="text-white/40 uppercase tracking-widest font-black text-[8px]">Project Start Date</span>
+                <span class="text-white/80 font-bold">${projStartVal}</span>
+              </div>
+              <!-- Row 2 -->
+              <div class="flex justify-between items-center border-b border-white/5 pb-1.5">
+                <span class="text-white/40 uppercase tracking-widest font-black text-[8px]">Expected Project Start Date</span>
+                <span class="text-white/80 font-bold">${expProjStartVal}</span>
+              </div>
+              <div class="flex justify-between items-center border-b border-white/5 pb-1.5">
+                <span class="text-white/40 uppercase tracking-widest font-black text-[8px]">UAT Start Date</span>
+                <span class="text-white/80 font-bold">${uatStartVal}</span>
+              </div>
+              <!-- Row 3 -->
+              <div class="flex justify-between items-center border-b border-white/5 pb-1.5">
+                <span class="text-white/40 uppercase tracking-widest font-black text-[8px]">Expected UAT Start Date</span>
+                <span class="text-white/80 font-bold">${expUatStartVal}</span>
+              </div>
+              <div class="flex justify-between items-center border-b border-white/5 pb-1.5">
+                <span class="text-white/40 uppercase tracking-widest font-black text-[8px]">Technical Go-Live Date</span>
+                <span class="text-white/80 font-bold">${techGoLiveVal}</span>
+              </div>
+              <!-- Row 4 -->
+              <div class="flex justify-between items-center pt-0.5 md:border-0 border-b border-white/5 pb-1.5 md:pb-0">
+                <span class="text-white/40 uppercase tracking-widest font-black text-[8px]">Expected Go Live Date</span>
+                <span class="text-white/80 font-bold">${expGoLiveVal}</span>
+              </div>
+              <div class="flex justify-between items-center pt-0.5">
+                <span class="text-white/40 uppercase tracking-widest font-black text-[8px]">Go-Live Date</span>
+                <span class="text-white/80 font-bold">${goLiveVal}</span>
+              </div>
+            </div>
+          `;
+
+          // Determine active stage colors for the visual timeline (Suggestion 3)
+          let node1Color = 'bg-white/10 border-white/15';
+          let line1Color = 'bg-white/5';
+          let node2Color = 'bg-white/10 border-white/15';
+          let line2Color = 'bg-white/5';
+          let node3Color = 'bg-white/10 border-white/15';
+
+          if (['initiation', 'implementation'].includes(statusLower)) {
+            node1Color = 'bg-blue-500 border-blue-400 shadow-[0_0_8px_rgba(59,130,246,0.5)]';
+            line1Color = 'bg-gradient-to-r from-blue-500 to-white/10';
+          } else if (statusLower === 'uat') {
+            node1Color = 'bg-blue-500 border-blue-400';
+            line1Color = 'bg-blue-500';
+            node2Color = 'bg-osttra-ochre border-[#DDA722] shadow-[0_0_8px_rgba(221,167,34,0.5)]';
+            line2Color = 'bg-gradient-to-r from-osttra-ochre to-white/10';
+          } else if (['closed', 'done', 'resolved', 'live', 'completed', 'go live', 'go-live', 'technical go live', 'technical go-live'].includes(statusLower)) {
+            node1Color = 'bg-blue-500 border-blue-400';
+            line1Color = 'bg-blue-500';
+            node2Color = 'bg-osttra-ochre border-[#DDA722]';
+            line2Color = 'bg-osttra-ochre';
+            node3Color = 'bg-emerald-500 border-emerald-400 shadow-[0_0_8px_rgba(16,185,129,0.5)]';
+          }
+
+          const timelineHtml = `
+            <div class="flex items-center justify-between relative py-3 px-4 bg-black/20 rounded-xl border border-white/5 shadow-inner">
+              <!-- Node 1: Project Start -->
+              <div class="flex flex-col items-center z-10">
+                <div class="w-4.5 h-4.5 rounded-full border-2 ${node1Color} flex items-center justify-center transition-all duration-300">
+                  <div class="w-2 h-2 rounded-full bg-[#161616]"></div>
+                </div>
+                <span class="text-[8px] font-black text-white/40 uppercase tracking-widest mt-1.5">Start</span>
+                <span class="font-mono text-[9px] text-white/80 font-bold mt-0.5">${projStart}</span>
+              </div>
+
+              <!-- Line 1 -->
+              <div class="flex-1 h-0.5 mx-2 rounded-full ${line1Color} transition-all duration-300"></div>
+
+              <!-- Node 2: UAT Start -->
+              <div class="flex flex-col items-center z-10">
+                <div class="w-4.5 h-4.5 rounded-full border-2 ${node2Color} flex items-center justify-center transition-all duration-300">
+                  <div class="w-2 h-2 rounded-full bg-[#161616]"></div>
+                </div>
+                <span class="text-[8px] font-black text-white/40 uppercase tracking-widest mt-1.5">UAT</span>
+                <span class="font-mono text-[9px] text-white/80 font-bold mt-0.5">${uatStart}</span>
+              </div>
+
+              <!-- Line 2 -->
+              <div class="flex-1 h-0.5 mx-2 rounded-full ${line2Color} transition-all duration-300"></div>
+
+              <!-- Node 3: Go-Live -->
+              <div class="flex flex-col items-center z-10">
+                <div class="w-4.5 h-4.5 rounded-full border-2 ${node3Color} flex items-center justify-center transition-all duration-300">
+                  <div class="w-2 h-2 rounded-full bg-[#161616]"></div>
+                </div>
+                <span class="text-[8px] font-black text-white/40 uppercase tracking-widest mt-1.5">Go-Live</span>
+                <span class="font-mono text-white/90 font-bold mt-0.5 text-osttra-ochre">${goLive}</span>
+              </div>
+            </div>
+          `;
+
+          // Fetch and format child tickets attached to this Epic
+          const myChildren = childTickets.filter(c => String(c["Parent_Key"] || "").toUpperCase().trim() === key);
+          let childrenHtml = '';
+          if (myChildren.length > 0) {
+            myChildren.forEach(child => {
+              const childKey = child["Key"];
+              const childSummary = child["Summary"] || "No Summary";
+              const childStatus = child["Status"] || "N/A";
+              const childType = child["Issue_Type"] || "Task";
+              const childAssignee = String(child["Assignee_Email"] || "Unassigned").replace("@osttra.com", "");
+
+              childrenHtml += `
+                <div class="flex items-center justify-between py-1 border-b border-white/5 last:border-0 hover:bg-white/[0.02] px-1.5 rounded transition-all gap-2">
+                  <span class="font-mono text-[9px] font-black text-white/50 w-20 truncate">${childKey}</span>
+                  <span class="text-white/70 truncate flex-1 min-w-0" title="${childSummary}">${childSummary}</span>
+                  <span class="text-[8px] bg-white/5 px-1.5 py-0.5 rounded text-white/40 uppercase whitespace-nowrap font-bold">${childType}</span>
+                  <span class="text-[8px] border border-white/10 px-1.5 py-0.5 rounded text-white/60 capitalize font-mono whitespace-nowrap">${childStatus}</span>
+                  <span class="text-[8px] text-white/30 truncate w-16 text-right font-mono" title="${child["Assignee_Email"]}">${childAssignee}</span>
+                </div>
+              `;
+            });
+          } else {
+            childrenHtml = '<div class="text-white/30 italic text-[9px] py-2 text-center">No assigned child tickets found in cache.</div>';
+          }
+
+          tdLabel.innerHTML = `
+            <div class="flex flex-col gap-3 w-full max-w-2xl">
+              <div class="flex items-center justify-between border-b border-white/5 pb-2">
+                <span class="text-white/80 font-black uppercase tracking-widest flex items-center gap-2"><i class="fas fa-server text-osttra-rubine"></i> Epic Details & Scheduling</span>
+                <span class="bg-white/5 px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest text-white/60">Account: <span class="text-white truncate max-w-[200px] inline-block align-bottom">${accountName}</span></span>
+              </div>
+              
+              ${timelineHtml}
+
+              ${datesGridHtml}
+              
+              <div class="mt-2 flex items-center justify-between bg-osttra-rubine/5 p-2.5 rounded-lg border border-osttra-rubine/10">
+                <span class="uppercase tracking-widest font-black text-[9px] text-osttra-rubine">Effort Estimate Allocation (Overrides Allowed)</span>
+                <span class="font-mono text-white font-bold text-[10px]">Est. INT: ${intEst.toFixed(2)}d <span class="text-white/20 mx-1.5">|</span> UAT/GO: ${(uatEst + goEst).toFixed(2)}d</span>
+              </div>
+            </div>
+          `;
+          splitTr.appendChild(tdLabel);
+        } else if (isPss) {
+          splitTr = document.createElement('tr');
+          splitTr.id = `pss-drawer-${key}`;
+          splitTr.className = `${cat.id} split-row hidden bg-[#161616] border-b border-white/5 shadow-inner`;
+          
+          const tdLabel = document.createElement('td');
+          tdLabel.colSpan = 6;
+          tdLabel.className = 'p-4 pl-12 text-[10px] text-white/50 align-top';
+          
+          const pStart = ticket["Planned start"] || "N/A";
+          const pEnd = ticket["Planned end"] || "N/A";
+
+          tdLabel.innerHTML = `
+            <div class="flex flex-col gap-2 w-full max-w-xl">
+              <div class="flex items-center justify-between border-b border-white/5 pb-1.5">
+                <span class="text-white/80 font-black uppercase tracking-widest flex items-center gap-2"><i class="fas fa-server text-blue-400"></i> PSS Scheduling</span>
+              </div>
+              <div class="grid grid-cols-2 gap-4 text-[10px] font-mono mt-1">
+                <div class="flex justify-between items-center bg-black/15 p-2 rounded border border-white/5">
+                  <span class="text-white/40 uppercase tracking-widest font-black text-[8px]">Planned Start</span>
+                  <span class="text-white/80 font-bold">${formatEpicDate(pStart)}</span>
+                </div>
+                <div class="flex justify-between items-center bg-black/15 p-2 rounded border border-white/5">
+                  <span class="text-white/40 uppercase tracking-widest font-black text-[8px]">Planned End</span>
+                  <span class="text-white/80 font-bold text-osttra-ochre">${formatEpicDate(pEnd)}</span>
+                </div>
+              </div>
+            </div>
+          `;
+          splitTr.appendChild(tdLabel);
+        }
+
+        // Sun-Sat Daily Inputs
+        weekDates.forEach((date, dIdx) => {
+          const tdDay = document.createElement('td');
+          const isWeekend = (dIdx === 0 || dIdx === 6); // Sunday (0) and Saturday (6) are weekends
+          tdDay.className = `p-2 text-center border-b border-white/5 ${isWeekend ? 'border-l border-white/5 bg-white/[0.01]' : ''}`;
+
+          const log = logsLookup[key] && logsLookup[key][date] ? logsLookup[key][date] : null;
+          
+          const currentStatus = status.toLowerCase().trim();
+          let isStatusDisabled = rawStatusDisabled && !isManuallyUnlocked;
+
+          const isOoo = oooDates.includes(date);
+          const todayStr = formatDateString(new Date());
+          const isFuture = date > todayStr;
+          const isDisabled = isFuture || isOoo || isStatusDisabled || isTimesheetLockedGlobal;
+
+          // Calculate predictions strictly for placeholders
+          let predictedInt = 0;
+          let predictedUatGo = 0;
+          let predictedHours = 0;
+          
+          if (!isOoo && !isFuture && !isWeekend) {
+            if (isEpic) {
+              predictedInt = getEpicPrediction(ticket, date, 'INT') || 0;
+              predictedUatGo = getEpicPrediction(ticket, date, 'UAT_GO') || 0;
+              predictedHours = predictedInt + predictedUatGo;
+            } else if (cat.id === 'cat-pss') {
+              const statusLower = String(ticket["Status"] || "").toLowerCase().trim();
+              const excludedPssStatuses = ['declined', 'rollbackbacked', 'rollbacked', 'completed', 'canceled'];
+              const plannedEndDateRaw = ticket["Planned end"];
+              let ticketPlannedEndDate = "";
+              if (!excludedPssStatuses.includes(statusLower) && plannedEndDateRaw && String(plannedEndDateRaw).trim() !== "N/A" && String(plannedEndDateRaw).trim() !== "") {
+                const trimmed = String(plannedEndDateRaw).trim();
+                if (/^\d{4}-\d{2}-\d{2}/.test(trimmed)) {
+                  ticketPlannedEndDate = trimmed.substring(0, 10);
+                } else {
+                  try {
+                    const pd = new Date(trimmed);
+                    if (!isNaN(pd.getTime())) {
+                      const pyyyy = pd.getFullYear();
+                      const pmm = String(pd.getMonth() + 1).padStart(2, '0');
+                      const pdd = String(pd.getDate()).padStart(2, '0');
+                      ticketPlannedEndDate = `${pyyyy}-${pmm}-${pdd}`;
+                    }
+                  } catch (e) {}
+                }
+              }
+              
+              if (date === ticketPlannedEndDate && !excludedPssStatuses.includes(statusLower)) {
+                predictedHours = 0.5;
+              }
+            }
+          }
+
+          // Let values default strictly to 0 if there are no saved logs
+          let intVal = log ? (log.int || 0) : 0;
+          let uatgoVal = log ? ((log.uat || 0) + (log.go || 0)) : 0;
+          let otherVal = log ? Math.max(0, log.hours - (intVal + uatgoVal)) : 0;
+          let hoursVal = log ? (log.hours || (intVal + uatgoVal + otherVal)) : 0;
+
+          const inputMain = document.createElement('input');
+          inputMain.type = 'number';
+          inputMain.step = '0.25';
+          inputMain.min = '0';
+          inputMain.max = '24';
+          
+          // Set dynamic placeholder to show prediction suggestion if no logged data exists
+          let mainPlaceholder = '0.00';
+          if (isOoo) mainPlaceholder = 'OOO';
+          else if (isStatusDisabled || isFuture) mainPlaceholder = 'Lock';
+          else if (!log && predictedHours > 0) mainPlaceholder = predictedHours.toFixed(2);
+          
+          inputMain.placeholder = mainPlaceholder;
+          inputMain.setAttribute('data-key', key);
+          inputMain.setAttribute('data-date', date);
+          
+          // Enforce 0.00 default if not OOO or locked
+          inputMain.value = isOoo ? '' : (log ? hoursVal.toFixed(2) : '0.00');
+
+          if (isDisabled) {
+            inputMain.disabled = true;
+            inputMain.className = 'w-16 h-8 p-0 bg-black/40 border border-white/5 rounded-lg text-center text-xs font-mono text-white/30 opacity-45 cursor-not-allowed outline-none';
+          } else {
+            inputMain.className = 'w-16 h-8 p-0 bg-white/5 border border-white/10 hover:border-white/20 hover:bg-white/[0.07] rounded-lg text-center text-xs font-mono text-white focus:border-osttra-rubine transition-all outline-none shadow-inner';
+            
+            inputMain.addEventListener('blur', function() {
+              let val = parseFloat(this.value);
+              if (isNaN(val) || val < 0) val = 0;
+              if (val > 24) val = 24;
+              this.value = val.toFixed(2);
+              saveLocalDraft();
+              updateDailyTotals();
+              triggerAutosave();
+            });
+
+            inputMain.addEventListener('input', function() {
+              let val = parseFloat(this.value) || 0;
+              if (val > 24) { val = 24; this.value = '24.00'; }
+              if (val < 0) { val = 0; this.value = '0.00'; }
+
+              // Update the split values based on status target bucket
+              if (isEpic) {
+                const statusLower = status.toLowerCase().trim();
+                const activeIntStatuses = ['assigned', 'preparing deployment', 'initiation', 'implementation'];
+                const activeUatStatuses = ['tpm handover approved', 'go live', 'go-live', 'uat', 'technical go live', 'technical go-live'];
+                
+                const splitInt = document.getElementById(`split-int-${key}-${date}`);
+                const splitUatGo = document.getElementById(`split-uatgo-${key}-${date}`);
+                const splitOther = document.getElementById(`split-other-${key}-${date}`);
+
+                if (splitInt && splitUatGo && splitOther) {
+                  if (activeIntStatuses.includes(statusLower)) {
+                    splitInt.value = val.toFixed(2);
+                    splitUatGo.value = '0.00';
+                    splitOther.value = '0.00';
+                  } else if (activeUatStatuses.includes(statusLower)) {
+                    splitUatGo.value = val.toFixed(2);
+                    splitInt.value = '0.00';
+                    splitUatGo.value = '0.00';
+                  } else {
+                    // Default to OTHER bucket for backlog or other unlisted statuses when unlocked
+                    splitOther.value = val.toFixed(2);
+                    splitInt.value = '0.00';
+                    splitUatGo.value = '0.00';
+                  }
+                }
+              }
+              saveLocalDraft();
+              updateDailyTotals();
+              triggerAutosave();
+            });
+          }
+
+          tdDay.appendChild(inputMain);
+          tr.appendChild(tdDay);
+
+          // Build Epic Split Inputs in splitTr
+          if (isEpic) {
+            const tdSplit = document.createElement('td');
+            tdSplit.className = `p-2 text-center border-b border-white/5 ${isWeekend ? 'border-l border-white/5 bg-white/[0.01]' : ''}`;
+
+            const divInt = document.createElement('div');
+            divInt.className = 'flex items-center text-[8px] text-white/50 mb-1.5 justify-center gap-1.5';
+            divInt.innerHTML = '<span class="w-12 text-right font-black text-white/30 uppercase tracking-widest text-[8px]">INT</span>';
+            
+            const inputInt = document.createElement('input');
+            inputInt.type = 'number';
+            inputInt.id = `split-int-${key}-${date}`;
+            inputInt.step = '0.25';
+            inputInt.min = '0';
+            inputInt.max = '24';
+            inputInt.placeholder = (!log && predictedInt > 0) ? predictedInt.toFixed(2) : '0.00';
+            inputInt.className = 'w-14 h-5.5 bg-white/5 border border-white/10 rounded text-center text-[10px] font-mono text-white focus:border-osttra-rubine hover:border-white/20 outline-none transition-all shadow-inner';
+            inputInt.value = (!isOoo) ? (log ? intVal.toFixed(2) : '0.00') : '';
+            inputInt.setAttribute('data-key', key);
+            inputInt.setAttribute('data-date', date);
+            inputInt.setAttribute('data-bucket', 'INT');
+
+            const divUatGo = document.createElement('div');
+            divUatGo.className = 'flex items-center text-[8px] text-white/50 mb-1.5 justify-center gap-1.5';
+            divUatGo.innerHTML = '<span class="w-12 text-right font-black text-white/30 uppercase tracking-widest text-[8px]">UAT/GO</span>';
+            
+            const inputUatGo = document.createElement('input');
+            inputUatGo.type = 'number';
+            inputUatGo.id = `split-uatgo-${key}-${date}`;
+            inputUatGo.step = '0.25';
+            inputUatGo.min = '0';
+            inputUatGo.max = '24';
+            inputUatGo.placeholder = (!log && predictedUatGo > 0) ? predictedUatGo.toFixed(2) : '0.00';
+            inputUatGo.className = 'w-14 h-5.5 bg-white/5 border border-white/10 rounded text-center text-[10px] font-mono text-white focus:border-osttra-rubine hover:border-white/20 outline-none transition-all shadow-inner';
+            inputUatGo.value = (!isOoo) ? (log ? uatgoVal.toFixed(2) : '0.00') : '';
+            inputUatGo.setAttribute('data-key', key);
+            inputUatGo.setAttribute('data-date', date);
+            inputUatGo.setAttribute('data-bucket', 'UAT_GO');
+
+            const divOther = document.createElement('div');
+            divOther.className = 'flex items-center text-[8px] text-white/50 justify-center gap-1.5';
+            divOther.innerHTML = '<span class="w-12 text-right font-black text-white/30 uppercase tracking-widest text-[8px]">OTHER</span>';
+            
+            const inputOther = document.createElement('input');
+            inputOther.type = 'number';
+            inputOther.id = `split-other-${key}-${date}`;
+            inputOther.step = '0.25';
+            inputOther.min = '0';
+            inputOther.max = '24';
+            inputOther.placeholder = '0.00';
+            inputOther.className = 'w-14 h-5.5 bg-white/5 border border-white/10 rounded text-center text-[10px] font-mono text-white focus:border-osttra-rubine hover:border-white/20 outline-none transition-all shadow-inner';
+            inputOther.value = (!isOoo) ? (log ? otherVal.toFixed(2) : '0.00') : '';
+            inputOther.setAttribute('data-key', key);
+            inputOther.setAttribute('data-date', date);
+            inputOther.setAttribute('data-bucket', 'OTHER');
+
+            if (isDisabled) {
+              inputInt.disabled = true;
+              inputInt.className += ' opacity-40 cursor-not-allowed bg-black/40 border-white/5';
+              inputUatGo.disabled = true;
+              inputUatGo.className += ' opacity-40 cursor-not-allowed bg-black/40 border-white/5';
+              inputOther.disabled = true;
+              inputOther.className += ' opacity-40 cursor-not-allowed bg-black/40 border-white/5';
+            } else {
+              inputInt.addEventListener('input', function() {
+                let v = parseFloat(this.value) || 0;
+                if (v > 24) { v = 24; this.value = '24.00'; }
+                if (v < 0) { v = 0; this.value = '0.00'; }
+                
+                const uatGoSum = parseFloat(inputUatGo.value) || 0;
+                const otherSum = parseFloat(inputOther.value) || 0;
+                const sum = v + uatGoSum + otherSum;
+                inputMain.value = sum > 0 ? sum.toFixed(2) : '0.00';
+                saveLocalDraft();
+                updateDailyTotals();
+              });
+              inputInt.addEventListener('blur', function() {
+                let v = parseFloat(this.value);
+                if (isNaN(v) || v < 0) v = 0;
+                this.value = v.toFixed(2);
+                updateDailyTotals();
+              });
+
+              inputUatGo.addEventListener('input', function() {
+                let v = parseFloat(this.value) || 0;
+                if (v > 24) { v = 24; this.value = '24.00'; }
+                if (v < 0) { v = 0; this.value = '0.00'; }
+                
+                const intSum = parseFloat(inputInt.value) || 0;
+                const otherSum = parseFloat(inputOther.value) || 0;
+                const sum = v + intSum + otherSum;
+                inputMain.value = sum > 0 ? sum.toFixed(2) : '0.00';
+                saveLocalDraft();
+                updateDailyTotals();
+              });
+              inputUatGo.addEventListener('blur', function() {
+                let v = parseFloat(this.value);
+                if (isNaN(v) || v < 0) v = 0;
+                this.value = v.toFixed(2);
+                updateDailyTotals();
+              });
+
+              inputOther.addEventListener('input', function() {
+                let v = parseFloat(this.value) || 0;
+                if (v > 24) { v = 24; this.value = '24.00'; }
+                if (v < 0) { v = 0; this.value = '0.00'; }
+                
+                const intSum = parseFloat(inputInt.value) || 0;
+                const uatGoSum = parseFloat(inputUatGo.value) || 0;
+                const sum = v + intSum + uatGoSum;
+                inputMain.value = sum > 0 ? sum.toFixed(2) : '0.00';
+                saveLocalDraft();
+                updateDailyTotals();
+              });
+              inputOther.addEventListener('blur', function() {
+                let v = parseFloat(this.value);
+                if (isNaN(v) || v < 0) v = 0;
+                this.value = v.toFixed(2);
+                updateDailyTotals();
+              });
+            }
+
+            divInt.appendChild(inputInt);
+            tdSplit.appendChild(divInt);
+
+            divUatGo.appendChild(inputUatGo);
+            tdSplit.appendChild(divUatGo);
+
+            divOther.appendChild(inputOther);
+            tdSplit.appendChild(divOther);
+
+            splitTr.appendChild(tdSplit);
+          } else if (isPss) {
+            if (dIdx === 0) { // Fill columns for the weekend / weekday inputs once
+              const tdRest = document.createElement('td');
+              tdRest.colSpan = 7;
+              tdRest.className = 'border-b border-white/5 bg-[#161616]/50';
+              splitTr.appendChild(tdRest);
+            }
+          }
+        });
+
+        tbody.appendChild(tr);
+        if (splitTr) {
+          tbody.appendChild(splitTr);
+        }
+      });
+    });
+    updateDailyTotals();
+
+    // Toggle interactive action buttons visibility depending on global lock state
+    const saveBtn = document.getElementById('btn-save-timesheet');
+    const syncBtn = document.getElementById('btn-sync-jira');
+    const addContainer = document.getElementById('unified-add-container');
+    if (saveBtn) {
+      if (isTimesheetLockedGlobal) saveBtn.classList.add('hidden');
+      else saveBtn.classList.remove('hidden');
+    }
+    if (syncBtn) {
+      if (isTimesheetLockedGlobal) syncBtn.classList.add('hidden');
+      else syncBtn.classList.remove('hidden');
+    }
+    if (addContainer) {
+      if (isTimesheetLockedGlobal) addContainer.classList.add('hidden');
+      else addContainer.classList.remove('hidden');
+    }
+  }
+
+  function saveLocalDraft() {
+    const userEmail = window.currentUser.email.toLowerCase().trim();
+    const draftKey = `tpm_draft_${userEmail}_${currentSunday}`;
+    const oooDraftKey = `tpm_ooo_draft_${userEmail}_${currentSunday}`;
+
+    const logs = getFormData();
+
+    if (logs.length > 0) {
+      localStorage.setItem(draftKey, JSON.stringify(logs));
+    } else {
+      localStorage.removeItem(draftKey);
+    }
+
+    if (oooDates.length > 0) {
+      localStorage.setItem(oooDraftKey, JSON.stringify(oooDates));
+    } else {
+      localStorage.removeItem(oooDraftKey);
+    }
+  }
+
+  function clearLocalDraft() {
+    const userEmail = window.currentUser.email.toLowerCase().trim();
+    localStorage.removeItem(`tpm_draft_${userEmail}_${currentSunday}`);
+    localStorage.removeItem(`tpm_ooo_draft_${userEmail}_${currentSunday}`);
+  }
+
+  function resetWeekData() {
+    if (!confirm('Are you sure you want to discard your unsaved changes for this week? This will revert the grid back to your last saved state.')) {
+      return;
+    }
+    clearLocalDraft();
+    manuallyUnlockedTickets = [];
+    showNotification('info', 'Drafts Cleared', 'Reverting to your last saved timesheet data...');
+    loadTimesheetData();
+  }
+
+  function getErrorMessage(err) {
+    if (!err) return "An unknown server-side error occurred.";
+    if (typeof err === 'string') return err;
+    if (err.message) return err.message;
+    if (err.details) return err.details;
+    return JSON.stringify(err);
+  }
+
+  function saveTimesheet() {
+    const logs = getFormData();
+
+    // Prevent accidental wipeout from network desync/lag
+    if (logs.length === 0 && oooDates.length === 0) {
+      showNotification('error', 'Empty Timesheet Blocked', 'Cannot submit a completely empty timesheet. If your data failed to load, please click "Reset Drafts" or "Refresh" first to restore your entries.');
+      return;
+    }
+
+    let entryErrors = [];
+    let dailyTotals = {};
+
+    // Validate daily limits (max 24 hours per day)
+    logs.forEach(log => {
+      const date = log.date;
+      const key = log.jiraKey;
+      const hours = log.hours;
+
+      if (!dailyTotals[date]) dailyTotals[date] = 0;
+      dailyTotals[date] += hours;
+
+      if (hours < 0 || hours > 24.01) {
+        entryErrors.push(`Invalid hours (${hours.toFixed(2)}h) entered for ${key} on ${formatDateFriendly(date)}. Hours must be between 0.00 and 24.00.`);
+        const input = document.querySelector(`input[data-key="${key}"][data-date="${date}"]:not([data-bucket])`);
+        if (input) input.classList.add('border-red-500');
+      }
+    });
+
+    let dailyLimitErrors = [];
+    for (const date in dailyTotals) {
+      const sum = dailyTotals[date];
+      if (sum > 24.01) {
+        const formattedDate = formatDateFriendly(date);
+        const contribs = [];
+        logs.forEach(l => {
+          if (l.date === date && l.hours > 0) {
+            contribs.push(`${l.jiraKey} (${l.hours.toFixed(2)}h)`);
+          }
+        });
+        dailyLimitErrors.push(`Logged hours on ${formattedDate} is ${sum.toFixed(2)}h, which exceeds the 24-hour daily limit. Breakdown: ${contribs.join(', ')}.`);
+      }
+    }
+
+    if (entryErrors.length > 0) {
+      showNotification('error', 'Entry Error', entryErrors.join(' '));
+      return;
+    }
+
+    if (dailyLimitErrors.length > 0) {
+      showNotification('error', 'Daily Limit Exceeded', dailyLimitErrors.join(' '));
+      return;
+    }
+
+    // Ensure no hours are logged on days marked as OOO (strict conflict check)
+    let oooConflictDays = [];
+    logs.forEach(log => {
+      const date = log.date;
+      if (log.jiraKey !== 'ooo' && oooDates.includes(date) && log.hours > 0) {
+        oooConflictDays.push(formatDateFriendly(date));
+      }
+    });
+
+    if (oooConflictDays.length > 0) {
+      const uniqueConflicts = [...new Set(oooConflictDays)];
+      showNotification('error', 'OOO Conflict', `Cannot log hours on days marked as Out of Office (OOO). Conflicts found on: ${uniqueConflicts.join(', ')}.`);
+      return;
+    }
+
+    // Automatically append OOO logs (8 hours per OOO day)
+    oooDates.forEach(date => {
+      logs.push({
+        jiraKey: 'ooo',
+        date: date,
+        hours: 8,
+        uatHours: 0,
+        intHours: 0,
+        goLiveHours: 0
+      });
+    });
+
+    showLoading('Saving timesheet changes...');
+    google.script.run
+      .withSuccessHandler(() => {
+        hideLoading();
+        clearLocalDraft(); // committed, safe to wipe draft
+        clearAutosaveDraft(); // committed, clear autosave draft as well!
+        showNotification('success', 'Timesheet Saved', 'Your timesheet hours have been logged successfully.');
+        loadTimesheetData(true);
+      })
+      .withFailureHandler(err => {
+        hideLoading();
+        showNotification('error', 'Save Failed', getErrorMessage(err));
+      })
+      .saveTpmTimesheetData({
+        weekStartDate: currentSunday,
+        logs: logs
+      });
+  }
+
+  function triggerJiraSync() {
+    showLoading('Synchronizing latest tickets from Jira...');
+    google.script.run
+      .withSuccessHandler(msg => {
+        hideLoading();
+        showNotification('success', 'Sync Successful', msg);
+        loadTimesheetData(true);
+      })
+      .withFailureHandler(err => {
+        hideLoading();
+        showNotification('error', 'Sync Failed', getErrorMessage(err));
+      })
+      .syncTpmJiraData();
+  }
+
+  // --- CALENDAR WEEK SELECTOR HANDLER ---
+  function handleCalendarSelection(dateVal) {
+    if (!dateVal) return;
+    
+    // Parse selected date YYYY-MM-DD
+    const parts = dateVal.split('-');
+    if (parts.length !== 3) return;
+    
+    const year = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10) - 1;
+    const day = parseInt(parts[2], 10);
+    const selectedDateObj = new Date(year, month, day);
+    
+    // Calculate the Sunday of that selected date's week
+    const dayOfWeek = selectedDateObj.getDay(); // Sun=0, Mon=1, etc.
+    const diff = selectedDateObj.getDate() - dayOfWeek;
+    const SundayObj = new Date(selectedDateObj.setDate(diff));
+    
+    currentSunday = formatDateString(SundayObj);
+    sessionStorage.setItem('tpm_current_sunday', currentSunday);
+    loadTimesheetData(true); // Force clear cache to load the selected week's database entries
+  }
+</script>

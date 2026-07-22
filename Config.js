@@ -23,6 +23,8 @@ const CONFIG = {
     ANALYTICAL_HUB: "App Analytical Hub (Read / Write)",
     DATA_AUDIT: "App Audit: Discrepancies (Reference)",
     SNAPSHOT_LOGS: "App Snapshot Logs (Read / Write)",
+    TPM_JIRA_CACHE: "TPM_Jira_Cache",
+    TPM_TIMESHEET_LOGS: "TPM_Timesheet_Logs",
     MANUAL_INACTIVES: "App Manual Inactives (Read / Write)"
   },
 
@@ -36,17 +38,8 @@ const CONFIG = {
     "sanghmitra.khanna@osttra.com"
   ],
 
-  // BigQuery Configuration
-  BQ: {
-    PROJECT_ID: 'prj-p-bi-data-5rsa', // Production Project ID from GCP
-    DATASETS: {
-      SALESFORCE: 'digops_self_service_looker.salesforce_case_intermediate_digops',
-      JIRA: 'digops_self_service_looker.jira_issues',
-      PEOPLE_DATA: 'digops_self_service_looker.people_data_records', 
-      SYSTEM_LOGS: 'digops_self_service_looker.app_logs_prod'
-    },
-    STD_MONTHLY_HOURS: 160 // Used for capacity calculations
-  }
+  // Capacity & Allocation Constraints
+  STD_MONTHLY_HOURS: 160 // Used for capacity calculations
 };
 
 /**

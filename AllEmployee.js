@@ -120,7 +120,8 @@ function exportAnupOrgMasterData() {
       "Regional Head/Head of function",
       "Direct Manager Name", "Direct Manager Email", "Manager ID", 
       "Management Line (Hierarchy)", "Profile", "HR Job Role", "Start Date",
-      "HR Start Date", "HR Termination Date", "HR Employment Status", "HR Pay Class", "HR Legal Entity"
+      "HR Start Date", "HR Termination Date", "HR Employment Status", "HR Pay Class", "HR Legal Entity",
+      "is_tpm"
     ]);
 
     allEmails.forEach(email => {
@@ -320,6 +321,9 @@ function exportAnupOrgMasterData() {
         // Profile mapped from Dayforce Job_ShortName (excluding region), fallback to Google Workspace Directory (Google Chat Title)
         const hrProfile = (extractedProfile !== "N/A" && extractedProfile !== "") ? extractedProfile : (person.title || "N/A");
 
+        // Calculate is_tpm based on whether they roll up to Jack Jeffreys
+        const isTpmCalculated = (email.toLowerCase().trim() === 'jack.jeffreys@osttra.com' || chain.some(item => item.email === 'jack.jeffreys@osttra.com')) ? "Yes" : "No";
+
         allRows.push([
           person.empId, 
           personFirstName, 
@@ -341,7 +345,8 @@ function exportAnupOrgMasterData() {
           hrTerm,
           hrStatus,
           hrPay,
-          hrLegal
+          hrLegal,
+          isTpmCalculated
         ]);
       }
     });

@@ -1,4 +1,4 @@
-<style>
+﻿<style>
   @keyframes pageSlideIn {
     0% { opacity: 0; transform: translateX(2rem); }
     100% { opacity: 1; transform: translateX(0); }
@@ -45,6 +45,19 @@
   // Global Client Error Handler (UI Exception Safety-Net)
   window.onerror = function (message, source, lineno, colno, error) {
     console.error("GLOBAL CLIENT EXCEPTION:", message, "at", source, "line", lineno);
+    
+    // Ignore third-party browser extension errors (like injected.js, Grammarly, LastPass, chrome-extension://, etc.)
+    const strSource = String(source || "");
+    const strMsg = String(message || "");
+    const isExtensionError = 
+      /injected|extension|chrome-extension|safari-extension|moz-extension/i.test(strSource) ||
+      /injected|extension|chrome-extension|safari-extension|moz-extension/i.test(strMsg);
+      
+    if (isExtensionError) {
+      console.warn("Bypassed UI notification for external extension exception.");
+      return false; // Suppress popup but allow standard console logging
+    }
+
     showNotification(
       "Interface Exception", 
       `${message} (Line ${lineno})`, 

@@ -19,8 +19,17 @@ function getCurrentUserSession() {
   }
 
   // Real Identity
-  const realEmail = String(Session.getActiveUser().getEmail() || "").trim().toLowerCase();
+  let realEmail = String(Session.getActiveUser().getEmail() || "").trim().toLowerCase();
   
+  // Normalize well-known G-Suite/HR primary email aliases to match spreadsheet Email Addresses
+  const aliasMap = {
+    "nikita.sukhmal@osttra.com": "nikita.jain@osttra.com",
+    "nikita.sukhmal.jain@osttra.com": "nikita.jain@osttra.com"
+  };
+  if (aliasMap[realEmail]) {
+    realEmail = aliasMap[realEmail];
+  }
+
   // Fetch simulated user using a composite key tied to the real user to prevent cross-user leakage
   const scriptProps = PropertiesService.getScriptProperties();
   const simulatedEmail = scriptProps.getProperty('SIMULATED_USER_' + realEmail);
@@ -75,10 +84,10 @@ function getCurrentUserSession() {
     const managerIdStr = empId;
     const userNameLower = name.toLowerCase();
 
-    // Tier 2: Manager Check (Check ID, Direct Manager Name, or Direct Manager Email as primary)
-    hasReports = (managerMap[managerIdStr] || 0) > 0 || 
-                 (directManagerMap[userNameLower] || 0) > 0 ||
-                 (directMgrEmailMap[activeEmail] || 0) > 0;
+    // Tier 2: Manager Check (Check ID, Direct Manager Name, or Direct Manager Email as primary - ignore sentinels)
+    hasReports = (empId && empId !== "N/A" && empId !== "undefined" && (managerMap[managerIdStr] || 0) > 0) || 
+                 (name && name !== "Unknown User" && (directManagerMap[userNameLower] || 0) > 0) ||
+                 (activeEmail && activeEmail !== "N/A" && (directMgrEmailMap[activeEmail] || 0) > 0);
     if (hasReports) tier = 2;
 
   } else if (getAdminEmails().includes(activeEmail)) {
@@ -123,7 +132,43 @@ function getCurrentUserSession() {
     }
   }
 
-  console.log(`User: ${activeEmail} | Identity Tier: ${identityTier} | Effective Tier: ${tier} | Executive View: ${isExecutiveView}`);
+  // Dynamic Hierarchy & Tagging Check for TPM Access (Jack Jeffreys' Org)
+  let isTpmUser = false;
+  let isTpmManager = false;
+
+  if (getAdminEmails().includes(activeEmail) || activeEmail === 'jack.jeffreys@osttra.com' || activeEmail === 'nicholas.allcock@osttra.com') {
+    isTpmUser = true;
+    isTpmManager = true;
+  } else {
+    // 1. Check dynamic hierarchy (Does this person roll up to Jack?)
+    let current = activeEmail;
+    let depth = 0;
+    const visited = new Set();
+    while (current && depth <= 6) {
+      if (current === 'jack.jeffreys@osttra.com') {
+        isTpmUser = true;
+        if (hasReports) isTpmManager = true;
+        break;
+      }
+      visited.add(current);
+      const rec = empMap[current];
+      const nextMgr = rec ? String(rec["Direct Manager Email"] || "").trim().toLowerCase() : "";
+      if (!nextMgr || nextMgr === current || visited.has(nextMgr)) break;
+      current = nextMgr;
+      depth++;
+    }
+    
+    // 2. Fallback to manual spreadsheet tagging if not in Jack's hierarchy
+    if (!isTpmUser && userRecord) {
+      const isTpmVal = String(userRecord["is_tpm"] || userRecord["Is_TPM"] || userRecord["IS_TPM"] || "").trim().toLowerCase();        
+      if (["yes", "true", "y", "1"].includes(isTpmVal)) {
+        isTpmUser = true;
+        if (hasReports) isTpmManager = true;
+      }
+    }
+  }
+
+  console.log(`User: ${activeEmail} | Identity Tier: ${identityTier} | Effective Tier: ${tier} | Executive View: ${isExecutiveView} | TPM User: ${isTpmUser} | TPM Mgr: ${isTpmManager}`);
   
   const currentPeriod = getActivePeriod();
   
@@ -142,7 +187,9 @@ function getCurrentUserSession() {
     phase1State: getSystemConfig()["PHASE_1_STATE"] || "1",
     hasReports: hasReports,
     currentPeriod: currentPeriod,
-    isExecutiveView: isExecutiveView
+    isExecutiveView: isExecutiveView,
+    isTpmUser: isTpmUser,
+    isTpmManager: isTpmManager
   };
   
   return _cachedUserSession;
