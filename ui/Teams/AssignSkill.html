@@ -96,11 +96,15 @@
                     <option value="">Select Product...</option>
                   </select>
                 </div>
-                <div class="space-y-2">
-                  <label class="text-[8px] font-black text-white/40 uppercase tracking-widest">Sub-Product</label>
-                  <select id="select-catalog-sub" class="w-full bg-osttra-black/80 border border-white/10 rounded-xl px-6 py-3 text-xs font-bold text-white focus:outline-none focus:border-osttra-violet transition-all cursor-pointer">
-                    <option value="">Select Sub-Product...</option>
-                  </select>
+                <div class="space-y-2 relative">
+                  <label class="text-[8px] font-black text-white/40 uppercase tracking-widest">Sub-Product(s)</label>
+                  <div id="sub-product-dropdown-btn" onclick="toggleSubProductDropdown()" class="w-full bg-osttra-black/80 border border-white/10 rounded-xl px-6 py-3 text-xs font-bold text-white focus:outline-none focus:border-osttra-violet transition-all flex justify-between items-center cursor-not-allowed opacity-30">
+                    <span id="sub-product-selected-text" class="truncate pr-2">Select Sub-Product(s)...</span>
+                    <i class="fas fa-chevron-down text-white/40 text-[10px] shrink-0"></i>
+                  </div>
+                  <div id="sub-product-dropdown-menu" class="hidden absolute z-10 w-full mt-1 bg-osttra-black/95 border border-white/10 rounded-xl shadow-xl max-h-48 overflow-y-auto no-scrollbar py-1 text-left">
+                    <!-- Checkboxes injected dynamically -->
+                  </div>
                 </div>
                 <div class="space-y-2">
                   <label class="text-[8px] font-black text-white/40 uppercase tracking-widest">Initial Skill Rating</label>
@@ -184,11 +188,48 @@
     let catalog = {};
     let activeEmp = null;
     let activeMappings = []; // Stores local mappings (derived from assigned scope + existing skills)
+    let selectedSubProducts = []; // Multi-select state
     let isDirty = false;
     let confirmCallback = null;
     let searchQuery = ""; // Search query state
     let hierarchyMode = "all"; // Hierarchy filter state ("all" or "direct")
     let sortMode = "alpha"; // Sort state ("alpha", "uncertified", "certified")
+
+    window.toggleSubProductDropdown = function() {
+      const btn = document.getElementById('sub-product-dropdown-btn');
+      if (btn && btn.classList.contains('cursor-not-allowed')) return;
+      const menu = document.getElementById('sub-product-dropdown-menu');
+      if (menu) menu.classList.toggle('hidden');
+    };
+
+    window.handleSubProductCheckboxChange = function(cb) {
+      if (cb.checked) {
+        if (!selectedSubProducts.includes(cb.value)) {
+          selectedSubProducts.push(cb.value);
+        }
+      } else {
+        selectedSubProducts = selectedSubProducts.filter(v => v !== cb.value);
+      }
+      
+      const text = document.getElementById('sub-product-selected-text');
+      if (text) {
+        if (selectedSubProducts.length === 0) {
+          text.innerText = "Select Sub-Product(s)...";
+        } else if (selectedSubProducts.length === 1) {
+          text.innerText = selectedSubProducts[0];
+        } else {
+          text.innerText = `${selectedSubProducts.length} selected`;
+        }
+      }
+    };
+
+    document.addEventListener('click', function(event) {
+      const btn = document.getElementById('sub-product-dropdown-btn');
+      const menu = document.getElementById('sub-product-dropdown-menu');
+      if (btn && menu && !btn.contains(event.target) && !menu.contains(event.target)) {
+        menu.classList.add('hidden');
+      }
+    });
 
     window.filterRoster = function(query) {
       searchQuery = query || "";
@@ -307,14 +348,58 @@
     }
 
     window.handleProductSelect = function(prod) {
-      const subSelect = document.getElementById('select-catalog-sub');
+      const btn = document.getElementById('sub-product-dropdown-btn');
+      const menu = document.getElementById('sub-product-dropdown-menu');
+      const text = document.getElementById('sub-product-selected-text');
+      
+      selectedSubProducts = [];
+      if (text) text.innerText = "Select Sub-Product(s)...";
+      if (menu) menu.classList.add('hidden');
+      
       if (!prod || !catalog[prod]) {
-        subSelect.innerHTML = '<option value="">Select Sub-Product...</option>';
+        if (btn) {
+          btn.classList.add('cursor-not-allowed', 'opacity-30');
+          btn.classList.remove('cursor-pointer', 'opacity-100');
+        }
+        if (menu) menu.innerHTML = '';
         return;
       }
 
-      const subs = catalog[prod];
-      subSelect.innerHTML = subs.map(s => `<option value="${s}">${s}</option>`).join('');
+      let subs = catalog[prod];
+      if (activeEmp && !activeEmp.hasReports) {
+        subs = subs.filter(s => String(s).toLowerCase().trim() !== "team management");
+      }
+      
+      if (btn) {
+        btn.classList.remove('cursor-not-allowed', 'opacity-30');
+        btn.classList.add('cursor-pointer', 'opacity-100');
+      }
+
+      if (subs.length === 0) {
+        selectedSubProducts = ['General'];
+        if (text) text.innerText = "General";
+        if (menu) {
+          menu.innerHTML = `
+            <label class="flex items-center px-6 py-3 hover:bg-white/5 cursor-not-allowed">
+              <input type="checkbox" value="General" checked disabled class="accent-osttra-rubine mr-3 opacity-50">
+              <span class="text-xs font-bold text-white">General</span>
+            </label>
+          `;
+        }
+        if (btn) {
+          btn.classList.add('cursor-not-allowed', 'opacity-50');
+          btn.classList.remove('cursor-pointer', 'opacity-100');
+        }
+      } else {
+        if (menu) {
+          menu.innerHTML = subs.sort().map(s => `
+            <label class="flex items-center px-6 py-3 hover:bg-white/5 cursor-pointer">
+              <input type="checkbox" value="${s}" onchange="handleSubProductCheckboxChange(this)" class="accent-osttra-rubine mr-3">
+              <span class="text-xs font-bold text-white">${s}</span>
+            </label>
+          `).join('');
+        }
+      }
     };
 
     window.selectReport = function(email) {
@@ -485,37 +570,50 @@
 
     window.addProductMapping = function() {
       const prod = document.getElementById('select-catalog-product').value;
-      const sub = document.getElementById('select-catalog-sub').value;
       const skill = document.getElementById('select-catalog-skill').value;
 
-      if (!prod || !sub) {
-        showNotification('Selection Missing', 'Please select both Product and Sub-Product before assigning.', 'warning');
+      if (!prod || selectedSubProducts.length === 0) {
+        showNotification('Selection Missing', 'Please select both Product and at least one Sub-Product before assigning.', 'warning');
         return;
       }
 
-      // Check for duplicate locally
-      const exists = activeMappings.some(m => 
-        String(m.product).trim().toLowerCase() === prod.trim().toLowerCase() &&
-        String(m.subProduct).trim().toLowerCase() === sub.trim().toLowerCase()
-      );
+      let addedCount = 0;
+      let dupCount = 0;
 
-      if (exists) {
-        showNotification('Already Assigned', 'This product assignment already exists for this rep.', 'warning');
-        return;
-      }
+      selectedSubProducts.forEach(sub => {
+        const exists = activeMappings.some(m => 
+          String(m.product).trim().toLowerCase() === prod.trim().toLowerCase() &&
+          String(m.subProduct).trim().toLowerCase() === sub.trim().toLowerCase()
+        );
 
-      activeMappings.push({
-        product: prod,
-        subProduct: sub,
-        skillLevel: skill
+        if (exists) {
+          dupCount++;
+        } else {
+          activeMappings.push({
+            product: prod,
+            subProduct: sub,
+            skillLevel: skill
+          });
+          addedCount++;
+        }
       });
+
+      if (dupCount > 0 && addedCount === 0) {
+        showNotification('Already Assigned', 'All selected sub-products already exist for this rep.', 'warning');
+        return;
+      } else if (dupCount > 0) {
+        showNotification('Partial Assignment', `${addedCount} assigned, ${dupCount} skipped (duplicates).`, 'warning');
+      } else {
+        showNotification('Success', `Assigned ${addedCount} sub-product(s).`, 'success');
+      }
 
       renderActiveMappings();
       triggerAutoSave();
       
       // Reset dropdowns
       document.getElementById('select-catalog-product').value = "";
-      document.getElementById('select-catalog-sub').innerHTML = '<option value="">Select Sub-Product...</option>';
+      handleProductSelect(""); // this resets the sub-products correctly
+      document.getElementById('select-catalog-skill').value = "N/A";
     };
 
     window.triggerAutoSave = function(retryCount = 0) {

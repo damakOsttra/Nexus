@@ -91,7 +91,8 @@ function getView(pageName) {
     'About': 1, 'Profile': 1, 'MyAllocations': 1, 'AnalyticsHub': 1, 'ExecAnalytics': 2,
     'UserGuide': 1, 'OrganizationChart': 1,
     'TpmTimesheet': 1,
-    'TpmDashboard': 1
+    'TpmDashboard': 1,
+    'OpexProjectBoard': 1
   };
 
   const requiredTier = permissions[pageName];
@@ -112,6 +113,11 @@ function getView(pageName) {
   }
   if (pageName === 'TpmDashboard' && !session.isTpmManager) {      
     return `<div class="p-8 text-red-500">🚫 Restricted Access: Tier-4 TPM manager clearance required.</div>`;
+  }
+
+  // Dynamic checks for OPEX access
+  if (pageName === 'OpexProjectBoard' && !session.isOpexUser) {
+    return `<div class="p-8 text-red-500">🚫 Restricted Access: OPEX hierarchy required.</div>`;
   }
 
   // Strict executive view authorization guard
@@ -136,6 +142,7 @@ function getView(pageName) {
     'AssignSkill': 'ui/Teams/AssignSkill',
     'TeamAllocationsReview': 'ui/Teams/TeamAllocationsReview',
     'TpmTimesheet': 'ui/Teams/TpmTimesheet',
+    'OpexProjectBoard': 'ui/Teams/OpexProjectBoard',
 
     // Personal
     'About': 'ui/Personal/About',
@@ -174,13 +181,15 @@ function getView(pageName) {
       'About': 1, 'Profile': 1, 'MyAllocations': 1, 'AnalyticsHub': 1,
       'UserGuide': 1,
       'TpmTimesheet': 1,
-      'TpmDashboard': 1
+      'TpmDashboard': 1,
+      'OpexProjectBoard': 1
     };
 
   for (const pageName in permissions) {
     let hasPerm = session.tier >= permissions[pageName];
     if (pageName === 'TpmTimesheet' && !session.isTpmUser) hasPerm = false;
     if (pageName === 'TpmDashboard' && !session.isTpmManager) hasPerm = false;
+    if (pageName === 'OpexProjectBoard' && !session.isOpexUser) hasPerm = false;
 
     if (hasPerm) {
       try {
@@ -250,7 +259,7 @@ function getAppBootPayload() {
 
   const appUrl = getAppUrl();
   const isUAT = appUrl.indexOf('/dev') !== -1;
-  const prodUrl = 'https://script.google.com/a/macros/osttra.com/s/AKfycby7bDQ1d4cvOdK3aRqWmFlygrTLo5Jeio123wJQglApifdcnMbPleqymrfKoxhljOov/exec';
+  const prodUrl = CONFIG.NEXUS_BASE_URL;
 
   return JSON.parse(JSON.stringify({
     session: session,

@@ -150,6 +150,9 @@
 
       <!-- Send Notifications Buttons -->
       <div class="flex flex-col sm:flex-row gap-3 w-full lg:w-auto shrink-0">
+        <button onclick="selectAllManagers()" class="px-5 py-3 rounded-xl transition-all duration-300 flex items-center justify-center gap-2 border border-osttra-violet/30 bg-osttra-violet/10 hover:bg-osttra-violet/20 text-white cursor-pointer text-[10px] font-black uppercase tracking-widest whitespace-nowrap">
+          <i class="fas fa-user-tie"></i> <span>Select Managers</span>
+        </button>
         <button onclick="openNotificationModal('ALLOCATION')" id="btn-notify-alloc" class="btn-notify px-5 py-3 rounded-xl transition-all duration-300 flex items-center justify-center gap-2 border border-white/5 bg-white/5 text-white/30 cursor-not-allowed text-[10px] font-black uppercase tracking-widest whitespace-nowrap" disabled>
           <i class="fas fa-calendar-alt"></i> <span>Remind Allocation (<span class="selected-count font-bold">0</span>)</span>
         </button>
@@ -329,6 +332,30 @@
         selectedEmails.delete(cb.value);
         document.getElementById('select-all').checked = false;
       }
+      updateSelectedCount();
+    };
+
+    window.selectAllManagers = function() {
+      const managerEmails = new Set(
+        monitorData
+          .map(e => (e.managerEmail || '').trim().toLowerCase())
+          .filter(email => email && email !== 'n/a')
+      );
+      
+      const checkboxes = document.querySelectorAll('.user-checkbox');
+      selectedEmails.clear();
+      checkboxes.forEach(cb => {
+        const email = cb.value.trim().toLowerCase();
+        if (managerEmails.has(email)) {
+          cb.checked = true;
+          selectedEmails.add(cb.value);
+        } else {
+          cb.checked = false;
+        }
+      });
+      
+      const selectAll = document.getElementById('select-all');
+      if (selectAll) selectAll.checked = false;
       updateSelectedCount();
     };
 

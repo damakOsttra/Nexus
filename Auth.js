@@ -19,7 +19,7 @@ function getCurrentUserSession() {
   }
 
   // Real Identity
-  let realEmail = String(Session.getActiveUser().getEmail() || "").trim().toLowerCase();
+  let realEmail = String(Session.getActiveUser().getEmail() || Session.getEffectiveUser().getEmail() || "").trim().toLowerCase();
   
   // Normalize well-known G-Suite/HR primary email aliases to match spreadsheet Email Addresses
   const aliasMap = {
@@ -168,7 +168,43 @@ function getCurrentUserSession() {
     }
   }
 
-  console.log(`User: ${activeEmail} | Identity Tier: ${identityTier} | Effective Tier: ${tier} | Executive View: ${isExecutiveView} | TPM User: ${isTpmUser} | TPM Mgr: ${isTpmManager}`);
+  // Dynamic Hierarchy & Tagging Check for OPEX Access (Suneet Dhar's Org)
+  let isOpexUser = false;
+  let isOpexManager = false;
+
+  if (getAdminEmails().includes(activeEmail) || activeEmail === 'suneet.dhar@osttra.com') {
+    isOpexUser = true;
+    isOpexManager = true;
+  } else {
+    // 1. Check dynamic hierarchy (Does this person roll up to Suneet?)
+    let current = activeEmail;
+    let depth = 0;
+    const visited = new Set();
+    while (current && depth <= 6) {
+      if (current === 'suneet.dhar@osttra.com') {
+        isOpexUser = true;
+        if (hasReports) isOpexManager = true;
+        break;
+      }
+      visited.add(current);
+      const rec = empMap[current];
+      const nextMgr = rec ? String(rec["Direct Manager Email"] || "").trim().toLowerCase() : "";
+      if (!nextMgr || nextMgr === current || visited.has(nextMgr)) break;
+      current = nextMgr;
+      depth++;
+    }
+    
+    // 2. Fallback to manual spreadsheet tagging if not in Suneet's hierarchy
+    if (!isOpexUser && userRecord) {
+      const isOpexVal = String(userRecord["is_opex"] || userRecord["Is_OPEX"] || userRecord["IS_OPEX"] || "").trim().toLowerCase();        
+      if (["yes", "true", "y", "1"].includes(isOpexVal)) {
+        isOpexUser = true;
+        if (hasReports) isOpexManager = true;
+      }
+    }
+  }
+
+  console.log(`User: ${activeEmail} | Identity Tier: ${identityTier} | Effective Tier: ${tier} | Executive View: ${isExecutiveView} | TPM User: ${isTpmUser} | TPM Mgr: ${isTpmManager} | OPEX User: ${isOpexUser} | OPEX Mgr: ${isOpexManager}`);
   
   const currentPeriod = getActivePeriod();
   
@@ -189,7 +225,9 @@ function getCurrentUserSession() {
     currentPeriod: currentPeriod,
     isExecutiveView: isExecutiveView,
     isTpmUser: isTpmUser,
-    isTpmManager: isTpmManager
+    isTpmManager: isTpmManager,
+    isOpexUser: isOpexUser,
+    isOpexManager: isOpexManager
   };
   
   return _cachedUserSession;

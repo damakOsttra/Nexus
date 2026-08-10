@@ -29,6 +29,7 @@
     "https://www.googleapis.com/auth/userinfo.profile",
     "https://www.googleapis.com/auth/chat.spaces.create",
     "https://www.googleapis.com/auth/chat.messages",
-    "https://www.googleapis.com/auth/script.external_request"
+    "https://www.googleapis.com/auth/script.external_request",
+    "https://www.googleapis.com/auth/script.scriptapp"
   ]
 }

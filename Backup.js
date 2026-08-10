@@ -344,3 +344,73 @@ function setupAuthorization() {
   
   return "Authorization Successful! All core dependent services (DriveApp & MailApp) have been verified and authorized.";
 }
+
+/**
+ * ROLLING BACKUP: Performs a silent, automated spreadsheet backup every 4 hours,
+ * overwriting the previous "Nexus_4Hour_Rolling_Backup.xlsx" file in the root backup folder.
+ * This prevents Drive storage bloat and avoids email notifications.
+ */
+function executeRollingBackup() {
+  console.log("[BACKUP] Starting automated 4-hour rolling backup...");
+  
+  try {
+    const fileBlob = exportSpreadsheetAsXlsx();
+    const fileName = "Nexus_4Hour_Rolling_Backup.xlsx";
+    fileBlob.setName(fileName);
+    
+    // Locate the root Nexus Application Data folder
+    const parentFolder = DriveApp.getFolderById(CONFIG.DRIVE_BACKUP_FOLDER_ID);
+    const nexusFolder = getOrCreateDriveFolder("Nexus Application Data", parentFolder);
+    
+    // Find and remove any existing rolling backup file to prevent duplicates (acting as overwrite)
+    const existingFiles = nexusFolder.getFilesByName(fileName);
+    while (existingFiles.hasNext()) {
+      const oldFile = existingFiles.next();
+      console.log(`[BACKUP] Found existing rolling backup file: ${oldFile.getName()} (${oldFile.getId()}). Moving to trash...`);
+      oldFile.setTrashed(true);
+    }
+    
+    // Save the new XLSX file
+    const file = nexusFolder.createFile(fileBlob);
+    const fileUrl = file.getUrl();
+    console.log(`[BACKUP] Automated 4-hour rolling backup saved successfully: ${fileUrl}`);
+    
+    // Log the transaction quietly inside App System Logs
+    logSystemEvent("System Automator", "GLOBAL", "Executed 4-Hour Rolling Backup", "Entire Workbook", "Live Sheet", fileName);
+    try {
+      logBackendTelemetry("DB_BACKUP_EXECUTED", "Entire Workbook", `Silent 4-Hour Rolling Backup | Link: ${fileUrl}`, "SYSTEM");
+    } catch(telErr) {
+      console.warn("Failed to log DB_BACKUP_EXECUTED telemetry event for rolling backup:", telErr.message);
+    }
+    
+    return fileUrl;
+  } catch(e) {
+    console.error("[BACKUP] Automated 4-hour rolling backup failed:", e.message);
+    throw e;
+  }
+}
+
+/**
+ * TRIGGER SETUP: Registers the time-driven rolling backup to run every 4 hours.
+ * Admins can run this once from the Apps Script editor or via Admin panel.
+ */
+function setupRollingBackupTrigger() {
+  validateTier(3); // Admin Only
+  const functionName = "executeRollingBackup";
+  
+  const triggers = ScriptApp.getProjectTriggers();
+  triggers.forEach(t => {
+    if (t.getHandlerFunction() === functionName) {
+      ScriptApp.deleteTrigger(t);
+      console.log(`[BACKUP] Deleted existing trigger for ${functionName}`);
+    }
+  });
+  
+  ScriptApp.newTrigger(functionName)
+    .timeBased()
+    .everyHours(4)
+    .create();
+    
+  console.log(`[BACKUP] Successfully established 4-hour rolling backup trigger for ${functionName}()`);
+  return "Successfully established 4-hour rolling backup trigger.";
+}

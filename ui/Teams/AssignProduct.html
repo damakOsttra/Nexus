@@ -89,10 +89,47 @@
     let productCatalog = {};
     let activeEmp = null;
     let activeMappings = [];
+    let selectedSubProducts = []; // Multi-select state
     let confirmCallback = null;
     let searchQuery = ""; // Search query state
     let hierarchyMode = "all"; // Hierarchy filter state ("all" or "direct")
     let sortMode = "alpha"; // Sort state ("alpha", "unmapped", "mapped")
+
+    window.toggleSubProductDropdown = function() {
+      const btn = document.getElementById('sub-product-dropdown-btn');
+      if (btn && btn.style.cursor === 'not-allowed') return;
+      const menu = document.getElementById('sub-product-dropdown-menu');
+      if (menu) menu.classList.toggle('hidden');
+    };
+
+    window.handleSubProductCheckboxChange = function(cb) {
+      if (cb.checked) {
+        if (!selectedSubProducts.includes(cb.value)) {
+          selectedSubProducts.push(cb.value);
+        }
+      } else {
+        selectedSubProducts = selectedSubProducts.filter(v => v !== cb.value);
+      }
+      
+      const text = document.getElementById('sub-product-selected-text');
+      if (text) {
+        if (selectedSubProducts.length === 0) {
+          text.innerText = "Select Sub-Product(s)...";
+        } else if (selectedSubProducts.length === 1) {
+          text.innerText = selectedSubProducts[0];
+        } else {
+          text.innerText = `${selectedSubProducts.length} selected`;
+        }
+      }
+    };
+
+    document.addEventListener('click', function(event) {
+      const btn = document.getElementById('sub-product-dropdown-btn');
+      const menu = document.getElementById('sub-product-dropdown-menu');
+      if (btn && menu && !btn.contains(event.target) && !menu.contains(event.target)) {
+        menu.classList.add('hidden');
+      }
+    });
 
     window.filterRoster = function(query) {
       searchQuery = query || "";
@@ -255,11 +292,15 @@
               </div>
 
               <!-- Sub-Product Select -->
-              <div class="space-y-1">
-                <label class="text-[9px] font-bold text-white/40 uppercase tracking-wider">Sub-Product</label>
-                <select id="select-catalog-sub" disabled class="w-full bg-[#1e1e1e] border border-white/5 rounded-xl px-4 py-3 text-xs font-black text-white focus:outline-none focus:border-osttra-violet disabled:opacity-30 disabled:cursor-not-allowed">
-                  <option value="" disabled selected>Select Sub-Product...</option>
-                </select>
+              <div class="space-y-1 relative">
+                <label class="text-[9px] font-bold text-white/40 uppercase tracking-wider">Sub-Products</label>
+                <div id="sub-product-dropdown-btn" onclick="toggleSubProductDropdown()" class="w-full bg-[#1e1e1e] border border-white/5 rounded-xl px-4 py-3 text-xs font-black text-white focus:outline-none focus:border-osttra-violet flex justify-between items-center transition-all" style="opacity: 0.3; cursor: not-allowed;">
+                  <span id="sub-product-selected-text" class="truncate pr-2">Select Sub-Product(s)...</span>
+                  <i class="fas fa-chevron-down text-white/40 text-[10px] shrink-0"></i>
+                </div>
+                <div id="sub-product-dropdown-menu" class="hidden absolute z-10 w-full mt-1 bg-[#1e1e1e] border border-white/10 rounded-xl shadow-xl max-h-48 overflow-y-auto no-scrollbar py-1 text-left">
+                  <!-- Checkboxes injected dynamically -->
+                </div>
               </div>
 
               <!-- Action button -->
@@ -298,52 +339,112 @@
     }
 
     window.onProductSelectChange = function(product) {
-      const subSelect = document.getElementById('select-catalog-sub');
-      if (!subSelect) return;
+      const btn = document.getElementById('sub-product-dropdown-btn');
+      const menu = document.getElementById('sub-product-dropdown-menu');
+      const text = document.getElementById('sub-product-selected-text');
+      
+      selectedSubProducts = [];
+      if (text) text.innerText = "Select Sub-Product(s)...";
+      if (menu) menu.classList.add('hidden');
 
-      const subs = productCatalog[product] || [];
+      if (!product) {
+        if (btn) {
+          btn.style.opacity = '0.3';
+          btn.style.cursor = 'not-allowed';
+        }
+        if (menu) menu.innerHTML = '';
+        return;
+      }
+
+      let subs = productCatalog[product] || [];
+      if (activeEmp && !activeEmp.hasReports) {
+        subs = subs.filter(s => String(s).toLowerCase().trim() !== "team management");
+      }
+
+      if (btn) {
+        btn.style.opacity = '1';
+        btn.style.cursor = 'pointer';
+      }
+
       if (subs.length === 0) {
-        subSelect.innerHTML = `<option value="General" selected>General</option>`;
-        subSelect.setAttribute('disabled', 'true');
+        selectedSubProducts = ['General'];
+        if (text) text.innerText = "General";
+        if (menu) {
+          menu.innerHTML = `
+            <label class="flex items-center px-4 py-2 hover:bg-white/5 cursor-not-allowed">
+              <input type="checkbox" value="General" checked disabled class="accent-osttra-rubine mr-2 opacity-50">
+              <span class="text-xs font-black text-white">General</span>
+            </label>
+          `;
+        }
+        if (btn) {
+          btn.style.opacity = '0.5';
+          btn.style.cursor = 'not-allowed';
+        }
       } else {
-        subSelect.removeAttribute('disabled');
-        subSelect.innerHTML = `<option value="" disabled selected>Select Sub-Product...</option>` +
-          subs.sort().map(s => `<option value="${s}">${s}</option>`).join('');
+        if (menu) {
+          menu.innerHTML = subs.sort().map(s => `
+            <label class="flex items-center px-4 py-2 hover:bg-white/5 cursor-pointer">
+              <input type="checkbox" value="${s}" onchange="handleSubProductCheckboxChange(this)" class="accent-osttra-rubine mr-2">
+              <span class="text-xs font-black text-white">${s}</span>
+            </label>
+          `).join('');
+        }
       }
     };
 
     window.addAssignment = function() {
       const pEl = document.getElementById('select-catalog-product');
-      const sEl = document.getElementById('select-catalog-sub');
-
       const prod = pEl ? pEl.value : '';
-      const sub = sEl ? sEl.value : 'General';
 
-      if (!prod || !sub) {
-        showNotification('Selection Missing', 'Please select both Product and Sub-Product.', 'warning');
+      if (!prod || selectedSubProducts.length === 0) {
+        showNotification('Selection Missing', 'Please select both Product and at least one Sub-Product.', 'warning');
         return;
       }
 
-      // Check if assignment already exists in state
-      const exists = activeMappings.some(m => 
-        String(m.product).toLowerCase().trim() === prod.toLowerCase().trim() &&
-        String(m.subProduct || "General").toLowerCase().trim() === sub.toLowerCase().trim()
-      );
+      let addedCount = 0;
+      let dupCount = 0;
 
-      if (exists) {
-        showNotification('Duplicate Mapping', `Product '${prod} (${sub})' is already assigned.`, 'warning');
+      selectedSubProducts.forEach(sub => {
+        const exists = activeMappings.some(m => 
+          String(m.product).toLowerCase().trim() === prod.toLowerCase().trim() &&
+          String(m.subProduct || "General").toLowerCase().trim() === sub.toLowerCase().trim()
+        );
+
+        if (exists) {
+          dupCount++;
+        } else {
+          activeMappings.push({ product: prod, subProduct: sub });
+          addedCount++;
+        }
+      });
+
+      if (dupCount > 0 && addedCount === 0) {
+        showNotification('Duplicate Mapping', `All selected sub-products are already assigned.`, 'warning');
         return;
+      } else if (dupCount > 0) {
+        showNotification('Partial Mapping', `${addedCount} assigned, ${dupCount} skipped (duplicates).`, 'warning');
+      } else {
+        showNotification('Success', `Assigned ${addedCount} sub-product(s).`, 'success');
       }
 
-      activeMappings.push({ product: prod, subProduct: sub });
       renderMappingsTable();
       triggerAutoSave();
 
       // Reset select tags
       if (pEl) pEl.value = "";
-      if (sEl) {
-        sEl.innerHTML = `<option value="" disabled selected>Select Sub-Product...</option>`;
-        sEl.setAttribute('disabled', 'true');
+      selectedSubProducts = [];
+      const text = document.getElementById('sub-product-selected-text');
+      if (text) text.innerText = "Select Sub-Product(s)...";
+      const btn = document.getElementById('sub-product-dropdown-btn');
+      if (btn) {
+        btn.style.opacity = '0.3';
+        btn.style.cursor = 'not-allowed';
+      }
+      const menu = document.getElementById('sub-product-dropdown-menu');
+      if (menu) {
+        menu.classList.add('hidden');
+        menu.innerHTML = '';
       }
     };
 

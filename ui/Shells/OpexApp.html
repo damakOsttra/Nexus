@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html>
   <head>
     <base target="_top">
@@ -48,157 +48,127 @@
 
     <div class="flex flex-1 w-full overflow-hidden relative">
       <!-- Sidebar -->
-    <aside id="app-sidebar" class="w-72 max-md:fixed max-md:inset-y-0 max-md:left-0 max-md:z-50 max-md:-translate-x-full bg-[#222222] border-r border-white/5 flex flex-col justify-between p-6 shrink-0 h-full overflow-hidden transition-all duration-300 relative">
-      <div class="flex flex-col h-full space-y-10 overflow-hidden">
-        <!-- Logo & Collapse Button -->
-        <div class="flex items-center justify-between shrink-0 relative">
-          <button onclick="loadPage('Profile')" class="logo-btn text-xl font-black tracking-tighter uppercase text-left block hover:opacity-80 transition-opacity">
-            <span class="sidebar-text logo-text">NEXUS</span> <span class="logo-accent text-[#FF0061]">|</span> <span class="sidebar-text logo-text text-white/50">OSTTRA</span>
-          </button>
-          <button onclick="toggleSidebar()" class="absolute -right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/5 border border-white/5 hover:bg-white/10 hover:border-white/10 flex items-center justify-center text-xs text-white/60 hover:text-white hover:scale-105 active:scale-95 transition-all duration-200 shadow-lg cursor-pointer z-50">
-            <i id="sidebar-toggle-icon" class="fas fa-chevron-left"></i>
-          </button>
-        </div>
-
-        <!-- User Profile with Ambient Glow & Circular Avatar -->
-        <div id="user-profile" class="relative shrink-0 flex flex-col items-center text-center py-2 transition-all duration-300">
-          <!-- Ambient Glow Backdrop -->
-          <div class="absolute w-24 h-24 bg-[#FF0061]/10 rounded-full blur-xl -top-2 opacity-50 pointer-events-none transition-all duration-300 sidebar-text"></div>
-          
-          <div class="relative w-16 h-16 rounded-full border border-white/10 p-0.5 shadow-xl group cursor-pointer z-10 transition-transform duration-300 hover:scale-105">
-            <div class="absolute inset-0 rounded-full bg-gradient-to-r from-osttra-rubine to-osttra-violet opacity-0 group-hover:opacity-20 blur-sm transition-opacity duration-300"></div>
-            <div id="user-photo-container" class="w-full h-full bg-[#222222] rounded-full overflow-hidden relative border border-white/5">
-              <div class="absolute inset-0 skeleton"></div>
-            </div>
-          </div>
-          <div id="profile-text-data" class="space-y-1 mt-4 transition-all duration-300 sidebar-text">
-            <p id="user-name" class="font-bold text-white uppercase tracking-tight text-sm whitespace-normal">
-              <span class="skeleton block h-5 w-32 rounded"></span>
-            </p>
-            <p id="user-role" class="text-[10px] font-bold text-white/60 uppercase tracking-widest whitespace-normal leading-tight">
-              <span class="skeleton block h-3 w-24 rounded mt-1"></span>
-            </p>
-            <p id="user-region" class="text-[9px] font-bold text-white/30 uppercase tracking-widest whitespace-normal leading-tight">
-              <span class="skeleton block h-2 w-16 rounded mt-1"></span>
-            </p>
-          </div>
-        </div>
-
-        <!-- Navigation -->
-        <nav class="flex-1 overflow-y-auto no-scrollbar pr-2 space-y-6 flex flex-col justify-between">
-          <div class="space-y-6">
-            <!-- PERSONAL CATEGORY -->
-            <div class="space-y-1">
-              <p class="px-2 text-[9px] font-black text-white/30 uppercase tracking-[0.2em] mb-2 sidebar-text">Personal</p>
-              <button id="nav-Profile" onclick="loadPage('Profile')" title="Profile" class="nav-link group">
-                <i class="fas fa-user-circle text-sm w-5 group-hover:scale-110 transition-transform duration-200 shrink-0"></i>
-                <span class="text-xs font-bold uppercase tracking-widest sidebar-text">Profile</span>
-              </button>
-              <button id="nav-MyAllocations" onclick="loadPage('MyAllocations')" title="My Allocations" class="nav-link phase-req group" data-phase="1">
-                <i class="fas fa-edit text-sm w-5 group-hover:scale-110 transition-transform duration-200 shrink-0"></i>
-                <span class="text-xs font-bold uppercase tracking-widest sidebar-text">My Allocations</span>
-              </button>
-            </div>
-
-            <!-- ANALYTICS CATEGORY -->
-            <div class="space-y-1">
-              <p class="px-2 text-[9px] font-black text-white/30 uppercase tracking-[0.2em] mb-2 sidebar-text">Analytics & BI</p>
-              <button id="nav-AnalyticsHub" onclick="loadPage('AnalyticsHub')" title="Analytics Hub" class="nav-link group">
-                <i class="fas fa-chart-bar text-sm w-5 group-hover:scale-110 transition-transform duration-200 shrink-0"></i>
-                <span class="text-xs font-bold uppercase tracking-widest sidebar-text">Analytics Hub</span>
-              </button>
-              <button id="nav-OrganizationChart" onclick="loadPage('OrganizationChart')" title="Organization Chart" class="nav-link group">
-                <i class="fas fa-sitemap text-sm w-5 group-hover:scale-110 transition-transform duration-200 shrink-0"></i>
-                <span class="text-xs font-bold uppercase tracking-widest sidebar-text">Org Chart</span>
-              </button>
-              <button id="nav-ExecAnalytics" onclick="loadPage('ExecAnalytics')" title="Executive Analytics" class="nav-link hidden group">
-                <i class="fas fa-chart-pie text-sm w-5 group-hover:scale-110 transition-transform duration-200 shrink-0"></i>
-                <span class="text-xs font-bold uppercase tracking-widest sidebar-text">Exec Analytics</span>
-              </button>
-            </div>
-
-            <!-- TECHNICAL DELIVERY CATEGORY -->
-            <div id="section-tpm" class="space-y-1 hidden">
-              <p class="px-2 text-[9px] font-black text-white/30 uppercase tracking-[0.2em] mb-2 sidebar-text">Technical Delivery</p>
-              <button id="nav-TpmTimesheet" onclick="loadPage('TpmTimesheet')" title="TPM Timesheet" class="nav-link group">
-                <i class="fas fa-clock text-sm w-5 group-hover:scale-110 transition-transform duration-200 shrink-0"></i>
-                <span class="text-xs font-bold uppercase tracking-widest sidebar-text">TPM Timesheet</span>
-              </button>
-            </div>
-
-            <!-- OPERATIONAL EXCELLENCE CATEGORY -->
-            <div id="section-opex" class="space-y-1 hidden">
-              <p class="px-2 text-[9px] font-black text-white/30 uppercase tracking-[0.2em] mb-2 sidebar-text">Operational Excellence</p>
-              <button id="nav-OpexProjectBoard" onclick="loadPage('OpexProjectBoard')" title="OPEX Projects" class="nav-link group">
-                <i class="fas fa-layer-group text-sm w-5 group-hover:scale-110 transition-transform duration-200 shrink-0"></i>
-                <span class="text-xs font-bold uppercase tracking-widest sidebar-text">Project Tracker</span>
-              </button>
-            </div>
-          </div>
-
-          <div class="pt-4 border-t border-white/5 space-y-1">
-            <button id="nav-UserGuide" onclick="loadPage('UserGuide')" title="User Guide" class="nav-link group">
-              <i class="fas fa-book-open text-sm w-5 group-hover:scale-110 transition-transform duration-200 shrink-0"></i>
-              <span class="text-xs font-bold uppercase tracking-widest sidebar-text">User Guide</span>
+      <aside id="app-sidebar" class="w-72 max-md:fixed max-md:inset-y-0 max-md:left-0 max-md:z-50 max-md:-translate-x-full bg-[#222222] border-r border-white/5 flex flex-col justify-between p-6 shrink-0 h-full overflow-hidden transition-all duration-300 relative">
+        <div class="flex flex-col h-full space-y-10 overflow-hidden">
+          <!-- Logo & Collapse Button -->
+          <div class="flex items-center justify-between shrink-0 relative">
+            <button onclick="loadPage('OpexProjectBoard')" class="logo-btn text-xl font-black tracking-tighter uppercase text-left block hover:opacity-80 transition-opacity">
+              <span class="sidebar-text logo-text">NEXUS</span> <span class="logo-accent text-[#FF0061]">|</span> <span class="sidebar-text logo-text text-white/50">OSTTRA</span>
             </button>
-            <button id="nav-About" onclick="loadPage('About')" title="About Nexus" class="nav-link group">
-              <i class="fas fa-info-circle text-sm w-5 group-hover:scale-110 transition-transform duration-200 shrink-0"></i>
-              <span class="text-xs font-bold uppercase tracking-widest sidebar-text">About Nexus</span>
-            </button>
-            <button onclick="window.open('https://chat.google.com/room/AAQA8P9oueE?cls=7', '_blank')" title="Contact Support" class="nav-link group">
-              <i class="fas fa-headset text-sm w-5 group-hover:scale-110 transition-transform duration-200 shrink-0"></i>
-              <span class="text-xs font-bold uppercase tracking-widest sidebar-text">Contact Support</span>
+            <button onclick="toggleSidebar()" class="absolute -right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/5 border border-white/5 hover:bg-white/10 hover:border-white/10 flex items-center justify-center text-xs text-white/60 hover:text-white hover:scale-105 active:scale-95 transition-all duration-200 shadow-lg cursor-pointer z-50">
+              <i id="sidebar-toggle-icon" class="fas fa-chevron-left"></i>
             </button>
           </div>
-        </nav>
-      </div>
 
-      <!-- Footer -->
-      <div class="pt-6 shrink-0 border-t border-white/5">
-        <div id="sidebar-footer-block" class="p-4 bg-white/5 rounded-2xl border border-white/5 flex justify-between items-center transition-all duration-300">
-           <p class="text-[9px] font-bold text-white/30 uppercase tracking-widest sidebar-text">v1.7.0-EMP</p>
-           <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 opacity-50 shrink-0"></span>
-        </div>
-      </div>
-    </aside>
-
-    <!-- Sidebar Backdrop Overlay -->
-    <div id="sidebar-backdrop" onclick="toggleSidebar()" class="hidden max-md:block max-md:fixed max-md:inset-0 max-md:bg-black/60 max-md:backdrop-blur-sm max-md:z-40 transition-opacity duration-300 opacity-0 pointer-events-none"></div>
-
-    <!-- Main Content -->
-    <main class="flex-1 overflow-hidden bg-[#1a1a1a] relative h-full flex flex-col">
-      <!-- Mobile Header -->
-      <div class="hidden max-md:flex items-center gap-4 p-4 border-b border-white/5 bg-[#222222]/30 shrink-0">
-        <button onclick="toggleSidebar()" class="w-10 h-10 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 flex items-center justify-center text-white/80 active:scale-95 transition-all">
-          <i class="fas fa-bars"></i>
-        </button>
-        <span class="text-xs font-black tracking-widest uppercase text-white/80">NEXUS</span>
-      </div>
-      
-      <div id="content-area" class="h-full overflow-y-auto flex-1">
-        <div class="flex flex-col items-center justify-center h-full w-full space-y-6 animate-in fade-in duration-300">
-          <div class="relative w-24 h-24">
-            <div class="absolute inset-0 rounded-full border-4 border-white/5"></div>
-            <div class="absolute inset-0 rounded-full border-4 border-t-osttra-rubine border-r-osttra-ochre border-b-osttra-violet border-l-transparent animate-spin"></div>
-            <div class="absolute inset-0 flex items-center justify-center">
-              <i class="fas fa-layer-group text-2xl text-white/40 animate-pulse"></i>
-            </div>
-          </div>
-          <div class="text-center space-y-3 min-w-[200px]">
-            <p class="text-[10px] font-black uppercase tracking-[0.3em] text-white/50 animate-pulse">Initializing</p>
-            <p class="text-[9px] font-bold uppercase tracking-widest text-osttra-rubine animate-pulse">NEXUS</p>
+          <!-- User Profile with Ambient Glow & Circular Avatar -->
+          <div id="user-profile" class="relative shrink-0 flex flex-col items-center text-center py-2 transition-all duration-300">
+            <!-- Ambient Glow Backdrop -->
+            <div class="absolute w-24 h-24 bg-[#FF0061]/10 rounded-full blur-xl -top-2 opacity-50 pointer-events-none transition-all duration-300 sidebar-text"></div>
             
-            <!-- Progressive Boot Steps (Mono Typography) -->
-            <div id="boot-steps" class="pt-4 flex flex-col items-start mx-auto w-max gap-2 text-[8px] font-mono text-white/30 uppercase tracking-widest">
-              <div id="step-1" class="flex items-center gap-2 text-osttra-rubine"><i class="fas fa-circle-notch animate-spin"></i> Verifying Credentials...</div>
-              <div id="step-2" class="hidden items-center gap-2"><i class="far fa-circle"></i> Preloading Layouts...</div>
-              <div id="step-3" class="hidden items-center gap-2"><i class="far fa-circle"></i> Syncing Caches...</div>
+            <div class="relative w-16 h-16 rounded-full border border-white/10 p-0.5 shadow-xl group cursor-pointer z-10 transition-transform duration-300 hover:scale-105">
+              <div class="absolute inset-0 rounded-full bg-gradient-to-r from-osttra-rubine to-osttra-violet opacity-0 group-hover:opacity-20 blur-sm transition-opacity duration-300"></div>
+              <div id="user-photo-container" class="w-full h-full bg-[#222222] rounded-full overflow-hidden relative border border-white/5">
+                <div class="absolute inset-0 skeleton"></div>
+              </div>
+            </div>
+            <div id="profile-text-data" class="space-y-1 mt-4 transition-all duration-300 sidebar-text">
+              <p id="user-name" class="font-bold text-white uppercase tracking-tight text-sm whitespace-normal">
+                <span class="skeleton block h-5 w-32 rounded"></span>
+              </p>
+              <p id="user-role" class="text-[10px] font-bold text-white/60 uppercase tracking-widest whitespace-normal leading-tight">
+                <span class="skeleton block h-3 w-24 rounded mt-1"></span>
+              </p>
+              <p id="user-region" class="text-[9px] font-bold text-white/30 uppercase tracking-widest whitespace-normal leading-tight">
+                <span class="skeleton block h-2 w-16 rounded mt-1"></span>
+              </p>
+            </div>
+          </div>
+
+          <!-- Navigation -->
+          <nav class="flex-1 overflow-y-auto no-scrollbar pr-2 space-y-6 flex flex-col justify-between">
+            <div class="space-y-6">
+              <!-- OPERATIONAL EXCELLENCE CATEGORY -->
+              <div class="space-y-1">
+                <p class="px-2 text-[9px] font-black text-white/30 uppercase tracking-[0.2em] mb-2 sidebar-text">Operational Excellence</p>
+                <button id="nav-OpexProjectBoard" onclick="loadPage('OpexProjectBoard')" title="OPEX Projects" class="nav-link group">
+                  <i class="fas fa-layer-group text-sm w-5 group-hover:scale-110 transition-transform duration-200 shrink-0"></i>
+                  <span class="text-xs font-bold uppercase tracking-widest sidebar-text">Project Tracker</span>
+                </button>
+              </div>
+
+              <!-- PERSONAL CATEGORY -->
+              <div class="space-y-1">
+                <p class="px-2 text-[9px] font-black text-white/30 uppercase tracking-[0.2em] mb-2 sidebar-text">Personal</p>
+                <button id="nav-Profile" onclick="loadPage('Profile')" title="Profile" class="nav-link group">
+                  <i class="fas fa-user-circle text-sm w-5 group-hover:scale-110 transition-transform duration-200 shrink-0"></i>
+                  <span class="text-xs font-bold uppercase tracking-widest sidebar-text">Profile</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="pt-4 border-t border-white/5 space-y-1">
+              <button id="nav-UserGuide" onclick="loadPage('UserGuide')" title="User Guide" class="nav-link group">
+                <i class="fas fa-book-open text-sm w-5 group-hover:scale-110 transition-transform duration-200 shrink-0"></i>
+                <span class="text-xs font-bold uppercase tracking-widest sidebar-text">User Guide</span>
+              </button>
+              <button id="nav-About" onclick="loadPage('About')" title="About Nexus" class="nav-link group">
+                <i class="fas fa-info-circle text-sm w-5 group-hover:scale-110 transition-transform duration-200 shrink-0"></i>
+                <span class="text-xs font-bold uppercase tracking-widest sidebar-text">About Nexus</span>
+              </button>
+              <button onclick="window.open('https://chat.google.com/room/AAQA8P9oueE?cls=7', '_blank')" title="Contact Support" class="nav-link group">
+                <i class="fas fa-headset text-sm w-5 group-hover:scale-110 transition-transform duration-200 shrink-0"></i>
+                <span class="text-xs font-bold uppercase tracking-widest sidebar-text">Contact Support</span>
+              </button>
+            </div>
+          </nav>
+        </div>
+
+        <!-- Footer -->
+        <div class="pt-6 shrink-0 border-t border-white/5">
+          <div id="sidebar-footer-block" class="p-4 bg-white/5 rounded-2xl border border-white/5 flex justify-between items-center transition-all duration-300">
+             <p class="text-[9px] font-bold text-white/30 uppercase tracking-widest sidebar-text">v1.7.0-OPX</p>
+             <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 opacity-50 shrink-0"></span>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Sidebar Backdrop Overlay -->
+      <div id="sidebar-backdrop" onclick="toggleSidebar()" class="hidden max-md:block max-md:fixed max-md:inset-0 max-md:bg-black/60 max-md:backdrop-blur-sm max-md:z-40 transition-opacity duration-300 opacity-0 pointer-events-none"></div>
+
+      <!-- Main Content -->
+      <main class="flex-1 overflow-hidden bg-[#1a1a1a] relative h-full flex flex-col">
+        <!-- Mobile Header -->
+        <div class="hidden max-md:flex items-center gap-4 p-4 border-b border-white/5 bg-[#222222]/30 shrink-0">
+          <button onclick="toggleSidebar()" class="w-10 h-10 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 flex items-center justify-center text-white/80 active:scale-95 transition-all">
+            <i class="fas fa-bars"></i>
+          </button>
+          <span class="text-xs font-black tracking-widest uppercase text-white/80">NEXUS</span>
+        </div>
+        
+        <div id="content-area" class="h-full overflow-y-auto flex-1">
+          <div class="flex flex-col items-center justify-center h-full w-full space-y-6 animate-in fade-in duration-300">
+            <div class="relative w-24 h-24">
+              <div class="absolute inset-0 rounded-full border-4 border-white/5"></div>
+              <div class="absolute inset-0 rounded-full border-4 border-t-osttra-rubine border-r-osttra-ochre border-b-osttra-violet border-l-transparent animate-spin"></div>
+              <div class="absolute inset-0 flex items-center justify-center">
+                <i class="fas fa-layer-group text-2xl text-white/40 animate-pulse"></i>
+              </div>
+            </div>
+            <div class="text-center space-y-3 min-w-[200px]">
+              <p class="text-[10px] font-black uppercase tracking-[0.3em] text-white/50 animate-pulse">Initializing</p>
+              <p class="text-[9px] font-bold uppercase tracking-widest text-osttra-rubine animate-pulse">NEXUS</p>
+              
+              <!-- Progressive Boot Steps (Mono Typography) -->
+              <div id="boot-steps" class="pt-4 flex flex-col items-start mx-auto w-max gap-2 text-[8px] font-mono text-white/30 uppercase tracking-widest">
+                <div id="step-1" class="flex items-center gap-2 text-osttra-rubine"><i class="fas fa-circle-notch animate-spin"></i> Verifying Credentials...</div>
+                <div id="step-2" class="hidden items-center gap-2"><i class="far fa-circle"></i> Preloading Layouts...</div>
+                <div id="step-3" class="hidden items-center gap-2"><i class="far fa-circle"></i> Syncing Caches...</div>
+              </div>
             </div>
           </div>
         </div>
-      </div>
-    </main>
-  </div>
+      </main>
+    </div>
 
     <!-- Global Loading Overlay -->
     <div id="loading-overlay" class="hidden fixed inset-0 z-[100] flex items-center justify-center bg-osttra-black/80 backdrop-blur-md">
@@ -288,36 +258,6 @@
         if (roleEl) roleEl.innerText = user.role || '';
         const regionEl = document.getElementById('user-region');
         if (regionEl) regionEl.innerText = user.region || '';
-
-        // Phase-Based Navigation: Hide sections if Phase 1 is in Maintenance (State 3)
-        document.querySelectorAll('.phase-req').forEach(el => {
-          const reqPhase = el.dataset.phase;
-          if (reqPhase === "1" && user.phase1State === "3") {
-            el.classList.add('hidden');
-          } else {
-            el.classList.remove('hidden');
-          }
-        });
-
-        // Hide/Show TPM Navigation Section strictly based on isTpmUser
-        const tpmSection = document.getElementById('section-tpm');
-        if (tpmSection) {
-          if (user.isTpmUser) {
-            tpmSection.classList.remove('hidden');
-          } else {
-            tpmSection.classList.add('hidden');
-          }
-        }
-
-        // Hide/Show OPEX Navigation Section strictly based on isOpexUser
-        const opexSection = document.getElementById('section-opex');
-        if (opexSection) {
-          if (user.isOpexUser) {
-            opexSection.classList.remove('hidden');
-          } else {
-            opexSection.classList.add('hidden');
-          }
-        }
       }
 
       window.nexusState = null;
@@ -396,7 +336,7 @@
         }
 
         renderSidebar(bootPayload.session);
-        loadPage('Profile');
+        loadPage('OpexProjectBoard');
       }
 
       window.onload = () => {

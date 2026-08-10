@@ -92,7 +92,7 @@
             <i class="fas fa-shield-alt text-osttra-rubine"></i> 2. Guardrails & Overrides
           </h4>
           <ul class="list-disc pl-4 space-y-2 pr-2">
-            <li><strong class="text-white font-bold">Active Whitelists:</strong> Only TPM tickets with active statuses (`Assigned`, `Preparing Deployment`, `Initiation`, `Implementation`, `TPM Handover approved`, `Go Live`, `UAT`, `Technical Go Live`) and PSS tickets with (`Flow Seen`, `Flow Pending`, `Awaiting implementation`, `New`, `4-Eye Approval`, `Review`) are active by default.</li>
+            <li><strong class="text-white font-bold">Active Whitelists:</strong> Only TPM tickets with active statuses (`Assigned`, `Preparing Deployment`, `Initiation`, `Implementation`, `TPM Handover approved`, `Go Live`, `UAT`, `Technical Go Live`, `Returned`, `Reopened`, `Answered`, `Retracted`, `Preparing Development`, `Completed`) and PSS tickets with (`Flow Seen`, `Flow Pending`, `Awaiting implementation`, `New`, `4-Eye Approval`, `Review`, `Completed`, `Rolled Back`) are active by default.</li>
             <li><strong class="text-white font-bold">Hiding & Overrides:</strong> Unwhitelisted tickets are completely hidden by default to keep your grid clean (unless they have active saved hours). Toggle <strong class="text-white">Show Excluded Epics</strong> to reveal and unlock them using the padlock icon on demand.</li>
             <li><strong class="text-white font-bold">Phase Borders:</strong> Left-side colors show Epic phase:
               <ul class="list-none pl-1 mt-1 space-y-1">
@@ -110,7 +110,7 @@
             <i class="fas fa-save text-osttra-rubine"></i> 3. Limits & Navigation
           </h4>
           <ul class="list-disc pl-4 space-y-2 pr-2">
-            <li><strong class="text-white font-bold">Daily Limits:</strong> 1 Day JIRA baseline = 8.00h (glows <span class="text-emerald-400">Green</span>). Hard daily cell limit is 24.00h (glows <span class="text-osttra-rubine">Red</span> on over-allocation). Standard weekly goal is 40.00h.</li>
+            <li><strong class="text-white font-bold">Daily Limits:</strong> 1 Day JIRA baseline = 8.00h. Hard daily cell limit is 24.00h (glows <span class="text-osttra-rubine">Red</span> on over-allocation). Standard weekly goal is 40.00h.</li>
             <li><strong class="text-white font-bold">Keyboard Navigation (Excel):</strong> Use keyboard \`Enter\` to navigate cells rapidly. Selecting a cell highlights its contents for instant overwrite.</li>
             <li><strong class="text-white font-bold">Drafts & Resets:</strong> Inputs auto-save locally. Use <strong class="text-white"><i class="fas fa-undo-alt text-white/50"></i> Reset Drafts</strong> to discard unsaved changes and reload original database data.</li>
             <li><strong class="text-white font-bold">Commit:</strong> You must click <strong class="text-white">Save Timesheet Entries</strong> to push drafts and OOO logs to the permanent database.</li>
@@ -216,31 +216,7 @@
     </div>
   </div>
 
-  <!-- Sticky / Top Compliance Progress Bar Card -->
-  <div id="timesheet-progress-card" class="bg-[#222222] border border-white/5 rounded-3xl p-5 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4 relative overflow-hidden group">
-    <!-- Subtle gradient background pattern -->
-    <div class="absolute -right-16 -bottom-16 text-white/[0.01] text-9xl group-hover:scale-105 transition-transform duration-500 pointer-events-none">
-      <i class="fas fa-clock"></i>
-    </div>
-    
-    <div class="space-y-1 shrink-0">
-      <p class="text-[10px] font-black text-white/40 uppercase tracking-widest">Weekly Logging Progress</p>
-      <h3 id="progress-hours-display" class="text-2xl font-black text-white tracking-tighter">0.00h / 40.00h</h3>
-      <p id="progress-status-desc" class="text-[9px] font-bold text-white/30 uppercase tracking-widest mt-0.5">Standard weekly compliance goal is 40.00h (8.00h/weekday).</p>
-    </div>
 
-    <!-- Animated dynamic progress bar -->
-    <div class="flex-1 max-w-xl w-full space-y-1.5 md:mx-6">
-      <div class="flex justify-between text-[9px] font-mono font-black uppercase tracking-widest">
-        <span id="progress-percent-label" class="text-osttra-rubine">0% Logged</span>
-        <span class="text-white/40">Goal: 40.00 hours</span>
-      </div>
-      <div class="h-3 bg-white/5 border border-white/5 rounded-full overflow-hidden relative">
-        <!-- Progress bar runner -->
-        <div id="progress-bar-runner" class="h-full bg-gradient-to-r from-osttra-rubine to-osttra-ochre rounded-full w-0 transition-all duration-300 shadow-[0_0_8px_rgba(254,149,45,0.3)]"></div>
-      </div>
-    </div>
-  </div>
 
   <!-- Timesheet Table Card -->
   <div class="bg-[#222222] border border-white/5 rounded-3xl overflow-hidden shadow-2xl relative">
@@ -310,6 +286,7 @@
   var autosaveTimeout = null;
   var isTimesheetLockedGlobal = false;
   var isChangingWeekGlobal = false;
+  var isSolutionDesignEligible = false; // Flag for APAC Solution Design cases eligibility
 
   // --- BACKGROUND AUTOSAVE & RESTORE HANDLERS ---
   function triggerAutosave() {
@@ -388,7 +365,7 @@
         let addedAny = false;
         autosaveLogs.forEach(l => {
           const key = String(l.jiraKey).toUpperCase().trim();
-          if (key === 'ooo' || key === 'ADMIN' || key === 'MGMT') return;
+          if (key === 'ooo' || key === 'ADMIN' || key === 'MGMT' || key === 'SOLUTION-DESIGN') return;
           if (!manuallyAddedTickets.includes(key)) {
             manuallyAddedTickets.push(key);
             addedAny = true;
@@ -688,6 +665,7 @@
     if (!data) return;
     activeEpics = data.epics || [];
     childTickets = data.childTickets || [];
+    isSolutionDesignEligible = data.isSolutionDesignEligible || false;
 
     // Re-inject manually added unassigned tickets to ensure they survive the backend fetch reload
     manuallyAddedTicketObjects.forEach(ticket => {
@@ -743,12 +721,17 @@
     allSearchableTickets = [];
     if (data.allEpics) {
       data.allEpics.forEach(e => {
-        allSearchableTickets.push({ key: e.key, summary: e.summary, type: 'Epic' });
+        allSearchableTickets.push({ key: e.key, summary: e.summary, status: e.status, type: 'Epic' });
       });
     }
     if (data.allPssTickets) {
       data.allPssTickets.forEach(p => {
-        allSearchableTickets.push({ key: p.key, summary: p.summary, type: 'PSS' });
+        allSearchableTickets.push({ key: p.key, summary: p.summary, status: p.status, type: 'PSS' });
+      });
+    }
+    if (data.allBsmTickets) {
+      data.allBsmTickets.forEach(b => {
+        allSearchableTickets.push({ key: b.key, summary: b.summary, status: b.status, type: 'BSM' });
       });
     }
     renderUnifiedDropdown();
@@ -1074,52 +1057,57 @@
   }
 
   function addManualTicket() {
-    const val = document.getElementById('manual-ticket-input').value.trim().toUpperCase();
-    if (!val) return;
+    const rawVal = document.getElementById('manual-ticket-input').value.trim();
+    if (!rawVal) return;
+
+    const keys = rawVal.split(',').map(k => k.trim().toUpperCase()).filter(Boolean);
+    if (keys.length === 0) return;
+
+    let addedCount = 0;
+    let skippedCount = 0;
     
-    // Check if ticket already exists in view
-    const exists = activeEpics.some(e => e["Key"] === val) || childTickets.some(c => c["Key"] === val) || manuallyAddedTickets.some(m => m["Key"] === val);
-    if (exists) {
-      showNotification('warning', 'Already Added', `Ticket ${val} is already available in your list.`);
-      return;
-    }
+    showLoading(`Adding ${keys.length} manual ticket(s)...`);
+    let index = 0;
 
-    showLoading('Fetching ticket details from Jira...');
-    google.script.run
-      .withSuccessHandler(ticketDetails => {
+    function processNextKey() {
+      if (index >= keys.length) {
         hideLoading();
-        
-        let newTicket;
-        if (ticketDetails) {
-          newTicket = {
-            "Key": ticketDetails["Key"],
-            "Issue_Type": ticketDetails["Issue_Type"],
-            "Summary": ticketDetails["Summary"],
-            "Status": ticketDetails["Status"],
-            "Assignee_Email": ticketDetails["Assignee_Email"],
-            "Secondary_Assignee_Email": ticketDetails["Secondary_Assignee_Email"] || ""
-          };
-        } else {
-          // Fallback if not found or API fails
-          const isEpicType = val.startsWith('TPM-');
-          const summary = isEpicType ? 'Manually Added TPM Epic Project' : 'Manually Added Support Ticket';
-          
-          // Preserves the existing DB status if available to prevent overwriting with "Active"
-          const existingLog = existingLogs.find(l => String(l["Jira_Key"] || l["jiraKey"] || "").toUpperCase().trim() === val);
-          const fallbackStatus = existingLog && (existingLog["Jira_Status"] || existingLog["jiraStatus"]) ? (existingLog["Jira_Status"] || existingLog["jiraStatus"]) : "Active";
-
-          newTicket = {
-            "Key": val,
-            "Issue_Type": isEpicType ? 'Epic' : 'Task',
-            "Summary": summary,
-            "Status": fallbackStatus,
-            "Assignee_Email": window.currentUser.email,
-            "Secondary_Assignee_Email": ""
-          };
+        document.getElementById('manual-ticket-input').value = '';
+        if (addedCount > 0) {
+          showNotification('success', 'Tickets Added', `Successfully added ${addedCount} ticket(s) to your grid.`);
         }
+        if (skippedCount > 0) {
+          showNotification('info', 'Some Skipped', `Skipped ${skippedCount} ticket(s) (already in grid).`);
+        }
+        loadTimesheetData();
+        return;
+      }
 
-        const isEpic = String(newTicket["Issue_Type"] || "Epic").toLowerCase() === "epic";
-        if (isEpic) {
+      const val = keys[index];
+      
+      // Check if ticket already exists in grid
+      const exists = activeEpics.some(e => e["Key"] === val) || childTickets.some(c => c["Key"] === val) || manuallyAddedTickets.includes(val);
+      if (exists) {
+        skippedCount++;
+        index++;
+        processNextKey();
+        return;
+      }
+
+      // Check if found in local dropdown cache
+      const cached = allSearchableTickets.find(t => t.key === val);
+      if (cached) {
+        const isEpicType = cached.type === 'Epic';
+        const newTicket = {
+          "Key": cached.key,
+          "Issue_Type": isEpicType ? 'Epic' : (cached.type === 'PSS' ? 'pss' : (cached.type === 'BSM' ? 'bsm' : 'Task')),
+          "Summary": cached.summary || (isEpicType ? 'Manually Added TPM Epic' : 'Manually Added Support Ticket'),
+          "Status": cached.status || "Active",
+          "Assignee_Email": window.currentUser.email,
+          "Secondary_Assignee_Email": ""
+        };
+
+        if (isEpicType) {
           activeEpics.push(newTicket);
         } else {
           childTickets.push(newTicket);
@@ -1127,15 +1115,88 @@
 
         manuallyAddedTickets.push(val);
         manuallyAddedTicketObjects.push(newTicket);
-        document.getElementById('manual-ticket-input').value = '';
-        showNotification('success', 'Ticket Added', `Added ${val} to your timesheet grid.`);
-        loadTimesheetData();
-      })
-      .withFailureHandler(err => {
-        hideLoading();
-        showNotification('error', 'Fetch Failed', err.message);
-      })
-      .fetchJiraTicketSummary(val);
+        addedCount++;
+        index++;
+        processNextKey();
+        return;
+      }
+
+      // If not cached, fetch live JIRA details
+      google.script.run
+        .withSuccessHandler(ticketDetails => {
+          let newTicket;
+          if (ticketDetails) {
+            newTicket = {
+              "Key": ticketDetails["Key"],
+              "Issue_Type": ticketDetails["Issue_Type"],
+              "Summary": ticketDetails["Summary"],
+              "Status": ticketDetails["Status"],
+              "Assignee_Email": ticketDetails["Assignee_Email"],
+              "Secondary_Assignee_Email": ticketDetails["Secondary_Assignee_Email"] || ""
+            };
+          } else {
+            // Fallback if not found or API fails
+            const isEpicType = val.startsWith('TPM-');
+            const summary = isEpicType ? 'Manually Added TPM Epic Project' : 'Manually Added Support Ticket';
+            
+            // Preserves the existing DB status if available to prevent overwriting with "Active"
+            const existingLog = existingLogs.find(l => String(l["Jira_Key"] || l["jiraKey"] || "").toUpperCase().trim() === val);
+            const fallbackStatus = existingLog && (existingLog["Jira_Status"] || existingLog["jiraStatus"]) ? (existingLog["Jira_Status"] || existingLog["jiraStatus"]) : "Active";
+
+            newTicket = {
+              "Key": val,
+              "Issue_Type": isEpicType ? 'Epic' : 'Task',
+              "Summary": summary,
+              "Status": fallbackStatus,
+              "Assignee_Email": window.currentUser.email,
+              "Secondary_Assignee_Email": ""
+            };
+          }
+
+          const isEpic = String(newTicket["Issue_Type"] || "Epic").toLowerCase() === "epic";
+          if (isEpic) {
+            activeEpics.push(newTicket);
+          } else {
+            childTickets.push(newTicket);
+          }
+
+          manuallyAddedTickets.push(val);
+          manuallyAddedTicketObjects.push(newTicket);
+          addedCount++;
+          index++;
+          processNextKey();
+        })
+        .withFailureHandler(err => {
+          console.error(`Failed to fetch ${val}: ${err.message}`);
+          
+          // Add as fallback mock so we don't completely lock user out
+          const isEpicType = val.startsWith('TPM-');
+          const summary = isEpicType ? 'Manually Added TPM Epic' : 'Manually Added Support Ticket';
+          const newTicket = {
+            "Key": val,
+            "Issue_Type": isEpicType ? 'Epic' : 'Task',
+            "Summary": summary,
+            "Status": "Active",
+            "Assignee_Email": window.currentUser.email,
+            "Secondary_Assignee_Email": ""
+          };
+
+          if (isEpicType) {
+            activeEpics.push(newTicket);
+          } else {
+            childTickets.push(newTicket);
+          }
+
+          manuallyAddedTickets.push(val);
+          manuallyAddedTicketObjects.push(newTicket);
+          addedCount++;
+          index++;
+          processNextKey();
+        })
+        .fetchJiraTicketSummary(val);
+    }
+
+    processNextKey();
   }
 
   function getEpicPrediction(ticket, date, bucket) {
@@ -1174,7 +1235,7 @@
     const getTicketStatus = function(key) {
       if (!key) return "Active";
       const upper = key.toUpperCase();
-      if (upper === 'ADMIN' || upper === 'MGMT' || upper === 'ooo') return 'Persistent';
+      if (upper === 'ADMIN' || upper === 'MGMT' || upper === 'ooo' || upper === 'SOLUTION-DESIGN') return 'Persistent';
 
       const epic = activeEpics.find(e => String(e["Key"]).toUpperCase().trim() === upper);
       if (epic) return epic["Status"] || 'Active';
@@ -1246,10 +1307,11 @@
 
       log.hours += hours;
 
-      // Ensure PSS tickets are bucketed under UAT/Go-Live
+      // Ensure PSS and BSM tickets are bucketed under UAT/Go-Live
       const child = childTickets.find(c => c["Key"] === key);
       const isPss = key.startsWith('PSS-') || (child && String(child["Issue_Type"] || "").toLowerCase() === 'pss');
-      if (isPss) {
+      const isBsm = key.startsWith('BSM-') || (child && String(child["Issue_Type"] || "").toLowerCase() === 'bsm');
+      if (isPss || isBsm) {
         log.uatHours += hours;
       }
     });
@@ -1283,46 +1345,16 @@
       if (sum > 24.00) {
         // Glowing Red (Critical limit exceeded - strictly no more than 24 hours per day)
         el.className += " text-osttra-rubine bg-osttra-rubine/10 border border-osttra-rubine/20 shadow-[0_0_8px_rgba(224,0,77,0.25)]";
-      } else if (sum >= 8.00) {
-        // Glowing Green (Met daily 8.00h workday target allocation baseline)
-        el.className += " text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 shadow-[0_0_8px_rgba(16,185,129,0.25)]";
       } else if (sum > 0) {
-        // Active blue (Time entered but below 8-hr target)
-        el.className += " text-blue-400 bg-blue-500/10 border border-blue-500/10";
+        // Neutral active (Time entered but no colorful target glows)
+        el.className += " text-white/60 bg-white/10 border border-white/5";
       } else {
         // Empty gray
         el.className += " text-white/20 bg-white/5";
       }
     });
 
-    // Update sticky compliance progress card
-    const hoursDisplay = document.getElementById('progress-hours-display');
-    const barRunner = document.getElementById('progress-bar-runner');
-    const percentLabel = document.getElementById('progress-percent-label');
-    const statusDesc = document.getElementById('progress-status-desc');
 
-    if (hoursDisplay && barRunner && percentLabel) {
-      hoursDisplay.textContent = `${weeklyTotal.toFixed(2)}h / 40.00h`;
-      
-      const percent = Math.min((weeklyTotal / 40) * 100, 100);
-      percentLabel.textContent = `${percent.toFixed(0)}% Logged`;
-      
-      barRunner.style.width = `${percent}%`;
-      
-      if (weeklyTotal >= 40.00) {
-        barRunner.className = "h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full transition-all duration-300 shadow-[0_0_8px_rgba(16,185,129,0.5)]";
-        percentLabel.className = "text-emerald-400 font-mono font-black";
-        if (statusDesc) statusDesc.textContent = "Weekly requirement met! Ready to save timesheet entries.";
-      } else if (weeklyTotal >= 32.00) {
-        barRunner.className = "h-full bg-gradient-to-r from-osttra-ochre to-emerald-500 rounded-full transition-all duration-300 shadow-[0_0_8px_rgba(254,149,45,0.3)]";
-        percentLabel.className = "text-osttra-ochre font-mono font-black";
-        if (statusDesc) statusDesc.textContent = "Almost there! Complete your remaining hours to reach compliance.";
-      } else {
-        barRunner.className = "h-full bg-gradient-to-r from-osttra-rubine to-osttra-ochre rounded-full transition-all duration-300 shadow-[0_0_8px_rgba(224,0,77,0.25)]";
-        percentLabel.className = "text-osttra-rubine font-mono font-black";
-        if (statusDesc) statusDesc.textContent = "Standard weekly compliance goal is 40.00h (8.00h/weekday).";
-      }
-    }
   }
 
   // --- UNIFIED SEARCHABLE MULTISELECT DROPDOWN HANDLERS ---
@@ -1339,7 +1371,12 @@
     let html = '';
     allSearchableTickets.forEach(ticket => {
       const isEpic = ticket.type === 'Epic';
-      const badgeClass = isEpic ? 'bg-osttra-rubine/10 text-osttra-rubine border-osttra-rubine/20' : 'bg-blue-500/10 text-blue-400 border-blue-500/20';
+      let badgeClass = 'bg-blue-500/10 text-blue-400 border-blue-500/20'; 
+      if (isEpic) {
+        badgeClass = 'bg-osttra-rubine/10 text-osttra-rubine border-osttra-rubine/20';
+      } else if (ticket.type === 'BSM') {
+        badgeClass = 'bg-purple-500/10 text-purple-400 border-purple-500/20';
+      }
       const datesHtml = (!isEpic && ticket.plannedStart && ticket.plannedEnd && ticket.plannedStart !== 'N/A' && ticket.plannedEnd !== 'N/A') 
         ? `<span class="text-[8px] text-white/30 font-mono mt-0.5 block"><i class="far fa-calendar-alt text-[7px]"></i> S: ${formatEpicDate(ticket.plannedStart)} | E: ${formatEpicDate(ticket.plannedEnd)}</span>`
         : '';
@@ -1430,10 +1467,34 @@
     keysToAdd.forEach(item => {
       const val = item.key;
       const isEpicType = item.type === 'Epic';
-      const exists = activeEpicKeys.includes(val) || childTicketTicketKeysExist(val);
+      const exists = activeEpicKeys.includes(val) || childTicketKeys.includes(val);
       
       if (exists) {
         skipped.push(val);
+        checkCompletion();
+        return;
+      }
+
+      // Check if found in local dropdown cache (100% of these should be since they come from checkboxes!)
+      const cached = allSearchableTickets.find(t => t.key === val);
+      if (cached) {
+        const newTicket = {
+          "Key": cached.key,
+          "Issue_Type": isEpicType ? 'Epic' : (cached.type === 'PSS' ? 'pss' : (cached.type === 'BSM' ? 'bsm' : 'Task')),
+          "Summary": cached.summary || (isEpicType ? 'Manually Added TPM Epic' : 'Manually Added Support Ticket'),
+          "Status": cached.status || "Active",
+          "Assignee_Email": window.currentUser.email,
+          "Secondary_Assignee_Email": ""
+        };
+
+        if (isEpicType) {
+          activeEpics.push(newTicket);
+        } else {
+          childTickets.push(newTicket);
+        }
+        manuallyAddedTickets.push(val);
+        manuallyAddedTicketObjects.push(newTicket);
+        added.push(val);
         checkCompletion();
         return;
       }
@@ -1576,10 +1637,11 @@
      };
     });
 
-    // We have 5 collapsible categories:
+    // We have 6 collapsible categories:
     const categories = [
       { id: 'cat-projects', name: 'Projects / Epics (BAU)', icon: 'fa-project-diagram', color: 'text-osttra-rubine' },
       { id: 'cat-pss', name: 'Professional Services Support (PSS)', icon: 'fa-server', color: 'text-blue-400' },
+      { id: 'cat-bsm', name: 'Business Support Management (BSM)', icon: 'fa-briefcase', color: 'text-purple-300' },
       { id: 'cat-support', name: 'L1 Escalations & Tasks', icon: 'fa-tasks', color: 'text-osttra-ochre' },
       { id: 'cat-general', name: 'General & Product Testing', icon: 'fa-vial', color: 'text-purple-400' },
       { id: 'cat-admin', name: 'Admin', icon: 'fa-coffee', color: 'text-gray-400' }
@@ -1596,17 +1658,22 @@
           const key = String(c["Key"] || "").toUpperCase();
           return type === 'pss' || key.startsWith('PSS-');
         });
+      } else if (cat.id === 'cat-bsm') {
+        tickets = childTickets.filter(c => {
+          const key = String(c["Key"] || "").toUpperCase();
+          return key.startsWith('BSM-');
+        });
       } else if (cat.id === 'cat-support') {
         tickets = childTickets.filter(c => {
           const type = String(c["Issue_Type"] || "").toLowerCase();
           const key = String(c["Key"] || "").toUpperCase();
-          return !key.startsWith('PSS-') && type !== 'pss' && (type === 'task' || type === 'sub-task' || type === 'bug');
+          return !key.startsWith('PSS-') && !key.startsWith('BSM-') && type !== 'pss' && (type === 'task' || type === 'sub-task' || type === 'bug');
         });
       } else if (cat.id === 'cat-general') {
         tickets = childTickets.filter(c => {
           const type = String(c["Issue_Type"] || "").toLowerCase();
           const key = String(c["Key"] || "").toUpperCase();
-          return !key.startsWith('PSS-') && type !== 'pss' && type !== 'task' && type !== 'sub-task' && type !== 'bug';
+          return !key.startsWith('PSS-') && !key.startsWith('BSM-') && type !== 'pss' && type !== 'task' && type !== 'sub-task' && type !== 'bug';
         });
       } else if (cat.id === 'cat-admin') {
         tickets = [
@@ -1614,6 +1681,9 @@
         ];
         if (window.currentUser && window.currentUser.isTpmManager) {
           tickets.push({ Key: 'MGMT', Summary: 'Team Management: Resource allocation, line management, and reporting.', Status: 'Persistent', Issue_Type: 'Admin' });
+        }
+        if (isSolutionDesignEligible) {
+          tickets.push({ Key: 'SOLUTION-DESIGN', Summary: 'Solution Design Cases (Salesforce): APAC Pre-sales and solution architecture scoping.', Status: 'Persistent', Issue_Type: 'Admin' });
         }
       }
 
@@ -1652,6 +1722,9 @@
           const statusLower = String(t["Status"] || "Active").toLowerCase().trim();
           if (cat.id === 'cat-pss') {
             return activePssStatuses.includes(statusLower);
+          } else if (cat.id === 'cat-bsm') {
+            const excludedBsmStatuses = ['completed', 'canceled', 'closed', 'resolved', 'done', 'declined'];
+            return !excludedBsmStatuses.includes(statusLower);
           } else {
             return activeTpmStatuses.includes(statusLower);
           }
@@ -1708,7 +1781,13 @@
         ];
 
         if (cat.id === 'cat-pss') {
-          if (!activePssStatuses.includes(statusLower)) {
+          const excludedPssStatuses = ['declined', 'rollbackbacked', 'rollbacked', 'completed', 'canceled'];
+          if (excludedPssStatuses.includes(statusLower)) {
+            rawStatusDisabled = true;
+          }
+        } else if (cat.id === 'cat-bsm') {
+          const excludedBsmStatuses = ['completed', 'canceled', 'closed', 'resolved', 'done', 'declined'];
+          if (excludedBsmStatuses.includes(statusLower)) {
             rawStatusDisabled = true;
           }
         } else if (cat.id !== 'cat-nonbau' && cat.id !== 'cat-admin') {
@@ -1819,10 +1898,25 @@
           keyContainer.appendChild(splitBtn);
         }
 
-        const keySpan = document.createElement('span');
-        keySpan.className = cat.color;
-        keySpan.textContent = key;
-        keyContainer.appendChild(keySpan);
+        let keyElement;
+        const upperKey = String(key || "").toUpperCase().trim();
+        const isStaticKey = ['ADMIN', 'MGMT', 'SOLUTION-DESIGN', 'OOO'].includes(upperKey);
+
+        if (isStaticKey) {
+          keyElement = document.createElement('span');
+          keyElement.className = cat.color;
+          keyElement.textContent = key;
+        } else {
+          keyElement = document.createElement('a');
+          keyElement.href = `https://osttra.atlassian.net/browse/${key}`;
+          keyElement.target = '_blank';
+          keyElement.className = `${cat.color} hover:underline inline-flex items-center gap-1`;
+          keyElement.innerHTML = `<i class="fas fa-external-link-alt text-[8px] opacity-60"></i> ${key}`;
+          keyElement.addEventListener('click', (e) => {
+            e.stopPropagation();
+          });
+        }
+        keyContainer.appendChild(keyElement);
         if (secondaryBadge) {
           keyContainer.appendChild(secondaryBadge);
         }
@@ -2191,7 +2285,7 @@
                   } else if (activeUatStatuses.includes(statusLower)) {
                     splitUatGo.value = val.toFixed(2);
                     splitInt.value = '0.00';
-                    splitUatGo.value = '0.00';
+                    splitOther.value = '0.00';
                   } else {
                     // Default to OTHER bucket for backlog or other unlisted statuses when unlocked
                     splitOther.value = val.toFixed(2);
@@ -2524,7 +2618,7 @@
   }
 
   function triggerJiraSync() {
-    showLoading('Synchronizing latest tickets from Jira...');
+    showLoading('Performing quick sync of recently updated Jira tickets...');
     google.script.run
       .withSuccessHandler(msg => {
         hideLoading();

@@ -452,7 +452,7 @@
           <div class="space-y-8">
             <div class="space-y-6">
               <!-- Working Days Capacity Tracking (Progressive Disclosure) -->
-              <div class="glass rounded-2xl border border-white/5 p-6 space-y-6">
+              <div class="glass rounded-2xl border border-white/5 p-6 space-y-6 hidden">
                 <div class="flex items-center gap-2 border-b border-white/5 pb-3">
                   <i class="fas fa-calendar-alt text-osttra-ochre text-sm"></i>
                   <h4 class="text-xs font-black uppercase tracking-[0.2em] text-osttra-ochre">Working Days & Capacity</h4>
@@ -553,7 +553,7 @@
                       <i class="fas fa-check-circle text-white/10"></i>
                       <span>Total sum matches 100%</span>
                     </div>
-                    <div id="check-working-days" class="flex items-center gap-3 text-xs text-white/40">
+                    <div id="check-working-days" class="flex items-center gap-3 text-xs text-white/40 hidden">
                       <i class="fas fa-check-circle text-white/10"></i>
                       <span>Working Days Valid</span>
                     </div>
@@ -924,7 +924,7 @@
       
       const workedWeekendCheck = document.getElementById('working-days-weekend-check').checked;
       const workingDaysPayload = {
-        standardWeekdays: document.getElementById('working-days-baseline').innerText,
+        standardWeekdays: parseInt(document.getElementById('working-days-baseline').textContent) || 20,
         regularDays: document.getElementById('working-days-total').value,
         workedWeekend: workedWeekendCheck,
         weekendDays: workedWeekendCheck ? parseFloat(document.getElementById('working-days-weekend').value) || 0 : 0,

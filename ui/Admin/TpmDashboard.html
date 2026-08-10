@@ -27,10 +27,16 @@
     <div class="flex flex-wrap items-center gap-3">
       <!-- Custom Date Range Picker -->
       <div class="flex items-center gap-2.5 bg-white/5 p-1.5 rounded-2xl border border-white/5 text-[9px] font-black uppercase tracking-widest text-white/50">
-        <span class="pl-2">From</span>
+        <button onclick="shiftWeek(-7)" class="w-8 h-8 rounded-xl hover:bg-white/10 active:scale-95 transition-all text-white flex items-center justify-center cursor-pointer" title="Previous Week">
+          <i class="fas fa-chevron-left text-xs"></i>
+        </button>
+        <span class="pl-1">From</span>
         <input type="date" id="start-date-picker" onchange="handleCustomDateRangeChange()" class="bg-[#1e1e1e] border border-white/10 rounded-xl px-2.5 py-1.5 text-xs text-white outline-none focus:border-osttra-rubine transition-all font-mono" />
         <span>To</span>
         <input type="date" id="end-date-picker" onchange="handleCustomDateRangeChange()" class="bg-[#1e1e1e] border border-white/10 rounded-xl px-2.5 py-1.5 text-xs text-white outline-none focus:border-osttra-rubine transition-all font-mono" />
+        <button onclick="shiftWeek(7)" class="w-8 h-8 rounded-xl hover:bg-white/10 active:scale-95 transition-all text-white flex items-center justify-center cursor-pointer" title="Next Week">
+          <i class="fas fa-chevron-right text-xs"></i>
+        </button>
       </div>
 
       <!-- Refresh Button -->
@@ -74,7 +80,7 @@
               <i class="fas fa-calculator text-osttra-rubine"></i> 2. Workload Target Model
             </h4>
             <div class="font-mono text-[8px] text-osttra-ochre font-black bg-[#141414] p-2 rounded border border-white/5 text-center leading-normal">
-              Target Hours = (FTE % / 100) * (Weekdays - OOO Days) * 8h
+              Target Hours = (FTE % / 100) * Weekdays * 8h
             </div>
             <ul class="list-disc pl-4 space-y-1.5 pt-1 pr-2">
               <li><strong class="text-white font-bold">Balanced:</strong> Logged hours are <strong class="text-white">80% to 115%</strong> of target capacity.</li>
@@ -91,49 +97,78 @@
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
       <!-- Stat Cards -->
       <div class="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div class="p-6 bg-[#222222] border border-white/5 rounded-3xl flex flex-col justify-between h-40 shadow-xl relative overflow-hidden group">
-          <div class="absolute -right-4 -bottom-4 text-white/[0.02] text-8xl group-hover:scale-110 transition-transform duration-500">
-            <i class="fas fa-users"></i>
+        <!-- Total Team Card -->
+        <div class="relative group">
+          <div onclick="filterMatrixByStat('all')" class="cursor-pointer p-6 bg-[#222222] border border-white/5 rounded-3xl flex flex-col justify-between h-40 shadow-xl relative overflow-hidden hover:border-white/20 transition-all duration-300">
+            <div class="absolute -right-4 -bottom-4 text-white/[0.02] text-8xl group-hover:scale-110 transition-transform duration-500">
+              <i class="fas fa-users"></i>
+            </div>
+            <p class="text-[10px] font-black text-white/40 uppercase tracking-widest">Total Team Members</p>
+            <h3 id="stat-total" class="text-5xl font-black text-white tracking-tighter">0</h3>
+            <p class="text-[10px] font-bold text-white/30 uppercase tracking-widest mt-2">Active TPM hierarchy</p>
           </div>
-          <p class="text-[10px] font-black text-white/40 uppercase tracking-widest">Total Team Members</p>
-          <h3 id="stat-total" class="text-5xl font-black text-white tracking-tighter">0</h3>
-          <p class="text-[10px] font-bold text-white/30 uppercase tracking-widest mt-2">Active TPM hierarchy</p>
         </div>
 
-        <div class="p-6 bg-[#222222] border border-white/5 rounded-3xl flex flex-col justify-between h-40 shadow-xl relative overflow-hidden group">
-          <div class="absolute -right-4 -bottom-4 text-white/[0.02] text-8xl group-hover:scale-110 transition-transform duration-500 pointer-events-none">
-            <i class="fas fa-check-circle"></i>
-          </div>
-          <div class="flex justify-between items-start w-full relative z-10">
-            <div class="space-y-1">
-              <p class="text-[10px] font-black text-emerald-500 uppercase tracking-widest">Compliant This Week</p>
-              <h3 id="stat-compliant" class="text-5xl font-black text-emerald-500 tracking-tighter">0</h3>
+        <!-- Compliant Card -->
+        <div class="relative group">
+          <div onclick="filterMatrixByStat('compliant')" class="cursor-pointer p-6 bg-[#222222] border border-white/5 rounded-3xl flex flex-col justify-between h-40 shadow-xl relative overflow-hidden hover:border-emerald-500/30 transition-all duration-300">
+            <div class="absolute -right-4 -bottom-4 text-white/[0.02] text-8xl group-hover:scale-110 transition-transform duration-500 pointer-events-none">
+              <i class="fas fa-check-circle"></i>
             </div>
-            <!-- Sparkline container -->
-            <div class="w-24 h-12 bg-white/[0.02] rounded-xl border border-white/5 p-1 relative group/spark" title="6-Week Compliance Trend">
-              <canvas id="trend-sparkline"></canvas>
+            <div class="flex justify-between items-start w-full relative z-10">
+              <div class="space-y-1">
+                <p class="text-[10px] font-black text-emerald-500 uppercase tracking-widest">Compliant This Week</p>
+                <h3 id="stat-compliant" class="text-5xl font-black text-emerald-500 tracking-tighter">0</h3>
+              </div>
+              <!-- Sparkline container -->
+              <div class="w-24 h-12 bg-white/[0.02] rounded-xl border border-white/5 p-1 relative group/spark" title="6-Week Compliance Trend">
+                <canvas id="trend-sparkline"></canvas>
+              </div>
             </div>
+            <p class="text-[10px] font-bold text-emerald-500/50 uppercase tracking-widest mt-2 relative z-10">Logged daily hours or marked OOO</p>
           </div>
-          <p class="text-[10px] font-bold text-emerald-500/50 uppercase tracking-widest mt-2 relative z-10">Logged daily hours or marked OOO</p>
+          <!-- Tooltip -->
+          <div class="absolute hidden group-hover:flex flex-col bottom-full left-0 mb-2 w-64 bg-[#2b2b2b] border border-white/10 rounded-2xl p-4 shadow-2xl z-50 text-[11px] text-white/80 pointer-events-none">
+            <p class="font-bold text-emerald-400 mb-2 uppercase tracking-widest text-[9px] border-b border-white/5 pb-1 flex items-center gap-1.5"><i class="fas fa-check-circle"></i> Compliant Employees</p>
+            <div id="tooltip-compliant" class="max-h-32 overflow-y-auto space-y-1 pr-1 scrollbar-thin text-xs text-white/60">Loading...</div>
+          </div>
         </div>
 
-        <div class="p-6 bg-[#222222] border border-white/5 rounded-3xl flex flex-col justify-between h-40 shadow-xl relative overflow-hidden group">
-          <div class="absolute -right-4 -bottom-4 text-white/[0.02] text-8xl group-hover:scale-110 transition-transform duration-500">
-            <i class="fas fa-exclamation-triangle"></i>
+        <!-- Non-Compliant Card -->
+        <div class="relative group">
+          <div onclick="filterMatrixByStat('noncompliant')" class="cursor-pointer p-6 bg-[#222222] border border-white/5 rounded-3xl flex flex-col justify-between h-40 shadow-xl relative overflow-hidden hover:border-osttra-rubine/30 transition-all duration-300">
+            <div class="absolute -right-4 -bottom-4 text-white/[0.02] text-8xl group-hover:scale-110 transition-transform duration-500">
+              <i class="fas fa-exclamation-triangle"></i>
+            </div>
+            <p class="text-[10px] font-black text-osttra-rubine uppercase tracking-widest">Non-Compliant</p>
+            <h3 id="stat-noncompliant" class="text-5xl font-black text-osttra-rubine tracking-tighter">0</h3>
+            <p class="text-[10px] font-bold text-osttra-rubine/50 uppercase tracking-widest mt-2">Missing entries on one or more days</p>
           </div>
-          <p class="text-[10px] font-black text-osttra-rubine uppercase tracking-widest">Non-Compliant</p>
-          <h3 id="stat-noncompliant" class="text-5xl font-black text-osttra-rubine tracking-tighter">0</h3>
-          <p class="text-[10px] font-bold text-osttra-rubine/50 uppercase tracking-widest mt-2">Missing entries on one or more days</p>
+          <!-- Tooltip -->
+          <div class="absolute hidden group-hover:flex flex-col bottom-full left-0 mb-2 w-64 bg-[#2b2b2b] border border-white/10 rounded-2xl p-4 shadow-2xl z-50 text-[11px] text-white/80">
+            <div class="flex justify-between items-center mb-2 border-b border-white/5 pb-1.5">
+              <span class="font-bold text-osttra-rubine uppercase tracking-widest text-[9px] flex items-center gap-1.5"><i class="fas fa-times-circle"></i> Non-Compliant</span>
+              <button onclick="nudgeAllNonCompliant(event)" class="px-2.5 py-1 bg-osttra-rubine hover:bg-osttra-rubine/85 text-[8px] font-bold text-white rounded-lg uppercase tracking-wider transition-all duration-200 shadow-lg shadow-osttra-rubine/20 cursor-pointer">Nudge All</button>
+            </div>
+            <div id="tooltip-noncompliant" class="max-h-32 overflow-y-auto space-y-1 pr-1 scrollbar-thin text-xs text-white/60">Loading...</div>
+          </div>
         </div>
 
         <!-- NEW WORKLOAD saturation Alert Card -->
-        <div class="p-6 bg-[#222222] border border-white/5 rounded-3xl flex flex-col justify-between h-40 shadow-xl relative overflow-hidden group">
-          <div class="absolute -right-4 -bottom-4 text-white/[0.02] text-8xl group-hover:scale-110 transition-transform duration-500">
-            <i class="fas fa-fire text-osttra-rubine"></i>
+        <div class="relative group">
+          <div onclick="filterMatrixByStat('overburden')" class="cursor-pointer p-6 bg-[#222222] border border-white/5 rounded-3xl flex flex-col justify-between h-40 shadow-xl relative overflow-hidden hover:border-osttra-ochre/30 transition-all duration-300">
+            <div class="absolute -right-4 -bottom-4 text-white/[0.02] text-8xl group-hover:scale-110 transition-transform duration-500">
+              <i class="fas fa-fire text-osttra-rubine"></i>
+            </div>
+            <p class="text-[10px] font-black text-osttra-ochre uppercase tracking-widest">Overburden Alerts</p>
+            <h3 id="stat-overburden" class="text-5xl font-black text-osttra-ochre tracking-tighter">0</h3>
+            <p class="text-[10px] font-bold text-white/30 uppercase tracking-widest mt-2">Utilization Ratio is &ge; 115% of FTE target</p>
           </div>
-          <p class="text-[10px] font-black text-osttra-ochre uppercase tracking-widest">Overburden Alerts</p>
-          <h3 id="stat-overburden" class="text-5xl font-black text-osttra-ochre tracking-tighter">0</h3>
-          <p class="text-[10px] font-bold text-white/30 uppercase tracking-widest mt-2">Utilization Ratio is &ge; 115% of FTE target</p>
+          <!-- Tooltip -->
+          <div class="absolute hidden group-hover:flex flex-col bottom-full left-0 mb-2 w-64 bg-[#2b2b2b] border border-white/10 rounded-2xl p-4 shadow-2xl z-50 text-[11px] text-white/80 pointer-events-none">
+            <p class="font-bold text-osttra-ochre mb-2 uppercase tracking-widest text-[9px] border-b border-white/5 pb-1 flex items-center gap-1.5"><i class="fas fa-fire"></i> Overburdened (&ge; 115%)</p>
+            <div id="tooltip-overburden" class="max-h-32 overflow-y-auto space-y-1 pr-1 scrollbar-thin text-xs text-white/60">Loading...</div>
+          </div>
         </div>
       </div>
 
@@ -409,6 +444,36 @@
     initTpmDashboard();
   })();
 
+  window.shiftWeek = function(days) {
+    const startPicker = document.getElementById('start-date-picker');
+    const endPicker = document.getElementById('end-date-picker');
+    if (!startPicker || !endPicker) return;
+
+    const startVal = startPicker.value;
+    const endVal = endPicker.value;
+    if (!startVal || !endVal) return;
+
+    const partsStart = startVal.split('-');
+    const partsEnd = endVal.split('-');
+    
+    const startDate = new Date(parseInt(partsStart[0], 10), parseInt(partsStart[1], 10) - 1, parseInt(partsStart[2], 10));
+    const endDate = new Date(parseInt(partsEnd[0], 10), parseInt(partsEnd[1], 10) - 1, parseInt(partsEnd[2], 10));
+
+    startDate.setDate(startDate.getDate() + days);
+    endDate.setDate(endDate.getDate() + days);
+
+    const newStartStr = formatDateString(startDate);
+    const newEndStr = formatDateString(endDate);
+
+    startPicker.value = newStartStr;
+    endPicker.value = newEndStr;
+
+    currentStartStr = newStartStr;
+    currentEndStr = newEndStr;
+
+    loadDashboardData(currentStartStr, currentEndStr);
+  };
+
   function formatDateString(date) {
     const yyyy = date.getFullYear();
     const mm = String(date.getMonth() + 1).padStart(2, '0');
@@ -503,17 +568,29 @@
 
   function calculateWorkloadAlerts(matrix) {
     let overburdenCount = 0;
+    const overburdenedNames = [];
     const weekdaysInRange = countWeekdays(globalData.weekDates);
     
     matrix.forEach(member => {
-      const oooDaysInRange = member.oooDates.filter(d => globalData.weekDates.includes(d)).length;
-      const targetHours = (member.allocatedFte / 100) * (weekdaysInRange - oooDaysInRange) * 8;
+      const targetHours = (member.allocatedFte / 100) * weekdaysInRange * 8;
       const ratio = targetHours > 0 ? (member.total / targetHours) * 100 : 0;
       if (ratio >= 115) {
         overburdenCount++;
+        overburdenedNames.push({ name: member.name, ratio: Math.round(ratio) });
       }
     });
+    
     document.getElementById('stat-overburden').innerText = overburdenCount;
+
+    // Sort overburdened by ratio descending
+    overburdenedNames.sort((a, b) => b.ratio - a.ratio);
+
+    const overburdenDiv = document.getElementById('tooltip-overburden');
+    if (overburdenDiv) {
+      overburdenDiv.innerHTML = overburdenedNames.length > 0
+        ? overburdenedNames.map(m => `<div class="flex items-center justify-between py-0.5"><div class="flex items-center gap-1.5"><div class="w-1 h-1 rounded-full bg-osttra-ochre"></div><span>${m.name}</span></div><span class="font-mono text-[9px] text-osttra-ochre">${m.ratio}%</span></div>`).join('')
+        : 'None';
+    }
   }
 
   function populateDynamicFilters() {
@@ -567,6 +644,79 @@
     if (rateEl) {
       rateEl.innerText = stats.percentage + '%';
     }
+
+    // Populate Tooltips with member names
+    if (globalData && globalData.matrix) {
+      const compliantNames = globalData.matrix.filter(m => m.isCompliant).map(m => m.name).sort();
+      const nonCompliantNames = globalData.matrix.filter(m => !m.isCompliant).map(m => m.name).sort();
+
+      const compDiv = document.getElementById('tooltip-compliant');
+      if (compDiv) {
+        compDiv.innerHTML = compliantNames.length > 0 
+          ? compliantNames.map(name => `<div class="flex items-center gap-1.5 py-0.5"><div class="w-1.5 h-1.5 rounded-full bg-emerald-500"></div><span>${name}</span></div>`).join('')
+          : 'None';
+      }
+
+      const nonCompDiv = document.getElementById('tooltip-noncompliant');
+      if (nonCompDiv) {
+        nonCompDiv.innerHTML = nonCompliantNames.length > 0 
+          ? nonCompliantNames.map(name => `<div class="flex items-center gap-1.5 py-0.5"><div class="w-1.5 h-1.5 rounded-full bg-[#ff0061]"></div><span>${name}</span></div>`).join('')
+          : 'None';
+      }
+    }
+  }
+
+  var activeStatFilter = 'all';
+
+  function filterMatrixByStat(statType) {
+    activeStatFilter = statType;
+    
+    const compFilterSelect = document.getElementById('compliance-status-filter');
+    const loadFilterSelect = document.getElementById('compliance-workload-filter');
+
+    if (statType === 'all') {
+      compFilterSelect.value = 'ALL';
+      loadFilterSelect.value = 'ALL';
+    } else if (statType === 'compliant') {
+      compFilterSelect.value = 'COMPLIANT';
+      loadFilterSelect.value = 'ALL';
+    } else if (statType === 'noncompliant') {
+      compFilterSelect.value = 'INCOMPLETE';
+      loadFilterSelect.value = 'ALL';
+    } else if (statType === 'overburden') {
+      compFilterSelect.value = 'ALL';
+      loadFilterSelect.value = 'OVERBURDENED';
+    }
+
+    // Trigger standard grid filtering
+    filterRosterGrid();
+  }
+
+  function nudgeAllNonCompliant(event) {
+    if (event) {
+      event.stopPropagation(); // Prevent card onclick filter trigger
+    }
+
+    if (!globalData || !globalData.matrix) return;
+
+    const nonCompliantMembers = globalData.matrix.filter(m => !m.isCompliant);
+    if (nonCompliantMembers.length === 0) {
+      showNotification('warning', 'No Incomplete Members', 'All roster members are compliant this week!');
+      return;
+    }
+
+    // Auto-select all non-compliant checkboxes
+    selectedEmails.clear();
+    nonCompliantMembers.forEach(m => selectedEmails.add(m.email));
+    
+    // Check checkboxes visually
+    const checkboxes = document.querySelectorAll('.user-checkbox');
+    checkboxes.forEach(cb => {
+      cb.checked = selectedEmails.has(cb.value);
+    });
+
+    // Trigger template nudge panel
+    triggerEmailNudges();
   }
 
   function renderComplianceChart(stats) {
@@ -723,8 +873,7 @@
       const isCompliant = member.isCompliant;
       
       const weekdaysInRange = countWeekdays(globalData.weekDates);
-      const oooDaysInRange = member.oooDates.filter(d => globalData.weekDates.includes(d)).length;
-      const targetHours = (member.allocatedFte / 100) * (weekdaysInRange - oooDaysInRange) * 8;
+      const targetHours = (member.allocatedFte / 100) * weekdaysInRange * 8;
       
       const ratio = targetHours > 0 ? (member.total / targetHours) * 100 : 0;
       
@@ -924,7 +1073,7 @@
       logs.forEach(l => {
         let status = l.status || 'Active';
         const keyUpper = String(l.key || "").toUpperCase().trim();
-        if (['OOO', 'ADMIN', 'NON-BAU', 'MGMT', 'TRAINING'].includes(keyUpper)) {
+        if (['OOO', 'ADMIN', 'NON-BAU', 'MGMT', 'TRAINING', 'SOLUTION-DESIGN'].includes(keyUpper)) {
           status = 'Persistent';
         }
         statusHoursMap[status] = (statusHoursMap[status] || 0) + l.total;
@@ -1167,7 +1316,7 @@
       "This is an automated reminder from the Nexus.\n\n" +
       "Our records indicate that your timesheet entries for [MissedDates] are currently incomplete (missing hours or below your standard allocated capacity).\n\n" +
       "Please log into Nexus and update your timesheet as soon as possible.\n\n" +
-      "Link to Nexus: " + window.location.href + "\n\n" +
+      "Link to Nexus: https://script.google.com/a/macros/osttra.com/s/AKfycby7bDQ1d4cvOdK3aRqWmFlygrTLo5Jeio123wJQglApifdcnMbPleqymrfKoxhljOov/exec\n\n" +
       "Thank you for your prompt cooperation,\n" +
       "Team Nexus";
   }
@@ -1259,7 +1408,7 @@
 
     globalData.matrix.forEach(row => {
       const oooDaysInRange = row.oooDates.filter(d => globalData.weekDates.includes(d)).length;
-      const targetHours = (row.allocatedFte / 100) * (weekdaysInRange - oooDaysInRange) * 8;
+      const targetHours = (row.allocatedFte / 100) * weekdaysInRange * 8;
       
       const missedDays = row.missedDaysList || [];
       let complianceText = 'Compliant';

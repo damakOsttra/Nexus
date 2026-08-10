@@ -121,7 +121,7 @@ function exportAnupOrgMasterData() {
       "Direct Manager Name", "Direct Manager Email", "Manager ID", 
       "Management Line (Hierarchy)", "Profile", "HR Job Role", "Start Date",
       "HR Start Date", "HR Termination Date", "HR Employment Status", "HR Pay Class", "HR Legal Entity",
-      "is_tpm"
+      "is_tpm", "is_opex"
     ]);
 
     allEmails.forEach(email => {
@@ -260,7 +260,8 @@ function exportAnupOrgMasterData() {
       const isInAnupOrg = chain.some(item => item.email === "anup.hariharan@osttra.com") || email.toLowerCase().trim() === "anup.hariharan@osttra.com" || isJohnStewart;
       const hasCostCenter = costCenterValue !== "N/A";
 
-      if (isInAnupOrg && hasCostCenter && (person.empId !== "N/A" || person.title !== "") && dfRecord) {
+      // Allow Google Directory fallback when Dayforce record (dfRecord) is missing to prevent breaking manager hierarchies
+      if (isInAnupOrg && hasCostCenter && (person.empId !== "N/A" || person.title !== "")) {
         // DB CASCADE: Detect Email Address changes and trigger cascading updates
         const empIdStr = String(person.empId).trim();
         const newEmailStr = email.toLowerCase().trim();
@@ -324,6 +325,9 @@ function exportAnupOrgMasterData() {
         // Calculate is_tpm based on whether they roll up to Jack Jeffreys
         const isTpmCalculated = (email.toLowerCase().trim() === 'jack.jeffreys@osttra.com' || chain.some(item => item.email === 'jack.jeffreys@osttra.com')) ? "Yes" : "No";
 
+        // Calculate is_opex based on whether they roll up to Suneet Dhar
+        const isOpexCalculated = (email.toLowerCase().trim() === 'suneet.dhar@osttra.com' || chain.some(item => item.email === 'suneet.dhar@osttra.com')) ? "Yes" : "No";
+
         allRows.push([
           person.empId, 
           personFirstName, 
@@ -346,14 +350,32 @@ function exportAnupOrgMasterData() {
           hrStatus,
           hrPay,
           hrLegal,
-          isTpmCalculated
+          isTpmCalculated,
+          isOpexCalculated
         ]);
       }
     });
 
     if (allRows.length > 1) {
+      // **NEW: Capture previous data for Headcount Trend comparison BEFORE overwriting**
+      let previousData = [];
+      try {
+        previousData = sheet.getDataRange().getValues();
+      } catch (e) {
+        console.warn("Could not capture previous sheet data for trend logging: " + e.message);
+      }
+
+      sheet.clearContents();
       sheet.getRange(1, 1, allRows.length, allRows[0].length).setValues(allRows);
       applyFormatting(sheet);
+      
+      // Cache Invalidation: Force Auth/Db layers to pull fresh employee data
+      try {
+        clearSheetCache(targetSheetName);
+        console.log("Successfully busted CacheService for employee roster.");
+      } catch (cacheErr) {
+        console.warn("Failed to clear sheet cache: ", cacheErr);
+      }
       
       // Auto-trigger audit run to sync discrepancies
       try {
@@ -361,6 +383,14 @@ function exportAnupOrgMasterData() {
         auditDayforceVsGoogle();
       } catch (auditErr) {
         console.warn("Automated discrepancy audit failed: ", auditErr);
+      }
+
+      // **NEW: Trigger Headcount Trend & Audit Logger**
+      try {
+        console.log("Generating daily headcount trend log...");
+        logDailyHeadcountTrend(ss, previousData, allRows);
+      } catch (trendErr) {
+        console.error("Headcount Trend Logger failed: ", trendErr);
       }
       
       return "Success";
@@ -680,4 +710,173 @@ function isPeriodInOverrideRange(currentPeriod, startMonth, endMonth) {
   if (end && current > end) return false;
 
   return true;
+}
+
+/**
+ * NEW: Daily Headcount Trend & Audit Logger
+ * Resolves API "glitches" by recording state transitions (Joiners, Leavers, Reactivations)
+ * and plotting daily numerical trends to a ledger sheet.
+ */
+function logDailyHeadcountTrend(ss, previousData, newRows) {
+  try {
+    const trendSheetName = "App Headcount Trend (Read / Write)";
+    const auditSheetName = "App Headcount Audit (Read / Write)";
+
+    let trendSheet = ss.getSheetByName(trendSheetName);
+    if (!trendSheet) {
+      trendSheet = ss.insertSheet(trendSheetName);
+      trendSheet.appendRow([
+        "Timestamp", "Total Headcount", "Active (Dayforce)", "Inactive (Dayforce)", 
+        "Inactive (Manual Override)", "Total Managers", "Total TPM", "Total OPEX", 
+        "Joiners (Delta)", "Leavers (Delta)", "Reactivations (Delta)"
+      ]);
+      applyFormatting(trendSheet);
+    }
+
+    let auditSheet = ss.getSheetByName(auditSheetName);
+    if (!auditSheet) {
+      auditSheet = ss.insertSheet(auditSheetName);
+      auditSheet.appendRow([
+        "Timestamp", "Event Type", "Email Address", "Name", 
+        "Previous Status", "New Status", "Notes"
+      ]);
+      applyFormatting(auditSheet);
+    }
+
+    // 1. Process New Data Metrics & Map
+    const newMap = {};
+    const newHeaders = newRows[0];
+    const nEmailIdx = newHeaders.indexOf("Email Address");
+    const nNameIdx = newHeaders.indexOf("Google Chat Full Name");
+    const nStatusIdx = newHeaders.indexOf("HR Employment Status");
+    const nManagerIdx = newHeaders.indexOf("Direct Manager Email");
+    const nTpmIdx = newHeaders.indexOf("is_tpm");
+    const nOpexIdx = newHeaders.indexOf("is_opex");
+
+    if (nEmailIdx === -1 || nStatusIdx === -1) {
+      console.warn("Trend Logger: Missing critical headers in new data.");
+      return;
+    }
+
+    let activeCount = 0;
+    let inactiveCount = 0;
+    let overrideCount = 0;
+    let tpmCount = 0;
+    let opexCount = 0;
+    const managersSet = new Set();
+
+    for (let i = 1; i < newRows.length; i++) {
+      const row = newRows[i];
+      const email = String(row[nEmailIdx]).toLowerCase().trim();
+      if (!email) continue;
+      
+      const status = String(row[nStatusIdx] || "");
+      const name = String(row[nNameIdx] || email);
+      const isTpm = String(row[nTpmIdx] || "No");
+      const isOpex = String(row[nOpexIdx] || "No");
+      const managerEmail = String(row[nManagerIdx] || "").trim();
+
+      newMap[email] = { status: status, name: name };
+
+      if (status.includes("Manual Override")) {
+        overrideCount++;
+      } else if (status.toLowerCase().includes("active") || status === "N/A (Not in HRIS)") {
+        activeCount++;
+      } else {
+        inactiveCount++;
+      }
+
+      if (isTpm === "Yes") tpmCount++;
+      if (isOpex === "Yes") opexCount++;
+      if (managerEmail && managerEmail !== "N/A") managersSet.add(managerEmail.toLowerCase());
+    }
+
+    // 2. Process Previous Data Map
+    const oldMap = {};
+    if (previousData && previousData.length > 1) {
+      const oldHeaders = previousData[0];
+      const oEmailIdx = oldHeaders.indexOf("Email Address");
+      const oStatusIdx = oldHeaders.indexOf("HR Employment Status");
+      
+      if (oEmailIdx !== -1 && oStatusIdx !== -1) {
+        for (let i = 1; i < previousData.length; i++) {
+          const row = previousData[i];
+          const email = String(row[oEmailIdx]).toLowerCase().trim();
+          if (email) {
+            oldMap[email] = { status: String(row[oStatusIdx] || "") };
+          }
+        }
+      }
+    }
+
+    // 3. Delta Calculation & Audit Logging
+    const timestamp = Utilities.formatDate(new Date(), ss.getSpreadsheetTimeZone(), "yyyy-MM-dd HH:mm:ss");
+    const auditLogs = [];
+    let joiners = 0;
+    let leavers = 0;
+    let reactivations = 0;
+
+    const isActive = (stat) => stat.toLowerCase().includes("active") || stat === "N/A (Not in HRIS)";
+    const isOverride = (stat) => stat.includes("Manual Override");
+
+    // Check for Joiners, Reactivations, and Active -> Inactive
+    Object.keys(newMap).forEach(email => {
+      const newStat = newMap[email].status;
+      const newName = newMap[email].name;
+
+      if (!oldMap[email]) {
+        // JOINER
+        joiners++;
+        auditLogs.push([timestamp, "JOINER", email, newName, "N/A", newStat, "Added to Master Roster"]);
+      } else {
+        // STATUS CHANGE
+        const oldStat = oldMap[email].status;
+        if (oldStat !== newStat) {
+          const wasActive = isActive(oldStat);
+          const isNowActive = isActive(newStat);
+          const wasOverride = isOverride(oldStat);
+          const isNowOverride = isOverride(newStat);
+
+          if (!wasActive && isNowActive) {
+            reactivations++;
+            auditLogs.push([timestamp, "REACTIVATION", email, newName, oldStat, newStat, "Employee returned to Active status"]);
+          } else if (wasActive && !isNowActive) {
+            leavers++;
+            auditLogs.push([timestamp, "LEAVER", email, newName, oldStat, newStat, isNowOverride ? "Manually overridden to Inactive" : "Dayforce status changed to Inactive"]);
+          } else if (wasOverride && isNowActive) {
+            reactivations++;
+            auditLogs.push([timestamp, "REACTIVATION", email, newName, oldStat, newStat, "Manual Override removed, returning to Active"]);
+          } else {
+            // General data change (e.g. Terminated -> Leave of Absence)
+            auditLogs.push([timestamp, "DATA_CHANGE", email, newName, oldStat, newStat, "Non-critical status transition"]);
+          }
+        }
+      }
+    });
+
+    // Check for Leavers (Dropped off API completely)
+    Object.keys(oldMap).forEach(email => {
+      if (!newMap[email]) {
+        leavers++;
+        auditLogs.push([timestamp, "LEAVER (DROPPED)", email, email, oldMap[email].status, "N/A", "Dropped out of Anup Org/API payload completely"]);
+      }
+    });
+
+    // 4. Write to Sheets
+    if (auditLogs.length > 0) {
+      auditSheet.getRange(auditSheet.getLastRow() + 1, 1, auditLogs.length, auditLogs[0].length).setValues(auditLogs);
+    }
+
+    const totalHeadcount = newRows.length - 1;
+    const trendRow = [
+      timestamp, totalHeadcount, activeCount, inactiveCount, overrideCount, 
+      managersSet.size, tpmCount, opexCount, joiners, leavers, reactivations
+    ];
+    trendSheet.appendRow(trendRow);
+    
+    console.log('Headcount Trend logged. Total: ' + totalHeadcount + '. Joiners: ' + joiners + ', Leavers: ' + leavers + ', Reactivations: ' + reactivations + '.');
+
+  } catch (err) {
+    console.error("Error in logDailyHeadcountTrend: " + err.message);
+  }
 }

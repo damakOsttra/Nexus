@@ -41,9 +41,10 @@
 
     <!-- Tabs Navigation (About.html menu style) -->
     <div class="flex gap-6 text-[11px] font-black tracking-[0.2em] uppercase overflow-x-auto no-scrollbar border-b border-white/10">
-        <button onclick="showAnalyticsTab('finance')" id="tab-finance" class="py-3 px-2 border-b-2 border-[#FE952D] text-white transition-all whitespace-nowrap">Nexus Tracker</button>
-        <button onclick="showAnalyticsTab('heatmap')" id="tab-heatmap" class="py-3 px-2 border-b-2 border-transparent text-white/40 hover:text-white transition-all whitespace-nowrap">Allocation Heatmap</button>
+        <button onclick="showAnalyticsTab('heatmap')" id="tab-heatmap" class="py-3 px-2 border-b-2 border-[#FE952D] text-white transition-all whitespace-nowrap">Allocation Heatmap</button>
         <button onclick="showAnalyticsTab('skills')" id="tab-skills" class="py-3 px-2 border-b-2 border-transparent text-white/40 hover:text-white transition-all whitespace-nowrap">Skills Heatmap</button>
+        <button onclick="showAnalyticsTab('finance')" id="tab-finance" class="py-3 px-2 border-b-2 border-transparent text-white/40 hover:text-white transition-all whitespace-nowrap">Nexus Tracker</button>
+        <button onclick="showAnalyticsTab('headcount')" id="tab-headcount" class="py-3 px-2 border-b-2 border-transparent text-white/40 hover:text-white transition-all whitespace-nowrap">Headcount Trends</button>
     </div>
   </div>
 
@@ -146,7 +147,7 @@
   <div class="pt-4">
     
     <!-- Tab 3: Nexus Tracker (Rebranded and modified from Monitoring Admin) -->
-    <section id="content-finance" class="analytics-tab-content space-y-8 animate-in fade-in duration-500 relative">
+    <section id="content-finance" class="analytics-tab-content hidden space-y-8 animate-in fade-in duration-500 relative">
       <div id="nexus-tracker-loading" class="hidden absolute inset-0 z-50 bg-[#141414]/80 backdrop-blur-sm rounded-[2rem] flex flex-col items-center justify-center gap-4 transition-all">
         <i class="fas fa-circle-notch animate-spin text-4xl text-[#FE952D]"></i>
         <p class="text-[10px] font-black uppercase tracking-widest text-white/30 animate-pulse">Syncing Nexus Tracker...</p>
@@ -167,16 +168,8 @@
             <p class="text-[10px] font-black uppercase text-white/40 tracking-widest">Total Employees</p>
             <i class="fas fa-users text-white/10 group-hover:text-white/20 transition-colors text-base"></i>
           </div>
-          <div class="flex items-baseline gap-4 mt-4">
-            <div>
-              <p id="nexus-stat-active-employees" class="text-3xl font-black text-emerald-500">0</p>
-              <span class="text-[9px] font-bold text-white/40 uppercase tracking-widest">Active</span>
-            </div>
-            <div class="w-px h-8 bg-white/10"></div>
-            <div>
-              <p id="nexus-stat-inactive-employees" class="text-3xl font-black text-[#FF0061]">0</p>
-              <span class="text-[9px] font-bold text-white/40 uppercase tracking-widest">Inactive</span>
-            </div>
+          <div class="flex items-baseline gap-2 mt-4">
+            <p id="nexus-stat-total-employees" class="text-3xl font-black text-white">0</p>
           </div>
         </div>
         <!-- Card 2: Allocations -->
@@ -272,12 +265,8 @@
               <option value="Unmapped">Unmapped (🔴)</option>
             </select>
 
-            <!-- Filter by Employee Status -->
-            <select id="nexus-filter-status" onchange="applyNexusTrackerFilters()" class="bg-[#1a1a1a]/50 border border-white/5 rounded-xl px-4 py-2.5 text-xs text-white/70 focus:outline-none focus:border-[#FE952D]/40 transition-all cursor-pointer">
-              <option value="All" selected>All Statuses</option>
-              <option value="Active">Active Only</option>
-              <option value="Inactive">Inactive Only</option>
-            </select>
+            <!-- Filter by Employee Status (Hidden as inactive are treated identically and shown to avoid alerting departures) -->
+            <input type="hidden" id="nexus-filter-status" value="All">
 
             <!-- Filter Actions & Export -->
             <div class="flex items-center gap-2 w-full lg:w-auto shrink-0">
@@ -331,7 +320,7 @@
     </section>
 
     <!-- Tab 4: Allocation Heatmap -->
-    <section id="content-heatmap" class="analytics-tab-content hidden space-y-8 animate-in fade-in duration-500 relative">
+    <section id="content-heatmap" class="analytics-tab-content space-y-8 animate-in fade-in duration-500 relative">
       <div id="heatmap-inline-loader" class="hidden absolute inset-0 z-50 bg-[#141414]/80 backdrop-blur-sm rounded-[2rem] flex flex-col items-center justify-center gap-4 transition-all">
         <i class="fas fa-circle-notch animate-spin text-4xl text-[#FE952D]"></i>
         <p class="text-[10px] font-black uppercase tracking-widest text-white/50 animate-pulse">Refreshing Allocation Heatmap...</p>
@@ -344,6 +333,7 @@
             <span class="text-[9px] font-black uppercase text-osttra-violet w-24">Allocation FTE</span>
             <div class="flex flex-wrap gap-2">
               <button onclick="switchCsHeatmap('prodRegionFte')" id="subtab-prodRegionFte" class="px-4 py-2 bg-[#FF0061] text-white text-[9px] font-black uppercase tracking-widest rounded-xl transition-all shadow-md shadow-[#FF0061]/10">Product vs Region</button>
+              <button onclick="switchCsHeatmap('prodSubRegionFte')" id="subtab-prodSubRegionFte" class="px-4 py-2 bg-white/5 hover:bg-white/10 text-white/60 text-[9px] font-black uppercase tracking-widest rounded-xl transition-all border border-white/5">Product and sub-product vs region</button>
               <button onclick="switchCsHeatmap('prodHeadFte')" id="subtab-prodHeadFte" class="px-4 py-2 bg-white/5 hover:bg-white/10 text-white/60 text-[9px] font-black uppercase tracking-widest rounded-xl transition-all border border-white/5">Product vs Head of Function</button>
               <button onclick="switchCsHeatmap('prodSubFte')" id="subtab-prodSubFte" class="px-4 py-2 bg-white/5 hover:bg-white/10 text-white/60 text-[9px] font-black uppercase tracking-widest rounded-xl transition-all border border-white/5">Product vs Sub-Product</button>
             </div>
@@ -356,6 +346,9 @@
               <h4 id="heatmap-card-title" class="text-xs font-black uppercase tracking-widest text-white/30">Product vs Head of Function FTE Matrix</h4>
               <p id="heatmap-card-desc" class="text-[10px] text-white/40 uppercase">Total FTE effort distribution mapped across operational products vs functional heads</p>
             </div>
+            <button id="btn-export-allocation" onclick="openExportMonthModal('ALLOCATION', this)" class="px-4 py-2 bg-white/5 hover:bg-white/10 text-white/70 hover:text-white text-[9px] font-black uppercase tracking-widest rounded-xl transition-all border border-white/10 flex items-center gap-1.5 focus:outline-none shadow-sm">
+              <i class="fas fa-file-download text-osttra-violet"></i> Export raw data
+            </button>
           </div>
           <div class="overflow-x-auto rounded-2xl border border-white/5 bg-black/20">
             <table class="w-full text-left text-xs border-collapse">
@@ -406,6 +399,81 @@
       </div>
     </section>
 
+    <!-- Tab 6: Headcount Trends -->
+    <section id="content-headcount" class="analytics-tab-content hidden space-y-8 animate-in fade-in duration-500 relative">
+      <div id="headcount-inline-loader" class="hidden absolute inset-0 z-50 bg-[#141414]/80 backdrop-blur-sm rounded-[2rem] flex flex-col items-center justify-center gap-4 transition-all">
+        <i class="fas fa-circle-notch animate-spin text-4xl text-[#FE952D]"></i>
+        <p class="text-[10px] font-black uppercase tracking-widest text-white/50 animate-pulse">Loading Headcount Trends...</p>
+      </div>
+
+      <!-- KPI Cards -->
+      <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <!-- Total Headcount -->
+        <div class="p-6 bg-[#222222]/20 border border-white/5 rounded-2xl flex flex-col justify-between group">
+          <p class="text-[9px] font-black uppercase text-white/40 tracking-widest">Total Headcount</p>
+          <p id="hc-stat-total" class="text-3xl font-black text-white mt-2">-</p>
+        </div>
+        <!-- Active -->
+        <div class="p-6 bg-[#222222]/20 border border-white/5 border-b-2 border-b-emerald-500 rounded-2xl flex flex-col justify-between group">
+          <p class="text-[9px] font-black uppercase text-emerald-500 tracking-widest">Active (Jira)</p>
+          <p id="hc-stat-active" class="text-3xl font-black text-white mt-2">-</p>
+        </div>
+        <!-- Inactive -->
+        <div class="p-6 bg-[#222222]/20 border border-white/5 border-b-2 border-b-osttra-rubine rounded-2xl flex flex-col justify-between group">
+          <p class="text-[9px] font-black uppercase text-osttra-rubine tracking-widest">Inactive</p>
+          <p id="hc-stat-inactive" class="text-3xl font-black text-white mt-2">-</p>
+        </div>
+        <!-- Joiners -->
+        <div class="p-6 bg-[#222222]/20 border border-white/5 border-b-2 border-b-blue-400 rounded-2xl flex flex-col justify-between group">
+          <p class="text-[9px] font-black uppercase text-blue-400 tracking-widest">Joiners Today</p>
+          <p id="hc-stat-joiners" class="text-3xl font-black text-white mt-2">-</p>
+        </div>
+        <!-- Leavers -->
+        <div class="p-6 bg-[#222222]/20 border border-white/5 border-b-2 border-b-orange-400 rounded-2xl flex flex-col justify-between group">
+          <p class="text-[9px] font-black uppercase text-orange-400 tracking-widest">Leavers Today</p>
+          <p id="hc-stat-leavers" class="text-3xl font-black text-white mt-2">-</p>
+        </div>
+      </div>
+
+      <!-- Charts Row -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="p-6 bg-[#222222]/20 border border-white/5 rounded-2xl">
+          <h4 class="text-[10px] font-black uppercase text-white/50 tracking-widest mb-4">60-Day Headcount Trend</h4>
+          <div class="relative h-64 w-full">
+            <canvas id="trend-line-chart"></canvas>
+          </div>
+        </div>
+        <div class="p-6 bg-[#222222]/20 border border-white/5 rounded-2xl">
+          <h4 class="text-[10px] font-black uppercase text-white/50 tracking-widest mb-4">60-Day Activity Delta (Joiners vs Leavers)</h4>
+          <div class="relative h-64 w-full">
+            <canvas id="delta-bar-chart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Audit Log Table -->
+      <div class="p-6 bg-[#222222]/20 border border-white/5 rounded-2xl space-y-4">
+        <h4 class="text-[10px] font-black uppercase text-white/50 tracking-widest">Recent Roster Audit Logs</h4>
+        <div class="overflow-x-auto rounded-xl border border-white/5 bg-black/20 max-h-64">
+          <table class="w-full text-left text-xs border-collapse">
+            <thead class="bg-white/5 text-[9px] font-black uppercase tracking-widest text-white/40 sticky top-0 border-b border-white/5 z-10">
+              <tr>
+                <th class="p-3">Timestamp</th>
+                <th class="p-3">Event Type</th>
+                <th class="p-3">Employee</th>
+                <th class="p-3">Prev Status</th>
+                <th class="p-3">New Status</th>
+                <th class="p-3 hidden sm:table-cell">Notes</th>
+              </tr>
+            </thead>
+            <tbody id="hc-audit-tbody" class="divide-y divide-white/5 text-white/70">
+              <!-- Dynamically Populated -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
     <!-- Tab 5: Skills Heatmap -->
     <section id="content-skills" class="analytics-tab-content hidden space-y-8 animate-in fade-in duration-500 relative">
       <div id="skills-inline-loader" class="hidden absolute inset-0 z-50 bg-[#141414]/80 backdrop-blur-sm rounded-[2rem] flex flex-col items-center justify-center gap-4 transition-all">
@@ -420,6 +488,7 @@
             <span class="text-[9px] font-black uppercase text-emerald-400 w-24">Skill Level</span>
             <div class="flex flex-wrap gap-2">
               <button onclick="switchCsHeatmap('prodRegionSkill')" id="subtab-prodRegionSkill" class="px-4 py-2 bg-[#10B981] text-white text-[9px] font-black uppercase tracking-widest rounded-xl transition-all shadow-md shadow-[#10B981]/10">Product vs Region</button>
+              <button onclick="switchCsHeatmap('prodSubRegionSkill')" id="subtab-prodSubRegionSkill" class="px-4 py-2 bg-white/5 hover:bg-white/10 text-white/60 text-[9px] font-black uppercase tracking-widest rounded-xl transition-all border border-white/5">Product and sub-product vs region</button>
               <button onclick="switchCsHeatmap('prodHeadSkill')" id="subtab-prodHeadSkill" class="px-4 py-2 bg-white/5 hover:bg-white/10 text-white/60 text-[9px] font-black uppercase tracking-widest rounded-xl transition-all border border-white/5">Product vs Head of Function</button>
               <button onclick="switchCsHeatmap('prodSubSkill')" id="subtab-prodSubSkill" class="px-4 py-2 bg-white/5 hover:bg-white/10 text-white/60 text-[9px] font-black uppercase tracking-widest rounded-xl transition-all border border-white/5">Product vs Sub-Product</button>
             </div>
@@ -432,6 +501,9 @@
               <h4 id="skills-card-title" class="text-xs font-black uppercase tracking-widest text-white/30">Product vs Head of Function Skill Matrix</h4>
               <p id="skills-card-desc" class="text-[10px] text-white/40 uppercase">Highest skill proficiency level mapped across operational products vs functional heads</p>
             </div>
+            <button id="btn-export-skills" onclick="openExportMonthModal('SKILLS', this)" class="px-4 py-2 bg-white/5 hover:bg-white/10 text-white/70 hover:text-white text-[9px] font-black uppercase tracking-widest rounded-xl transition-all border border-white/10 flex items-center gap-1.5 focus:outline-none shadow-sm">
+              <i class="fas fa-file-download text-emerald-400"></i> Export raw data
+            </button>
           </div>
           <div class="overflow-x-auto rounded-2xl border border-white/5 bg-black/20">
             <table class="w-full text-left text-xs border-collapse">
@@ -482,6 +554,40 @@
       </div>
     </section>
 
+  </div>
+</div>
+
+<!-- Heatmap Export Month Dialogue -->
+<div id="export-month-modal" class="hidden fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+  <div class="glass border border-white/10 w-full max-w-md rounded-[2rem] overflow-hidden flex flex-col shadow-2xl animate-in zoom-in duration-300">
+    
+    <!-- Modal Header -->
+    <div class="px-8 py-6 border-b border-white/5 bg-[#1a1a1a]/80">
+      <h3 id="export-modal-title" class="text-lg font-black uppercase text-white tracking-tight italic flex items-center gap-2">
+        <i class="fas fa-file-download text-osttra-violet"></i> Export raw data
+      </h3>
+      <p class="text-[10px] text-white/40 uppercase tracking-widest font-semibold mt-1">Select period before exporting data</p>
+    </div>
+
+    <!-- Modal Content -->
+    <div class="p-8 space-y-6">
+      <div class="space-y-2">
+        <label class="text-[8px] font-black text-white/40 uppercase tracking-widest pl-1">Available periods</label>
+        <select id="export-month-select" class="w-full bg-[#1a1a1a]/80 border border-white/5 focus:border-[#FE952D]/40 rounded-xl py-3 px-4 text-xs text-white focus:outline-none transition-all font-semibold cursor-pointer">
+          <!-- Populated dynamically -->
+        </select>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="flex gap-3 pt-2">
+        <button onclick="closeExportMonthModal()" class="flex-1 py-3 bg-white/5 hover:bg-white/10 border border-white/10 text-white text-[10px] font-black uppercase tracking-widest rounded-xl transition-all">
+          Cancel
+        </button>
+        <button id="btn-execute-month-export" onclick="executeExportWithMonth()" class="flex-1 py-3 bg-white/5 hover:bg-white/10 text-white border border-white/10 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all">
+          Download CSV
+        </button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -640,6 +746,8 @@
 
       if (tabName === 'finance') {
         loadNexusTrackerData();
+      } else if (tabName === 'headcount') {
+        loadHeadcountData();
       } else if (tabName === 'heatmap' || tabName === 'skills') {
         const loaderId = tabName === 'heatmap' ? 'heatmap-inline-loader' : 'skills-inline-loader';
         const gridId = tabName === 'heatmap' ? 'heatmap-content-grid' : 'skills-content-grid';
@@ -691,6 +799,105 @@
       document.body.appendChild(link);
       link.click();
       link.remove();
+    };
+
+    let currentExportType = null; // 'ALLOCATION' or 'SKILLS'
+    let currentExportBtn = null;
+
+    window.openExportMonthModal = function(type, btn) {
+      currentExportType = type;
+      currentExportBtn = btn;
+
+      const modalTitle = document.getElementById('export-modal-title');
+      const monthSelect = document.getElementById('export-month-select');
+      
+      if (!modalTitle || !monthSelect) return;
+
+      // Customise header look depending on type
+      if (type === 'ALLOCATION') {
+        modalTitle.innerHTML = `<i class="fas fa-file-download text-osttra-violet"></i> Export allocation data`;
+      } else {
+        modalTitle.innerHTML = `<i class="fas fa-file-download text-emerald-400"></i> Export skills data`;
+      }
+
+      // Populate months list: "All Periods" + trailing 6 months
+      monthSelect.innerHTML = `<option value="All">All Periods</option>`;
+      const monthsList = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+      for (let i = 0; i < 6; i++) {
+        const today = new Date();
+        today.setDate(1);
+        today.setMonth(today.getMonth() - 1 - i);
+        const m = monthsList[today.getMonth()];
+        const y = today.getFullYear();
+        const periodStr = m + " " + y;
+        monthSelect.innerHTML += `<option value="${periodStr}">${periodStr}</option>`;
+      }
+
+      document.getElementById('export-month-modal').classList.remove('hidden');
+    };
+
+    window.closeExportMonthModal = function() {
+      document.getElementById('export-month-modal').classList.add('hidden');
+    };
+
+    window.executeExportWithMonth = function() {
+      const selectedMonth = document.getElementById('export-month-select').value;
+      const type = currentExportType;
+      const btn = currentExportBtn;
+      
+      closeExportMonthModal();
+      
+      if (!btn) return;
+      const originalHTML = btn.innerHTML;
+      btn.disabled = true;
+      
+      if (type === 'ALLOCATION') {
+        btn.innerHTML = `<i class="fas fa-circle-notch animate-spin text-osttra-violet"></i> Exporting`;
+        google.script.run
+          .withSuccessHandler(data => {
+            btn.disabled = false;
+            btn.innerHTML = originalHTML;
+            if (!data || data.length === 0) {
+              showNotification('Export failed', 'No allocation data is available to export.', 'error');
+              return;
+            }
+            const headers = data[0];
+            const rows = data.slice(1);
+            const dateStr = new Date().toISOString().split('T')[0];
+            const suffix = selectedMonth === 'All' ? 'all' : selectedMonth.replace(/ /g, '_').toLowerCase();
+            window.downloadCSV(headers, rows, `nexus_allocation_export_${suffix}_${dateStr}.csv`);
+            showNotification('Export complete', 'The allocation data has been exported successfully.', 'success');
+          })
+          .withFailureHandler(err => {
+            btn.disabled = false;
+            btn.innerHTML = originalHTML;
+            showNotification('Export failed', err.message, 'error');
+          })
+          .getRawExportData('ALLOCATION_HISTORICAL', selectedMonth);
+      } else {
+        btn.innerHTML = `<i class="fas fa-circle-notch animate-spin text-emerald-400"></i> Exporting`;
+        google.script.run
+          .withSuccessHandler(data => {
+            btn.disabled = false;
+            btn.innerHTML = originalHTML;
+            if (!data || data.length === 0) {
+              showNotification('Export failed', 'No skills data is available to export.', 'error');
+              return;
+            }
+            const headers = data[0];
+            const rows = data.slice(1);
+            const dateStr = new Date().toISOString().split('T')[0];
+            const suffix = selectedMonth === 'All' ? 'all' : selectedMonth.replace(/ /g, '_').toLowerCase();
+            window.downloadCSV(headers, rows, `nexus_skills_export_${suffix}_${dateStr}.csv`);
+            showNotification('Export complete', 'The skills data has been exported successfully.', 'success');
+          })
+          .withFailureHandler(err => {
+            btn.disabled = false;
+            btn.innerHTML = originalHTML;
+            showNotification('Export failed', err.message, 'error');
+          })
+          .getRawExportData('SKILL_MATRIX', selectedMonth);
+      }
     };
 
     window.loadNexusTrackerData = function() {
@@ -771,16 +978,13 @@
     };
 
     function calculateNexusTrackerStats() {
-      const activeEmployees = nexusTrackerData.filter(e => e.isActive);
-      const activeCount = activeEmployees.length;
-      const inactiveCount = nexusTrackerData.length - activeCount;
+      const totalCount = nexusTrackerData.length;
 
-      const alloc = activeEmployees.filter(e => e.hasAllocation).length;
-      const skills = activeEmployees.filter(e => e.hasSkills).length;
-      const products = activeEmployees.filter(e => e.hasProductScope).length;
+      const alloc = nexusTrackerData.filter(e => e.hasAllocation).length;
+      const skills = nexusTrackerData.filter(e => e.hasSkills).length;
+      const products = nexusTrackerData.filter(e => e.hasProductScope).length;
 
-      const statActive = document.getElementById('nexus-stat-active-employees');
-      const statInactive = document.getElementById('nexus-stat-inactive-employees');
+      const statTotal = document.getElementById('nexus-stat-total-employees');
       const statAlloc = document.getElementById('nexus-stat-alloc-submitted');
       const statAllocPct = document.getElementById('nexus-stat-alloc-pct');
       const statSkills = document.getElementById('nexus-stat-skills-certified');
@@ -788,17 +992,16 @@
       const statProducts = document.getElementById('nexus-stat-products-mapped');
       const statProductsPct = document.getElementById('nexus-stat-products-pct');
 
-      if (statActive) statActive.innerText = activeCount;
-      if (statInactive) statInactive.innerText = inactiveCount;
+      if (statTotal) statTotal.innerText = totalCount;
       
       if (statAlloc) statAlloc.innerText = alloc;
-      if (statAllocPct) statAllocPct.innerText = `(${activeCount ? Math.round((alloc / activeCount) * 100) : 0}%)`;
+      if (statAllocPct) statAllocPct.innerText = `(${totalCount ? Math.round((alloc / totalCount) * 100) : 0}%)`;
       
       if (statSkills) statSkills.innerText = skills;
-      if (statSkillsPct) statSkillsPct.innerText = `(${activeCount ? Math.round((skills / activeCount) * 100) : 0}%)`;
+      if (statSkillsPct) statSkillsPct.innerText = `(${totalCount ? Math.round((skills / totalCount) * 100) : 0}%)`;
       
       if (statProducts) statProducts.innerText = products;
-      if (statProductsPct) statProductsPct.innerText = `(${activeCount ? Math.round((products / activeCount) * 100) : 0}%)`;
+      if (statProductsPct) statProductsPct.innerText = `(${totalCount ? Math.round((products / totalCount) * 100) : 0}%)`;
     }
 
     window.applyNexusTrackerFilters = function() {
@@ -1088,7 +1291,7 @@
     window.switchCsHeatmap = function(matrixType) {
       if (!cachedHeatmapData) return;
       
-      const subtabs = ['prodHeadFte', 'prodRegionFte', 'prodSubFte', 'prodHeadSkill', 'prodRegionSkill', 'prodSubSkill'];
+      const subtabs = ['prodHeadFte', 'prodRegionFte', 'prodSubFte', 'prodSubRegionFte', 'prodHeadSkill', 'prodRegionSkill', 'prodSubSkill', 'prodSubRegionSkill'];
       subtabs.forEach(t => {
         const btn = document.getElementById(`subtab-${t}`);
         if (btn) {
@@ -1125,6 +1328,10 @@
         matrix = cachedHeatmapData.prodSubFte;
         if (cardTitle) cardTitle.innerText = "Product vs Sub-Product (FTE) Matrix";
         if (cardDesc) cardDesc.innerText = "Total FTE effort distribution mapped across operational products vs regional sub-products";
+      } else if (matrixType === 'prodSubRegionFte') {
+        matrix = cachedHeatmapData.prodSubRegionFte;
+        if (cardTitle) cardTitle.innerText = "Product and Sub-Product vs Region (FTE) Matrix";
+        if (cardDesc) cardDesc.innerText = "Total FTE effort distribution mapped across operational products and sub-products vs cost-center regions";
       } else if (matrixType === 'prodHeadSkill') {
         matrix = cachedHeatmapData.prodHeadSkill;
         if (cardTitle) cardTitle.innerText = "Product vs Head of Function (Skill Level) Matrix";
@@ -1137,6 +1344,10 @@
         matrix = cachedHeatmapData.prodSubSkill;
         if (cardTitle) cardTitle.innerText = "Product vs Sub-Product (Skill Level) Matrix";
         if (cardDesc) cardDesc.innerText = "Highest skill proficiency level mapped across operational products vs regional sub-products";
+      } else if (matrixType === 'prodSubRegionSkill') {
+        matrix = cachedHeatmapData.prodSubRegionSkill;
+        if (cardTitle) cardTitle.innerText = "Product and Sub-Product vs Region (Skill Level) Matrix";
+        if (cardDesc) cardDesc.innerText = "Highest skill proficiency level mapped across operational products and sub-products vs cost-center regions";
       }
 
       if (!matrix) return;
@@ -1152,13 +1363,27 @@
       const cols = matrix.cols || [];
       const dataMap = matrix.data || {};
 
-      const headRow = `
-        <tr class="bg-white/5 text-[10px] font-black uppercase tracking-widest text-white/40 border-b border-white/5">
-          <th class="p-4">${colHeader}</th>
-          ${cols.map(c => `<th class="p-4 text-center whitespace-nowrap">${c}</th>`).join('')}
-          <th class="p-4 text-right whitespace-nowrap">${isSkillMode ? "Highest Skill" : "Total FTE"}</th>
-        </tr>
-      `;
+      const isProdSubRegion = matrixType === 'prodSubRegionFte' || matrixType === 'prodSubRegionSkill';
+
+      let headRow = "";
+      if (isProdSubRegion) {
+        headRow = `
+          <tr class="bg-white/5 text-[10px] font-black uppercase tracking-widest text-white/40 border-b border-white/5">
+            <th class="p-4">Operational Product</th>
+            <th class="p-4">Operational Sub-Product</th>
+            ${cols.map(c => `<th class="p-4 text-center whitespace-nowrap">${c}</th>`).join('')}
+            <th class="p-4 text-right whitespace-nowrap">${isSkillMode ? "Highest Skill" : "Total FTE"}</th>
+          </tr>
+        `;
+      } else {
+        headRow = `
+          <tr class="bg-white/5 text-[10px] font-black uppercase tracking-widest text-white/40 border-b border-white/5">
+            <th class="p-4">${colHeader}</th>
+            ${cols.map(c => `<th class="p-4 text-center whitespace-nowrap">${c}</th>`).join('')}
+            <th class="p-4 text-right whitespace-nowrap">${isSkillMode ? "Highest Skill" : "Total FTE"}</th>
+          </tr>
+        `;
+      }
       thead.innerHTML = headRow;
 
       const colSums = new Array(cols.length).fill(0);
@@ -1229,9 +1454,22 @@
           grandSum += rowSum;
         }
 
+        let rowHeadersHTML = "";
+        if (isProdSubRegion) {
+          const parts = r.split(" | ");
+          rowHeadersHTML = `
+            <td class="p-4 font-bold text-white uppercase tracking-tight whitespace-nowrap">${parts[0]}</td>
+            <td class="p-4 text-white/60 whitespace-nowrap">${parts[1] || "General"}</td>
+          `;
+        } else {
+          rowHeadersHTML = `
+            <td class="p-4 font-bold text-white uppercase tracking-tight whitespace-nowrap">${r}</td>
+          `;
+        }
+
         const rowHTML = `
           <tr class="hover:bg-white/[0.02] transition-colors border-b border-white/5">
-            <td class="p-4 font-bold text-white uppercase tracking-tight whitespace-nowrap">${r}</td>
+            ${rowHeadersHTML}
             ${colCells}
             <td class="p-4 text-right text-[11px] font-black text-emerald-400 bg-white/[0.01]">${rightColumnText}</td>
           </tr>
@@ -1257,7 +1495,7 @@
 
         const footerRow = `
           <tr class="bg-white/5 text-[10px] font-black uppercase tracking-widest text-white/60 border-t border-white/10">
-            <td class="p-4 font-black uppercase text-white/40">${isSkillMode ? "Highest Rating" : "Total Sum"}</td>
+            <td class="p-4 font-black uppercase text-white/40" colspan="${isProdSubRegion ? '2' : '1'}">${isSkillMode ? "Highest Rating" : "Total Sum"}</td>
             ${footerColsHTML}
             <td class="p-4 text-right text-[11px] font-black text-emerald-400 bg-emerald-500/10 border-l border-emerald-500/20">${finalGrandTotalText}</td>
           </tr>
@@ -1316,6 +1554,148 @@
     }
 
     loadMetadataFilters();
-    showAnalyticsTab('finance'); // Load Finance Tab as default for Executive Analytics view
+    showAnalyticsTab('heatmap'); // Load Heatmap Tab as default for Executive Analytics view
+    /* =========================================================================
+       TAB 6: HEADCOUNT TRENDS & AUDIT LOG
+       ========================================================================= */
+    window.loadHeadcountData = function() {
+      const loader = document.getElementById('headcount-inline-loader');
+      if (loader) loader.classList.remove('hidden');
+      
+      google.script.run
+        .withSuccessHandler(data => {
+          if (loader) loader.classList.add('hidden');
+          renderHeadcountDashboard(data);
+        })
+        .withFailureHandler(err => {
+          if (loader) loader.classList.add('hidden');
+          showNotification('Failed to load Headcount Trends', err.message, 'error');
+        })
+        .getHeadcountDashboardData();
+    };
+
+    function renderHeadcountDashboard(data) {
+      const trend = data.trend || [];
+      const audit = data.audit || [];
+      
+      // Render KPIs (from the most recent trend row)
+      if (trend.length > 0) {
+        const latest = trend[trend.length - 1];
+        document.getElementById('hc-stat-total').innerText = latest['Total Headcount'] || '0';
+        document.getElementById('hc-stat-active').innerText = latest['Active (Dayforce)'] || '0';
+        document.getElementById('hc-stat-inactive').innerText = latest['Inactive (Dayforce)'] || '0';
+        document.getElementById('hc-stat-joiners').innerText = latest['Joiners (Delta)'] || '0';
+        document.getElementById('hc-stat-leavers').innerText = latest['Leavers (Delta)'] || '0';
+      }
+
+      // Destroy old charts
+      destroyChart('trendLine');
+      destroyChart('deltaBar');
+
+      Chart.defaults.color = 'rgba(255, 255, 255, 0.4)';
+      Chart.defaults.font.family = '"Inter", sans-serif';
+
+      // --- 1. Trend Line Chart ---
+      const labels = trend.map(r => r.Timestamp);
+      const totalData = trend.map(r => r['Total Headcount']);
+      const activeData = trend.map(r => r['Active (Dayforce)']);
+      
+      const ctxTrend = document.getElementById('trend-line-chart');
+      if (ctxTrend) {
+        charts['trendLine'] = new Chart(ctxTrend, {
+          type: 'line',
+          data: {
+            labels: labels,
+            datasets: [
+              {
+                label: 'Total Headcount',
+                data: totalData,
+                borderColor: '#FE952D',
+                backgroundColor: 'rgba(254, 149, 45, 0.1)',
+                borderWidth: 2,
+                tension: 0.4,
+                fill: true
+              },
+              {
+                label: 'Active (Jira)',
+                data: activeData,
+                borderColor: '#10B981',
+                backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                borderWidth: 2,
+                tension: 0.4,
+                fill: true
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { position: 'bottom', labels: { usePointStyle: true, boxWidth: 8 } },
+              datalabels: { display: false }
+            },
+            scales: {
+              y: { beginAtZero: false, grid: { color: 'rgba(255,255,255,0.05)' } },
+              x: { grid: { display: false } }
+            }
+          }
+        });
+      }
+
+      // --- 2. Delta Bar Chart ---
+      const joiners = trend.map(r => r['Joiners (Delta)']);
+      const leavers = trend.map(r => -Math.abs(r['Leavers (Delta)'] || 0)); // Negative for leavers
+      const reactivations = trend.map(r => r['Reactivations (Delta)']);
+
+      const ctxDelta = document.getElementById('delta-bar-chart');
+      if (ctxDelta) {
+        charts['deltaBar'] = new Chart(ctxDelta, {
+          type: 'bar',
+          data: {
+            labels: labels,
+            datasets: [
+              { label: 'Joiners', data: joiners, backgroundColor: '#60A5FA', borderRadius: 4 },
+              { label: 'Reactivations', data: reactivations, backgroundColor: '#A78BFA', borderRadius: 4 },
+              { label: 'Leavers', data: leavers, backgroundColor: '#FB923C', borderRadius: 4 }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { position: 'bottom', labels: { usePointStyle: true, boxWidth: 8 } },
+              datalabels: { display: false }
+            },
+            scales: {
+              y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' }, stacked: true },
+              x: { grid: { display: false }, stacked: true }
+            }
+          }
+        });
+      }
+
+      // --- 3. Render Audit Table ---
+      const tbody = document.getElementById('hc-audit-tbody');
+      if (tbody) {
+        tbody.innerHTML = audit.map(log => {
+          let typeColor = 'text-white/60';
+          if (log['Event Type'] === 'JOINER') typeColor = 'text-blue-400 font-bold';
+          if (log['Event Type'] === 'LEAVER' || log['Event Type'].includes('DROPPED')) typeColor = 'text-orange-400 font-bold';
+          if (log['Event Type'] === 'REACTIVATION') typeColor = 'text-purple-400 font-bold';
+
+          return `
+            <tr class="hover:bg-white/[0.02] border-b border-white/5 transition-colors">
+              <td class="p-3 text-[10px] font-mono whitespace-nowrap">${log['Timestamp']}</td>
+              <td class="p-3 text-[9px] uppercase tracking-widest ${typeColor}">${log['Event Type']}</td>
+              <td class="p-3 font-bold">${log['Name']}<br><span class="text-[9px] font-normal font-mono text-white/40">${log['Email Address']}</span></td>
+              <td class="p-3 text-[10px] uppercase text-white/60">${log['Previous Status'] || 'N/A'}</td>
+              <td class="p-3 text-[10px] uppercase text-white/60">${log['New Status'] || 'N/A'}</td>
+              <td class="p-3 text-[10px] text-white/40 hidden sm:table-cell italic">${log['Notes'] || ''}</td>
+            </tr>
+          `;
+        }).join('');
+      }
+    }
+
   })();
 </script>

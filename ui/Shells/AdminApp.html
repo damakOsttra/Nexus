@@ -33,7 +33,7 @@
       .nav-link.active { background-color: #FF0061; color: #ffffff; box-shadow: 0 4px 6px -1px rgba(255, 0, 97, 0.1), 0 2px 4px -1px rgba(255, 0, 97, 0.06); border-r-[4px] border-white/40; }
       .skeleton { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; background-color: rgba(255, 255, 255, 0.05); }
       @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
-      ::-webkit-scrollbar { width: 4px; }
+      ::-webkit-scrollbar { width: 12px; height: 12px; }
       ::-webkit-scrollbar-track { background: #1a1a1a; }
       ::-webkit-scrollbar-thumb { background: rgba(85, 85, 85, 0.2); border-radius: 9999px; }
       .osttra-gradient { background: linear-gradient(135deg, #FE952D 0%, #FF0061 50%, #9125BF 100%); }
@@ -143,6 +143,15 @@
               <button id="nav-TpmDashboard" onclick="loadPage('TpmDashboard')" title="TPM Dashboard" class="nav-link hidden group">
                 <i class="fas fa-calendar-check text-sm w-5 group-hover:scale-110 transition-transform duration-200 shrink-0"></i>
                 <span class="text-xs font-bold uppercase tracking-widest sidebar-text">TPM Compliance</span>
+              </button>
+            </div>
+
+            <!-- OPERATIONAL EXCELLENCE CATEGORY -->
+            <div id="section-opex" class="space-y-1 hidden">
+              <p class="px-2 text-[9px] font-black text-white/30 uppercase tracking-[0.2em] mb-2 sidebar-text">Operational Excellence</p>
+              <button id="nav-OpexProjectBoard" onclick="loadPage('OpexProjectBoard')" title="OPEX Projects" class="nav-link group">
+                <i class="fas fa-layer-group text-sm w-5 group-hover:scale-110 transition-transform duration-200 shrink-0"></i>
+                <span class="text-xs font-bold uppercase tracking-widest sidebar-text">Project Tracker</span>
               </button>
             </div>
 
@@ -419,6 +428,16 @@
             tpmDashNav.classList.remove('hidden');
           } else {
             tpmDashNav.classList.add('hidden');
+          }
+        }
+
+        // Hide/Show OPEX Navigation Section strictly based on isOpexUser
+        const opexSection = document.getElementById('section-opex');
+        if (opexSection) {
+          if (user.isOpexUser) {
+            opexSection.classList.remove('hidden');
+          } else {
+            opexSection.classList.add('hidden');
           }
         }
 

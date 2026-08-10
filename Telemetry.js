@@ -21,7 +21,10 @@ const ALLOWED_TELEMETRY_EVENTS = [
   'REPORT_DELETED',           // Admin Analytics Hub Removal
   'SYSTEM_STATE_CHANGED',     // Admin Locks/Unlocks App
   'DAYFORCE_AUDIT_RUN',       // Discrepancy Scan Executed
-  'BULK_EMAILS_SENT'          // Compliance Reminders Dispatched
+  'BULK_EMAILS_SENT',         // Compliance Reminders Dispatched
+  'TPM_TIMESHEET_SUBMITTED',  // TPM User submitted timesheet
+  'TPM_JIRA_SYNCED',          // Jira fetch initiated
+  'TPM_COMPLIANCE_NUDGE_SENT' // Sent compliance reminder
 ];
 
 /**

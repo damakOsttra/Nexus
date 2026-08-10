@@ -140,6 +140,32 @@ function clearCachedData(key) {
  */
 function clearSheetCache(sheetName) {
   clearCachedData("SHEET_" + sheetName);
+  
+  // If any of the compliance-affecting sheets are busted, invalidate compliance payloads
+  const complianceSheets = [
+    CONFIG.SHEETS.EMPLOYEES, 
+    CONFIG.SHEETS.ALLOCATION_HISTORICAL, 
+    CONFIG.SHEETS.SKILL_MATRIX, 
+    CONFIG.SHEETS.MANAGER_PRODUCT_ALLOCATION, 
+    CONFIG.SHEETS.DATA_AUDIT
+  ];
+  if (complianceSheets.includes(sheetName)) {
+    try {
+      const cache = CacheService.getScriptCache();
+      const periodsStr = cache.get("ADMIN_COMPLIANCE_MONITOR_PERIODS");
+      if (periodsStr) {
+        const periods = JSON.parse(periodsStr);
+        periods.forEach(p => {
+          clearCachedData("ADMIN_COMPLIANCE_MONITOR_" + p);
+        });
+        cache.remove("ADMIN_COMPLIANCE_MONITOR_PERIODS");
+        console.log("[CACHE] Successfully invalidated compliance payloads for " + periods.length + " periods.");
+      }
+    } catch(e) {
+      console.warn("Failed to invalidate compliance monitor caches", e.message);
+    }
+  }
+
   if (sheetName === CONFIG.SHEETS.EMPLOYEES) {
     try {
       clearCachedData("filter_metadata_v6");
@@ -225,6 +251,56 @@ function getSheetData(sheetName) {
     });
     return obj;
   });
+
+  if (sheetName === CONFIG.SHEETS.ALLOCATION_HISTORICAL) {
+    const csLeads = [
+      "anup.hariharan@osttra.com", 
+      "suneet.dhar@osttra.com",
+      "jane.hill@osttra.com",
+      "nicholas.allcock@osttra.com",
+      "scott.bolnick@osttra.com",
+      "karan.singal@osttra.com",
+      "jerry.lin@osttra.com"
+    ].map(e => e.toLowerCase().trim());
+
+    const currentPeriod = getActivePeriod();
+    const leadSubmissions = {};
+    
+    parsedData.forEach(row => {
+      const email = String(row["Email Address"] || "").toLowerCase().trim();
+      const rawP = row["Month and Year"] !== undefined ? row["Month and Year"] : row["Period"];
+      const rowPeriod = String(rawP || "");
+      if (csLeads.includes(email) && rowPeriod.toLowerCase().trim() === currentPeriod.toLowerCase().trim()) {
+        leadSubmissions[email] = true;
+      }
+    });
+
+    csLeads.forEach(email => {
+      if (!leadSubmissions[email]) {
+        parsedData.push({
+          "Email Address": email,
+          "Month and Year": currentPeriod,
+          "Period": currentPeriod,
+          "Product": "CS Mgmt",
+          "Sub-Product": "CS Mgmt",
+          "Allocation BAU": 100,
+          "BAU (%)": 100,
+          "Allocation Non-BAU": 0,
+          "Non-BAU (%)": 0,
+          "Allocation Comment": "Auto-allocated 100% (CS Lead Exempt)",
+          "Comment": "Auto-allocated 100% (CS Lead Exempt)",
+          "Date and time of Submission": new Date().toISOString(),
+          "Date of Submission": new Date().toISOString(),
+          "Last Updated By": "System (Auto-Bypass)",
+          "Standard Weekdays in Month": 20,
+          "Regular Days Worked": 20,
+          "Worked Weekend": false,
+          "Weekend Days Worked": 0,
+          "Comments": ""
+        });
+      }
+    });
+  }
 
   // Put into cache for 5 minutes (300 seconds)
   putCachedData(cacheKey, parsedData, 300);
@@ -508,31 +584,45 @@ function getProductCatalog() {
   const cacheKey = "product_catalog";
   const cache = CacheService.getScriptCache();
   const cached = cache.get(cacheKey);
+  let catalog;
   if (cached) {
     try {
-      return JSON.parse(cached);
+      catalog = JSON.parse(cached);
     } catch(e) {
       console.warn("Failed to parse cached product catalog:", e);
     }
   }
 
-  const data = getSheetData(CONFIG.SHEETS.PRODUCTS);
-  const catalog = {};
-  data.forEach(row => {
-    const p = row["Product"];
-    const s = row["Sub-Product"];
-    if (!p) return;
-    if (!catalog[p]) catalog[p] = [];
-    if (s && !catalog[p].includes(s)) catalog[p].push(s);
-  });
+  if (!catalog) {
+    const data = getSheetData(CONFIG.SHEETS.PRODUCTS);
+    catalog = {};
+    data.forEach(row => {
+      const p = row["Product"];
+      const s = row["Sub-Product"];
+      if (!p) return;
+      if (!catalog[p]) catalog[p] = [];
+      if (s && !catalog[p].includes(s)) catalog[p].push(s);
+    });
 
-  try {
-    cache.put(cacheKey, JSON.stringify(catalog), 21600); // 6 hours
-  } catch(e) {
-    console.warn("Failed to cache product catalog:", e);
+    try {
+      cache.put(cacheKey, JSON.stringify(catalog), 21600); // 6 hours
+    } catch(e) {
+      console.warn("Failed to cache product catalog:", e);
+    }
   }
 
-  return catalog;
+  // Clone to avoid mutating cached object
+  const resultCatalog = JSON.parse(JSON.stringify(catalog));
+
+  // Restrict 'CS Mgmt' to getLeadershipEmails()
+  const session = getCurrentUserSession();
+  const userEmail = String(session.email || "").toLowerCase().trim();
+  const csLeads = getLeadershipEmails().map(e => e.toLowerCase().trim());
+  if (!csLeads.includes(userEmail)) {
+    delete resultCatalog["CS Mgmt"];
+  }
+
+  return resultCatalog;
 }
 
 /**
@@ -817,6 +907,19 @@ function saveUserAllocation(payload) {
     if (!payload || !payload.period || !validPeriodRegex.test(String(payload.period).trim())) {
       throw new Error("Critical Database Guardrail: Cannot save allocation. The period must be in a valid format (e.g. 'July 2024').");
     }
+
+    // CS Mgmt Guardrail
+    const isCsMgmtAllocation = (payload.allocations || []).some(
+      a => String(a.product || "").trim().toLowerCase() === "cs mgmt" ||
+           String(a.subProduct || "").trim().toLowerCase() === "cs mgmt"
+    );
+    if (isCsMgmtAllocation) {
+      const csLeads = getLeadershipEmails().map(e => e.toLowerCase().trim());
+      const targetEmail = String(payload.email || "").toLowerCase().trim();
+      if (!csLeads.includes(targetEmail)) {
+        throw new Error("Unauthorized: 'CS Mgmt' product and sub-product can only be assigned to Anup and his direct reports.");
+      }
+    }
     
     // Enforce 3-State Master Switch Business Rules
     const state = getSystemConfig()["PHASE_1_STATE"] || "1";
@@ -863,7 +966,7 @@ function saveUserAllocation(payload) {
             : allocHeaders.indexOf("Date of Submission");
           if (dateIdx !== -1 && row[dateIdx]) {
             const dbVal = row[dateIdx];
-            const dbTimeStr = (dbVal instanceof Date) ? dbVal.toISOString() : String(dbVal);
+            const dbTimeStr = (dbVal instanceof Date) ? Utilities.formatDate(dbVal, tz, "yyyy-MM-dd HH:mm:ss") : String(dbVal);
             if (!currentDatabaseTimestamp || dbTimeStr > currentDatabaseTimestamp) {
               currentDatabaseTimestamp = dbTimeStr;
             }
@@ -1105,6 +1208,161 @@ function getFinanceExportData(selectedPeriod) {
 }
 
 /**
+ * Exports raw allocation or skill matrix data, excluding the 'Date and time of Submission' column.
+ * Accessible to Tier 2 (Manager) or above.
+ */
+function getRawExportData(sheetConfigKey, selectedMonth) {
+  const session = validateTier(2); // Manager or above
+  
+  const sheetName = CONFIG.SHEETS[sheetConfigKey];
+  if (!sheetName) {
+    throw new Error("Invalid sheet configuration key.");
+  }
+  
+  const ss = getSpreadsheet();
+  const sheet = ss.getSheetByName(sheetName);
+  if (!sheet) {
+    throw new Error("Sheet not found: " + sheetName);
+  }
+  
+  const values = sheet.getDataRange().getValues();
+  if (values.length === 0) {
+    return [];
+  }
+  
+  const rawHeaders = values[0];
+  const excludeCol = "Date and time of Submission".toLowerCase().trim();
+  const tz = ss.getSpreadsheetTimeZone();
+
+  // Filter by selectedMonth if provided and is not 'All'
+  if (selectedMonth && selectedMonth !== 'All') {
+    const monthLower = selectedMonth.toLowerCase().trim();
+    
+    // Find column indices of possible month fields
+    let monthColIdx = -1;
+    let periodColIdx = -1;
+    let submissionColIdx = -1;
+    
+    rawHeaders.forEach((h, index) => {
+      const name = String(h || "").toLowerCase().trim();
+      if (name === "month and year") monthColIdx = index;
+      if (name === "period") periodColIdx = index;
+      if (name === "date and time of submission") submissionColIdx = index;
+    });
+    
+    const tempRows = [];
+    for (let i = 1; i < values.length; i++) {
+      const row = values[i];
+      let matches = false;
+      
+      if (monthColIdx !== -1 && row[monthColIdx]) {
+        let val = row[monthColIdx];
+        const valStr = (val instanceof Date) ? Utilities.formatDate(val, tz, "MMMM yyyy") : String(val).trim();
+        if (valStr.toLowerCase().trim() === monthLower) matches = true;
+      } else if (periodColIdx !== -1 && row[periodColIdx]) {
+        let val = row[periodColIdx];
+        const valStr = (val instanceof Date) ? Utilities.formatDate(val, tz, "MMMM yyyy") : String(val).trim();
+        if (valStr.toLowerCase().trim() === monthLower) matches = true;
+      } else if (submissionColIdx !== -1 && row[submissionColIdx]) {
+        // Fallback for SKILL_MATRIX or other sheets: parse 'Date and time of Submission'
+        let val = row[submissionColIdx];
+        let valStr = "";
+        if (val instanceof Date) {
+          valStr = Utilities.formatDate(val, tz, "MMMM yyyy");
+        } else {
+          // Parse string format "dd/MM/yyyy HH:mm:ss"
+          const match = String(val).trim().match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+          if (match) {
+            const d = new Date(parseInt(match[3], 10), parseInt(match[2], 10) - 1, parseInt(match[1], 10));
+            valStr = Utilities.formatDate(d, tz, "MMMM yyyy");
+          }
+        }
+        if (valStr.toLowerCase().trim() === monthLower) matches = true;
+      }
+      
+      if (matches) {
+        tempRows.push(row);
+      }
+    }
+    
+    // Replace values with filtered rows (keeping header row[0])
+    values.splice(1, values.length - 1, ...tempRows);
+  }
+  
+  // Load Employee Roster to resolve regional cost center on the fly
+  const employees = getSheetData(CONFIG.SHEETS.EMPLOYEES);
+  const empRegionMap = {};
+  employees.forEach(e => {
+    const email = String(e["Email Address"] || "").toLowerCase().trim();
+    if (email) {
+      empRegionMap[email] = String(e["Cost Center"] || e["Region"] || e["Location"] || "Global").trim();
+    }
+  });
+
+  // Find indices of columns to keep
+  const keepIndices = [];
+  const finalHeaders = [];
+  let emailColIdxInFinal = -1;
+  
+  rawHeaders.forEach((h, index) => {
+    const colName = String(h || "").trim();
+    if (colName.toLowerCase() !== excludeCol) {
+      keepIndices.push(index);
+      finalHeaders.push(colName);
+      if (colName.toLowerCase() === "email address" || colName.toLowerCase() === "email") {
+        emailColIdxInFinal = keepIndices.length - 1;
+      }
+    }
+  });
+  
+  // Verify if a Region column is already present in raw headers
+  const hasRegionCol = rawHeaders.some(h => {
+    const name = String(h || "").toLowerCase().trim();
+    return name === "region" || name === "cost-center" || name === "cost center";
+  });
+  
+  if (!hasRegionCol && emailColIdxInFinal !== -1) {
+    finalHeaders.push("Region");
+  }
+  
+  const rows = [finalHeaders];
+  
+  for (let i = 1; i < values.length; i++) {
+    const row = values[i];
+    const newRow = [];
+    keepIndices.forEach(idx => {
+      let val = row[idx];
+      if (val instanceof Date) {
+        const header = rawHeaders[idx];
+        if (header === "Month and Year" || header === "Period") {
+          val = Utilities.formatDate(val, tz, "MMMM yyyy");
+        } else {
+          const headerLower = String(header || "").toLowerCase();
+          const hasTime = headerLower.includes("time") || headerLower.includes("stamp");
+          val = Utilities.formatDate(val, tz, hasTime ? "yyyy-MM-dd HH:mm:ss" : "yyyy-MM-dd");
+        }
+      }
+      if (typeof val === 'string') {
+        val = val.trim();
+      }
+      newRow.push(val);
+    });
+    
+    // Append resolved region column dynamically if missing
+    if (!hasRegionCol && emailColIdxInFinal !== -1) {
+      const emailIdxInRaw = keepIndices[emailColIdxInFinal];
+      const email = String(row[emailIdxInRaw] || "").toLowerCase().trim();
+      const region = empRegionMap[email] || "Global";
+      newRow.push(region);
+    }
+    
+    rows.push(newRow);
+  }
+  
+  return rows;
+}
+
+/**
  * PHASE 4: Regional Heatmap Aggregation
  */
 function getRegionalHeatmapData(filters) {
@@ -1177,6 +1435,11 @@ function getRegionalHeatmapData(filters) {
   const prodHeadFte = {}; 
   const prodSubFte = {}; 
 
+  // New Joint Product and Sub-Product vs Region Pivots
+  const prodSubSet = new Set();
+  const prodSubRegionFte = {};
+  const prodSubRegionSkillTemp = {};
+
   // Skill Pivots Temps: { [col]: { [row]: { sum, count } } }
   const prodRegionSkillTemp = {};
   const prodHeadSkillTemp = {};
@@ -1210,6 +1473,9 @@ function getRegionalHeatmapData(filters) {
       productsSet.add(product);
       subProductsSet.add(subProduct);
 
+      const compoundKey = product + " | " + subProduct;
+      prodSubSet.add(compoundKey);
+
       const bauVal = a["Allocation BAU"] !== undefined ? a["Allocation BAU"] : a["BAU (%)"];
       const bau = parseFloat(bauVal) || 0;
 
@@ -1229,6 +1495,10 @@ function getRegionalHeatmapData(filters) {
       // Pivot 3: Product vs Sub-Product FTE
       if (!prodSubFte[subProduct]) prodSubFte[subProduct] = {};
       prodSubFte[subProduct][product] = (prodSubFte[subProduct][product] || 0) + fte;
+
+      // Pivot 1b: Product and Sub-Product vs Region FTE
+      if (!prodSubRegionFte[region]) prodSubRegionFte[region] = {};
+      prodSubRegionFte[region][compoundKey] = (prodSubRegionFte[region][compoundKey] || 0) + fte;
     });
 
     // --- Skill Level Aggregations ---
@@ -1269,6 +1539,9 @@ function getRegionalHeatmapData(filters) {
       productsSet.add(product);
       subProductsSet.add(subProduct);
 
+      const compoundKey = product + " | " + subProduct;
+      prodSubSet.add(compoundKey);
+
       const addSkill = (tempObj, col, row, val, valStr) => {
         if (!tempObj[col]) tempObj[col] = {};
         if (!tempObj[col][row]) tempObj[col][row] = { maxPoints: 0, text: "-" };
@@ -1281,6 +1554,9 @@ function getRegionalHeatmapData(filters) {
       addSkill(prodRegionSkillTemp, region, product, points, rawSkill);
       addSkill(prodHeadSkillTemp, head, product, points, rawSkill);
       addSkill(prodSubSkillTemp, subProduct, product, points, rawSkill);
+
+      // Pivot 2b: Product and Sub-Product vs Region Skill Level
+      addSkill(prodSubRegionSkillTemp, region, compoundKey, points, rawSkill);
     });
   });
 
@@ -1303,6 +1579,7 @@ function getRegionalHeatmapData(filters) {
   const prodRegionSkill = finalizeMaxSkills(prodRegionSkillTemp);
   const prodHeadSkill = finalizeMaxSkills(prodHeadSkillTemp);
   const prodSubSkill = finalizeMaxSkills(prodSubSkillTemp);
+  const prodSubRegionSkill = finalizeMaxSkills(prodSubRegionSkillTemp);
 
   const mappedRoster = (emailSet) => {
     return filteredEmployees
@@ -1334,6 +1611,11 @@ function getRegionalHeatmapData(filters) {
       cols: Array.from(subProductsSet).sort(),
       data: prodSubFte
     },
+    prodSubRegionFte: {
+      rows: Array.from(prodSubSet).sort(),
+      cols: Array.from(regionsSet).sort(),
+      data: prodSubRegionFte
+    },
     prodHeadSkill: {
       rows: Array.from(productsSet).sort(),
       cols: Array.from(headsSet).sort(),
@@ -1348,6 +1630,11 @@ function getRegionalHeatmapData(filters) {
       rows: Array.from(productsSet).sort(),
       cols: Array.from(subProductsSet).sort(),
       data: prodSubSkill
+    },
+    prodSubRegionSkill: {
+      rows: Array.from(prodSubSet).sort(),
+      cols: Array.from(regionsSet).sort(),
+      data: prodSubRegionSkill
     }
   };
 }
@@ -1960,6 +2247,13 @@ function initializeDatabaseSchema() {
     {
       name: CONFIG.SHEETS.TPM_TIMESHEET_LOGS,
       headers: ["Log_ID", "User_Email", "Jira_Key", "Date_Logged", "Hours_Logged", "Created_Timestamp", "UAT_Hours", "Int_Hours", "Other_Hours", "Jira_Status"]
+    },
+    {
+      name: CONFIG.SHEETS.OPEX_PROJECT_TRACKER,
+      headers: [
+        "Project ID", "Jira Key", "Stream", "Project Name", "Ops Ex Lead Email", 
+        "Project Champion Emails", "Status", "Last Updated By", "Last Updated"
+      ]
     }
   ];
   
@@ -2356,13 +2650,13 @@ function saveManagerBulkAllocation(payload) {
       // Skip empty placeholder entries
       if (!prod) return;
       
-      // 1. UPDATE SKILL MATRIX
+      // 1. UPDATE SKILL MATRIX (IN MEMORY)
       let skillRowIndex = -1;
       for (let i = 1; i < skillValues.length; i++) {
         if (String(skillValues[i][sEmailIdx]).toLowerCase().trim() === email &&
             String(skillValues[i][sProdIdx]).trim() === prod &&
             String(skillValues[i][sSubIdx] || "General").trim() === subProd) {
-          skillRowIndex = i + 1;
+          skillRowIndex = i; // Store 0-based array index
           break;
         }
       }
@@ -2376,21 +2670,21 @@ function saveManagerBulkAllocation(payload) {
           case "last updated by": return session.realEmail || session.email;
           case "date and time of submission":
           case "date of submission": return Utilities.formatDate(new Date(), tz, "dd/MM/yyyy HH:mm:ss");
-          default: return skillRowIndex !== -1 ? skillValues[skillRowIndex-1][skillHeaders.indexOf(h)] : "";
+          default: return skillRowIndex !== -1 ? skillValues[skillRowIndex][skillHeaders.indexOf(h)] : "";
         }
       });
       
       if (skillRowIndex !== -1) {
-        // Just update the timestamp to reflect the allocation submission
-        skillSheet.getRange(skillRowIndex, 1, 1, skillHeaders.length).setValues([mappedSkillRowValues]);
+        // Just update the timestamp in memory
+        skillValues[skillRowIndex] = mappedSkillRowValues;
       } else {
-        // Insert new skill record if product has been freshly assigned by manager via allocation UI
-        skillSheet.appendRow(mappedSkillRowValues);
+        // Insert new skill record in memory
+        skillValues.push(mappedSkillRowValues);
         logsToCommit.push([email, "SKILL_MATRIX", "Fresh Product Assignment via Allocation", "None", "Unknown"]);
         skillUpdatedCount++;
       }
       
-      // 2. UPDATE HISTORICAL ALLOCATIONS (Proxy Entry / Override)
+      // 2. UPDATE HISTORICAL ALLOCATIONS (IN MEMORY)
       let allocRowIndex = -1;
       for (let i = 1; i < allocValues.length; i++) {
         const rawP = allocValues[i][aPeriodIdx];
@@ -2400,7 +2694,7 @@ function saveManagerBulkAllocation(payload) {
             String(allocValues[i][aProdIdx]).trim() === prod &&
             String(allocValues[i][aSubIdx] || "General").trim() === subProd &&
             rowPeriod.toLowerCase().trim() === allocPeriod.toLowerCase()) {
-          allocRowIndex = i + 1;
+          allocRowIndex = i; // Store 0-based array index
           break;
         }
       }
@@ -2412,9 +2706,9 @@ function saveManagerBulkAllocation(payload) {
           const dateIdx = allocHeaders.indexOf("Date and time of Submission") !== -1 
             ? allocHeaders.indexOf("Date and time of Submission") 
             : allocHeaders.indexOf("Date of Submission");
-          if (dateIdx !== -1 && allocValues[allocRowIndex-1][dateIdx]) {
-            const dbVal = allocValues[allocRowIndex-1][dateIdx];
-            currentDbTimestamp = (dbVal instanceof Date) ? dbVal.toISOString() : String(dbVal);
+          if (dateIdx !== -1 && allocValues[allocRowIndex][dateIdx]) {
+            const dbVal = allocValues[allocRowIndex][dateIdx];
+            currentDbTimestamp = (dbVal instanceof Date) ? Utilities.formatDate(dbVal, tz, "yyyy-MM-dd HH:mm:ss") : String(dbVal);
           }
         }
         
@@ -2449,20 +2743,28 @@ function saveManagerBulkAllocation(payload) {
       });
       
       if (allocRowIndex !== -1) {
-        const beforeState = `BAU: ${allocValues[allocRowIndex-1][allocHeaders.indexOf("Allocation BAU") === -1 ? allocHeaders.indexOf("BAU (%)") : allocHeaders.indexOf("Allocation BAU")]}%`;
+        const beforeState = `BAU: ${allocValues[allocRowIndex][allocHeaders.indexOf("Allocation BAU") === -1 ? allocHeaders.indexOf("BAU (%)") : allocHeaders.indexOf("Allocation BAU")]}%`;
         const afterState = `BAU: ${item.bau}%`;
         
-        // Update existing allocation row
-        allocSheet.getRange(allocRowIndex, 1, 1, allocHeaders.length).setValues([mappedRowValues]);
+        // Update existing allocation row in memory
+        allocValues[allocRowIndex] = mappedRowValues;
         logsToCommit.push([email, "ALLOCATION_DATA", "Manager Proxy/Override Update", beforeState, afterState]);
         allocUpdatedCount++;
       } else {
-        // Append new allocation row
-        allocSheet.appendRow(mappedRowValues);
+        // Append new allocation row in memory
+        allocValues.push(mappedRowValues);
         logsToCommit.push([email, "ALLOCATION_DATA", "Manager Fresh Proxy Entry", "None", `BAU: ${item.bau}%`]);
         allocUpdatedCount++;
       }
     });
+    
+    // Perform exactly one batch write operation per sheet
+    if (skillValues.length > 1) {
+      skillSheet.getRange(1, 1, skillValues.length, skillHeaders.length).setValues(skillValues);
+    }
+    if (allocValues.length > 1) {
+      allocSheet.getRange(1, 1, allocValues.length, allocHeaders.length).setValues(allocValues);
+    }
     
     // Commit logs to System Logs and fire telemetry hooks
     logsToCommit.forEach(log => {
@@ -2477,7 +2779,6 @@ function saveManagerBulkAllocation(payload) {
     });
     
     // Also recalculate cached summaries in All Employee sheet for updated employees
-    // (We trigger this silently to make sure dashboards are accurate!)
     if (skillUpdatedCount > 0) {
       clearSheetCache(CONFIG.SHEETS.SKILL_MATRIX);
     }
@@ -2486,14 +2787,89 @@ function saveManagerBulkAllocation(payload) {
       clearSheetCache(CONFIG.SHEETS.EMPLOYEES);
       
       const updatedEmails = [...new Set(payload.map(item => String(item.email).toLowerCase().trim()))];
+      
+      // Perform optimized single-roundtrip batch calculation for all updated employees
+      recalculateEmployeesFteCacheBatch(updatedEmails);
+      
       updatedEmails.forEach(email => {
-        recalculateEmployeeFteCache(email);
         clearUserProfileCache(email); // Bust profile cache to reflect changes
       });
     }
     
     return `Successfully saved. Updated ${skillUpdatedCount} skills and ${allocUpdatedCount} allocation splits.`;
   });
+}
+
+/**
+ * HELPER: Recalculates and updates the aggregated FTE cache inside 'App All Employee Data' 
+ * for multiple employees in a single batch read/write operation.
+ */
+function recalculateEmployeesFteCacheBatch(emails) {
+  if (!Array.isArray(emails) || emails.length === 0) return;
+  const lowerEmails = emails.map(e => String(e).toLowerCase().trim());
+
+  const ss = getSpreadsheet();
+  const empSheet = ss.getSheetByName(CONFIG.SHEETS.EMPLOYEES);
+  const allocSheet = ss.getSheetByName(CONFIG.SHEETS.ALLOCATION_HISTORICAL);
+  
+  if (!empSheet || !allocSheet) return;
+  
+  const empValues = empSheet.getDataRange().getValues();
+  const empHeaders = empValues[0].map(h => String(h || "").trim());
+  const empEmailIdx = empHeaders.indexOf("Email Address");
+  
+  const allocValues = allocSheet.getDataRange().getValues();
+  const allocHeaders = allocValues[0].map(h => String(h || "").trim());
+  const aEmailIdx = allocHeaders.indexOf("Email Address");
+  const aPeriodIdx = allocHeaders.indexOf("Month and Year") === -1 ? allocHeaders.indexOf("Period") : allocHeaders.indexOf("Month and Year");
+  const aBauIdx = allocHeaders.indexOf("Allocation BAU") === -1 ? allocHeaders.indexOf("BAU (%)") : allocHeaders.indexOf("Allocation BAU");
+  const aNbauIdx = allocHeaders.indexOf("Allocation Non-BAU") === -1 ? allocHeaders.indexOf("Non-BAU (%)") : allocHeaders.indexOf("Allocation Non-BAU");
+  
+  const currentPeriod = getActivePeriod().toLowerCase().trim();
+
+  // 1. Group and Sum allocations in-memory
+  const totalsMap = {};
+  lowerEmails.forEach(email => {
+    totalsMap[email] = { sumBau: 0, sumNbau: 0 };
+  });
+
+  for (let i = 1; i < allocValues.length; i++) {
+    const rawEmail = String(allocValues[i][aEmailIdx]).toLowerCase().trim();
+    if (totalsMap[rawEmail] === undefined) continue;
+
+    const rawP = allocValues[i][aPeriodIdx];
+    const rowPeriod = (rawP instanceof Date) ? Utilities.formatDate(rawP, "GMT", "MMMM yyyy") : String(rawP);
+    
+    if (rowPeriod.toLowerCase().trim() === currentPeriod) {
+      totalsMap[rawEmail].sumBau += parseFloat(allocValues[i][aBauIdx]) || 0;
+      totalsMap[rawEmail].sumNbau += parseFloat(allocValues[i][aNbauIdx]) || 0;
+    }
+  }
+  
+  // 2. Modify employee rows in-memory
+  const bauIdx = empHeaders.indexOf("BAU (%)");
+  const nbauIdx = empHeaders.indexOf("Non-BAU (%)");
+  const fteIdx = empHeaders.indexOf("Total FTE (%)");
+  const lastUpdatedIdx = empHeaders.indexOf("Last Updated");
+
+  let modifiedAny = false;
+
+  for (let i = 1; i < empValues.length; i++) {
+    const email = String(empValues[i][empEmailIdx]).toLowerCase().trim();
+    if (totalsMap[email] !== undefined) {
+      const totals = totalsMap[email];
+      if (bauIdx !== -1) empValues[i][bauIdx] = totals.sumBau;
+      if (nbauIdx !== -1) empValues[i][nbauIdx] = totals.sumNbau;
+      if (fteIdx !== -1) empValues[i][fteIdx] = totals.sumBau + totals.sumNbau;
+      if (lastUpdatedIdx !== -1) empValues[i][lastUpdatedIdx] = new Date();
+      modifiedAny = true;
+    }
+  }
+  
+  // 3. Single batch write
+  if (modifiedAny) {
+    empSheet.getRange(1, 1, empValues.length, empHeaders.length).setValues(empValues);
+  }
 }
 
 /**
@@ -2541,10 +2917,13 @@ function recalculateEmployeeFteCache(email) {
       const fteIdx = empHeaders.indexOf("Total FTE (%)");
       const lastUpdatedIdx = empHeaders.indexOf("Last Updated");
       
-      if (bauIdx !== -1) empSheet.getRange(i + 1, bauIdx + 1).setValue(sumBau);
-      if (nbauIdx !== -1) empSheet.getRange(i + 1, nbauIdx + 1).setValue(sumNbau);
-      if (fteIdx !== -1) empSheet.getRange(i + 1, fteIdx + 1).setValue(sumBau + sumNbau);
-      if (lastUpdatedIdx !== -1) empSheet.getRange(i + 1, lastUpdatedIdx + 1).setValue(new Date());
+      const empRow = empValues[i];
+      if (bauIdx !== -1) empRow[bauIdx] = sumBau;
+      if (nbauIdx !== -1) empRow[nbauIdx] = sumNbau;
+      if (fteIdx !== -1) empRow[fteIdx] = sumBau + sumNbau;
+      if (lastUpdatedIdx !== -1) empRow[lastUpdatedIdx] = new Date();
+      
+      empSheet.getRange(i + 1, 1, 1, empRow.length).setValues([empRow]);
       break;
     }
   }
@@ -2647,6 +3026,12 @@ function getTeamProductsData() {
     }
   });
 
+  const allManagers = new Set();
+  employees.forEach(e => {
+    const mgr = String(e["Direct Manager Name"] || "").toLowerCase().trim();
+    if (mgr && mgr !== "n/a" && mgr !== "unknown") allManagers.add(mgr);
+  });
+
   const teamHierarchy = employees.filter(e => {
     const email = String(e["Email Address"] || "").toLowerCase();
     if (CONFIG.IGNORED_EMAILS.includes(email)) return false; // Exclude top-level execs
@@ -2670,14 +3055,17 @@ function getTeamProductsData() {
     const managerEmail = String(e["Direct Manager Email"] || "").toLowerCase();
     const managerName = String(e["Direct Manager Name"] || "").toLowerCase();
     const isDirectReport = isAdmin || (lead === userNameLower || managerEmail === userEmailLower || managerName === userNameLower);
+    const empName = (e["Google Chat Full Name"] || e["HR Name"] || `${e["First Name"] || ""} ${e["Last Name"] || ""}`).trim();
+    const empHasReports = allManagers.has(empName.toLowerCase());
 
     return {
-      name: (e["Google Chat Full Name"] || e["HR Name"] || `${e["First Name"] || ""} ${e["Last Name"] || ""}`).trim(),
+      name: empName,
       email: e["Email Address"],
       role: e["Profile"] || "Employee",
       isDirectReport: isDirectReport,
       hasProductScope: productScopeAssigned.has(email),
-      hasSkills: skillAssigned.has(email)
+      hasSkills: skillAssigned.has(email),
+      hasReports: empHasReports
     };
   });
   
@@ -2705,6 +3093,19 @@ function getTeamProductsData() {
 function saveTeamProducts(email, assignments) {
   return runWithWriteLock(() => {
     const session = validateTier(2); // Manager or above
+
+    // CS Mgmt Guardrail
+    const isCsMgmtAssignment = (assignments || []).some(
+      a => String(a.product || "").trim().toLowerCase() === "cs mgmt"
+    );
+    if (isCsMgmtAssignment) {
+      const csLeads = getLeadershipEmails().map(e => e.toLowerCase().trim());
+      const targetEmail = String(email || "").toLowerCase().trim();
+      if (!csLeads.includes(targetEmail)) {
+        throw new Error("Unauthorized: 'CS Mgmt' product and sub-product can only be assigned to Anup and his direct reports.");
+      }
+    }
+
     const ss = getSpreadsheet();
     const tz = ss.getSpreadsheetTimeZone();
     const sheet = ss.getSheetByName(CONFIG.SHEETS.SKILL_MATRIX);
@@ -2775,32 +3176,20 @@ function saveTeamProducts(email, assignments) {
  */
 function getManagerProductAllocation(email) {
   validateTier(1);
+  const normalizedEmail = String(email).toLowerCase().trim();
+  
+  const csLeads = getLeadershipEmails().map(e => e.toLowerCase().trim());
+
+  if (csLeads.includes(normalizedEmail)) {
+    return [{ product: "CS Mgmt", subProduct: "CS Mgmt" }];
+  }
+
   const data = getSheetData(CONFIG.SHEETS.MANAGER_PRODUCT_ALLOCATION);
-  const results = data.filter(r => String(r["Email Address"]).toLowerCase().trim() === String(email).toLowerCase().trim())
+  const results = data.filter(r => String(r["Email Address"]).toLowerCase().trim() === normalizedEmail)
     .map(r => ({
       product: r["Product"] || "",
       subProduct: r["Sub-Product"] || ""
     }));
-
-  // Auto-inject Mgmt/Mgmt product for Managers
-  const employees = getSheetData(CONFIG.SHEETS.EMPLOYEES);
-  const emp = employees.find(e => String(e["Email Address"] || "").toLowerCase().trim() === String(email).toLowerCase().trim());
-  const empName = emp ? (emp["Google Chat Full Name"] || emp["HR Name"] || `${emp["First Name"] || ""} ${emp["Last Name"] || ""}`).trim().toLowerCase() : "";
-  
-  const allManagers = new Set();
-  employees.forEach(e => {
-    const mgr = String(e["Direct Manager Name"] || "").toLowerCase().trim();
-    if (mgr && mgr !== "n/a" && mgr !== "unknown") allManagers.add(mgr);
-  });
-  
-  const hasReports = empName ? allManagers.has(empName) : false;
-  
-  if (hasReports) {
-    const hasMgmt = results.some(r => String(r.product).trim().toLowerCase() === "mgmt" && String(r.subProduct).trim().toLowerCase() === "mgmt");
-    if (!hasMgmt) {
-      results.push({ product: "Mgmt", subProduct: "Mgmt" });
-    }
-  }
 
   return JSON.parse(JSON.stringify(results));
 }
@@ -2810,6 +3199,19 @@ function getManagerProductAllocation(email) {
  */
 function saveManagerProductAllocation(email, assignments) {
   const session = validateTier(2); // Manager or above
+
+  // CS Mgmt Guardrail
+  const isCsMgmtAssignment = (assignments || []).some(
+    a => String(a.product || "").trim().toLowerCase() === "cs mgmt"
+  );
+  if (isCsMgmtAssignment) {
+    const csLeads = getLeadershipEmails().map(e => e.toLowerCase().trim());
+    const targetEmail = String(email || "").toLowerCase().trim();
+    if (!csLeads.includes(targetEmail)) {
+      throw new Error("Unauthorized: 'CS Mgmt' product and sub-product can only be assigned to Anup and his direct reports.");
+    }
+  }
+
   const ss = getSpreadsheet();
   const tz = ss.getSpreadsheetTimeZone();
   const sheet = ss.getSheetByName(CONFIG.SHEETS.MANAGER_PRODUCT_ALLOCATION);
@@ -3464,16 +3866,13 @@ function cleanupCorruptedRows() {
  */
 function isActiveEmployee(e) {
   const status = String(e["HR Employment Status"] || "").toLowerCase().trim();
-  const termDate = String(e["HR Termination Date"] || "").toLowerCase().trim();
   
   // Exclude explicit negative statuses
   if (status.includes("term") || status.includes("inactive") || status.includes("leave") || status.includes("separated")) return false;
   
-  // If we have a populated status and it's not active, exclude them
-  if (status && status !== "active") return false;
+  // If we have a populated status, it must be 'active', 'pending' or similar placeholder to be considered active
+  if (status && status !== "active" && !status.includes("pending")) return false;
   
-  const emptyTermDates = ["", "n/a", "active (no term date)", "null", "-", "none", "0"];
-  if (termDate && !emptyTermDates.includes(termDate)) return false;
   return true;
 }
 
@@ -3487,6 +3886,15 @@ function getAdminMonitorData(period) {
   const session = getCurrentUserSession();
   if (session.tier < 3 && !session.isExecutiveView) {
     throw new Error("Unauthorized: Executive or Admin access required.");
+  }
+  
+  const currentPeriod = period || getActivePeriod();
+  const cacheKey = "ADMIN_COMPLIANCE_MONITOR_" + currentPeriod.toLowerCase().replace(/[^a-z0-9]/g, "_");
+  
+  const cached = getCachedData(cacheKey);
+  if (cached) {
+    console.log("[COMPLIANCE_CACHE] Returning cached compliance monitor payload for " + currentPeriod);
+    return cached;
   }
   
   const ss = getSpreadsheet();
@@ -3511,9 +3919,6 @@ function getAdminMonitorData(period) {
       ignoredEmails.add(rowEmail);
     }
   });
-  
-  // Current Period Setup
-  const currentPeriod = period || getActivePeriod();
   
   // Aggregate emails and total allocation percentage for fast lookup (lowercase and trimmed)
   const allocationTotals = {}; // email -> total percentage sum
@@ -3618,7 +4023,29 @@ function getAdminMonitorData(period) {
       };
     });
     
-  return JSON.parse(JSON.stringify(results));
+  const output = JSON.parse(JSON.stringify(results));
+  
+  // Put into cache for 5 minutes
+  putCachedData(cacheKey, output, 300);
+  
+  // Track this period key so we can invalidate it on updates
+  try {
+    const cache = CacheService.getScriptCache();
+    const periodsStr = cache.get("ADMIN_COMPLIANCE_MONITOR_PERIODS");
+    let periods = [];
+    if (periodsStr) {
+      periods = JSON.parse(periodsStr);
+    }
+    const cleanPeriod = currentPeriod.toLowerCase().replace(/[^a-z0-9]/g, "_");
+    if (!periods.includes(cleanPeriod)) {
+      periods.push(cleanPeriod);
+      cache.put("ADMIN_COMPLIANCE_MONITOR_PERIODS", JSON.stringify(periods), 3600); // 1 hour tracking
+    }
+  } catch(e) {
+    console.warn("Failed to update period compliance tracking", e.message);
+  }
+  
+  return output;
 }
 
 /**
@@ -3638,7 +4065,7 @@ function sendBulkNotifications(payload) {
   }
   if (!subject) throw new Error("Email subject is required.");
   
-  const prodUrl = "https://script.google.com/a/macros/osttra.com/s/AKfycby7bDQ1d4cvOdK3aRqWmFlygrTLo5Jeio123wJQglApifdcnMbPleqymrfKoxhljOov/exec";
+  const prodUrl = CONFIG.NEXUS_BASE_URL;
   const supportUrl = "https://chat.google.com/room/AAQA8P9oueE?cls=7";
   const videoUrl = "https://drive.google.com/file/d/1KI-rN_SXiOt7hSipvZl5mnAh7Lk8OCgh/view";
 
@@ -4183,4 +4610,226 @@ function removeManualInactiveRecord(email) {
   } else {
     throw new Error("Email not found in the manual overrides list.");
   }
+}
+
+/**
+ * Securely retrieves OPEX projects from the database sheet.
+ * Filters projects based on active user's secure server-side session role.
+ */
+function getOpexProjects() {
+  const session = getCurrentUserSession();
+  const userEmail = String(session.email || "").toLowerCase().trim();
+  const isOpex = !!session.isOpexUser || session.tier >= 3;
+  
+  const rawData = getSheetData(CONFIG.SHEETS.OPEX_PROJECT_TRACKER);
+  if (rawData.length === 0) {
+    return { projects: [], permissions: isOpex ? 'ADMIN' : 'CHAMPION' };
+  }
+  
+  if (isOpex) {
+    // Admins and OPEX reps see all projects
+    return { projects: rawData, permissions: 'ADMIN' };
+  } else {
+    // Champions only see projects where they are listed as a champion
+    const filtered = rawData.filter(row => {
+      const championsCell = String(row["Project Champion Emails"] || "").toLowerCase();
+      const champions = championsCell.split(",").map(e => e.trim()).filter(Boolean);
+      return champions.includes(userEmail);
+    });
+    return { projects: filtered, permissions: 'CHAMPION' };
+  }
+}
+
+/**
+ * Securely updates or creates an OPEX project.
+ * Implements row-level write validation to enforce read-only columns for Champions.
+ */
+function saveOpexProject(payload) {
+  return runWithWriteLock(() => {
+    const session = getCurrentUserSession();
+    const userEmail = String(session.email || "").toLowerCase().trim();
+    const isOpex = !!session.isOpexUser || session.tier >= 3;
+    const permissions = isOpex ? 'ADMIN' : 'CHAMPION';
+    
+    const ss = getSpreadsheet();
+    const tz = ss.getSpreadsheetTimeZone();
+    const sheet = ss.getSheetByName(CONFIG.SHEETS.OPEX_PROJECT_TRACKER);
+    if (!sheet) throw new Error("OPEX Project Tracker sheet not found.");
+    
+    const data = sheet.getDataRange().getValues();
+    const headers = data[0].map(h => String(h || "").trim());
+    
+    const idIdx = headers.indexOf("Project ID");
+    const jiraIdx = headers.indexOf("Jira Key");
+    const streamIdx = headers.indexOf("Stream");
+    const nameIdx = headers.indexOf("Project Name");
+    const leadIdx = headers.indexOf("Ops Ex Lead Email");
+    const champIdx = headers.indexOf("Project Champion Emails");
+    const statusIdx = headers.indexOf("Status");
+    const updatedByIdx = headers.indexOf("Last Updated By");
+    const dateIdx = headers.indexOf("Last Updated");
+    
+    if (idIdx === -1 || statusIdx === -1) {
+      throw new Error("Tracker sheet headers are missing or invalid.");
+    }
+    
+    let projectId = String(payload["Project ID"] || payload["projectId"] || "").trim();
+    let rowIndex = -1;
+    let existingRecord = null;
+    
+    // If we have an ID, find the row in the sheet
+    if (projectId) {
+      for (let i = 1; i < data.length; i++) {
+        if (String(data[i][idIdx]).trim() === projectId) {
+          rowIndex = i + 1;
+          // Parse existing record as key-value pairs
+          existingRecord = {};
+          headers.forEach((h, idx) => {
+            existingRecord[h] = data[i][idx];
+          });
+          break;
+        }
+      }
+    }
+    
+    // Secure Write Check: A CHAMPION can only edit Status & Comments!
+    if (permissions === 'CHAMPION') {
+      if (rowIndex === -1) {
+        throw new Error("Unauthorized: Champions are not permitted to create new projects.");
+      }
+      
+      // Verify that the Champion is actually assigned to this project to prevent spoofed ID edits
+      const assignedChamps = String(existingRecord["Project Champion Emails"] || "").toLowerCase()
+        .split(",").map(e => e.trim()).filter(Boolean);
+      if (!assignedChamps.includes(userEmail)) {
+        throw new Error("Unauthorized: You do not have permission to update this project.");
+      }
+      
+      // Force all fields to their database-original values, EXCEPT Status & Comments
+      payload["Stream"] = existingRecord["Stream"];
+      payload["Project Name"] = existingRecord["Project Name"];
+      payload["Ops Ex Lead Email"] = existingRecord["Ops Ex Lead Email"];
+      payload["Project Champion Emails"] = existingRecord["Project Champion Emails"];
+      payload["Jira Key"] = existingRecord["Jira Key"];
+      payload["Project ID"] = projectId; // Keep existing ID
+    }
+    
+    // Auto-generate ID for newly created projects (Admin only)
+    if (permissions === 'ADMIN' && rowIndex === -1) {
+      // Backend Validation: Forbid manual creation of DigiOps and Process Improvements projects
+      const incomingStream = String(payload["Stream"] || payload["stream"] || "").trim();
+      if (["DigiOps", "Process Improvements"].includes(incomingStream)) {
+        throw new Error("Unauthorized: DigiOps and Process Improvements projects cannot be created manually. They must be synced from JIRA.");
+      }
+
+      let maxNum = 0;
+      for (let i = 1; i < data.length; i++) {
+        const idStr = String(data[i][idIdx]).trim();
+        const match = idStr.match(/^OPX-(\d+)$/i);
+        if (match) {
+          const num = parseInt(match[1], 10);
+          if (num > maxNum) maxNum = num;
+        }
+      }
+      projectId = "OPX-" + String(maxNum + 1).padStart(3, "0");
+      payload["Project ID"] = projectId;
+    }
+    
+    // Map values to row array matching spreadsheet headers exactly
+    const rowValues = headers.map(h => {
+      switch(h) {
+        case "Project ID": return projectId;
+        case "Jira Key": return String(payload["Jira Key"] || payload["jiraKey"] || "").trim();
+        case "Stream": return String(payload["Stream"] || payload["stream"] || "").trim();
+        case "Project Name": return String(payload["Project Name"] || payload["projectName"] || "").trim();
+        case "Ops Ex Lead Email": 
+          const leadsRaw = String(payload["Ops Ex Lead Email"] || payload["opsExLeadEmail"] || "").trim().toLowerCase();
+          return leadsRaw.split(",").map(e => e.trim()).filter(Boolean).join(", ");
+        case "Project Champion Emails": 
+          const champsRaw = String(payload["Project Champion Emails"] || payload["projectChampionEmails"] || "").trim().toLowerCase();
+          return champsRaw.split(",").map(e => e.trim()).filter(Boolean).join(", ");
+        case "Status": return String(payload["Status"] || payload["status"] || "Not Started").trim();
+        case "Last Updated By": return String(payload["Last Updated By"] || payload["lastUpdatedBy"] || session.realEmail || session.email).trim().toLowerCase();
+        case "Last Updated": return Utilities.formatDate(new Date(), tz, "dd/MM/yyyy HH:mm:ss");
+        default: return "";
+      }
+    });
+    
+    if (rowIndex !== -1) {
+      sheet.getRange(rowIndex, 1, 1, rowValues.length).setValues([rowValues]);
+    } else {
+      sheet.appendRow(rowValues);
+    }
+    
+    // Bust sheet caching
+    clearSheetCache(CONFIG.SHEETS.OPEX_PROJECT_TRACKER);
+    
+    logSystemEvent(
+      session.realEmail || session.email, 
+      projectId, 
+      rowIndex !== -1 ? "Updated OPEX Project" : "Created OPEX Project", 
+      CONFIG.SHEETS.OPEX_PROJECT_TRACKER, 
+      existingRecord ? JSON.stringify(existingRecord) : "N/A", 
+      JSON.stringify(payload)
+    );
+    
+    return { success: true, message: `Successfully saved project ${projectId}`, projectId };
+  });
+}
+/**
+ * EXEC ANALYTICS: Get Headcount Trend Dashboard Data
+ */
+function getHeadcountDashboardData() {
+  validateTier(2); // Leadership / Admin
+  const ss = getSpreadsheet();
+  
+  // 1. Fetch Trend Data (Last 60 rows)
+  let trendData = [];
+  const trendSheet = ss.getSheetByName(CONFIG.SHEETS.HEADCOUNT_TREND);
+  if (trendSheet) {
+    const rawTrend = trendSheet.getDataRange().getValues();
+    if (rawTrend.length > 1) {
+      const headers = rawTrend[0];
+      const rows = rawTrend.slice(1);
+      // Get the last 60 days
+      const recentRows = rows.slice(-60);
+      
+      trendData = recentRows.map(r => {
+        let obj = {};
+        headers.forEach((h, i) => {
+          obj[String(h).trim()] = r[i];
+        });
+        // Format timestamp safely
+        if (obj['Timestamp'] instanceof Date) {
+          obj['Timestamp'] = Utilities.formatDate(obj['Timestamp'], ss.getSpreadsheetTimeZone(), "MMM dd, yyyy");
+        }
+        return obj;
+      });
+    }
+  }
+
+  // 2. Fetch Audit Data (Last 50 rows)
+  let auditData = [];
+  const auditSheet = ss.getSheetByName(CONFIG.SHEETS.HEADCOUNT_AUDIT);
+  if (auditSheet) {
+    const rawAudit = auditSheet.getDataRange().getValues();
+    if (rawAudit.length > 1) {
+      const headers = rawAudit[0];
+      const rows = rawAudit.slice(1);
+      const recentRows = rows.slice(-50).reverse(); // Most recent first
+      
+      auditData = recentRows.map(r => {
+        let obj = {};
+        headers.forEach((h, i) => {
+          obj[String(h).trim()] = r[i];
+        });
+        if (obj['Timestamp'] instanceof Date) {
+          obj['Timestamp'] = Utilities.formatDate(obj['Timestamp'], ss.getSpreadsheetTimeZone(), "MMM dd, yyyy HH:mm");
+        }
+        return obj;
+      });
+    }
+  }
+
+  return { trend: trendData, audit: auditData };
 }

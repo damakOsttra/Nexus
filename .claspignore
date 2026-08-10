@@ -1,0 +1,10 @@
+**/**
+!*.js
+!appsscript.json
+!ui/**/*.html
+jira_api.js
+jira-credentials.json
+GEMINI.md
+.gemini/
+data/
+node_modules/

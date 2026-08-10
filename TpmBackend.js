@@ -7,20 +7,33 @@
  * Sync Jira Epic tickets for the TPM project into the local cache sheet.
  * Accessible to Admins (or triggered via a schedule).
  */
+/**
+ * Sync Jira Epic tickets for the TPM project into the local cache sheet.
+ * Performs a fast incremental sync (only fetches tickets updated in the last 14 days) to prevent UI lag.
+ */
 function syncTpmJiraData() {
-  const session = validateTier(1); // Allow TPM users to trigger if needed, or enforce higher
-  
+  validateTier(1); 
+  const JQL = 'project in ("TPM", "PSS", "BSM") AND updated >= -60d ORDER BY updated DESC';
+  return executeJiraSyncEngine(JQL, false);
+}
+
+/**
+ * Fully sync all Jira Epic tickets into the local cache sheet.
+ * Intended to be run safely in the background (e.g., via a weekly schedule trigger).
+ */
+function syncTpmJiraDataFull() {
+  validateTier(1); 
+  const JQL = 'project in ("TPM", "PSS", "BSM") ORDER BY updated DESC';
+  return executeJiraSyncEngine(JQL, true);
+}
+
+/**
+ * Core engine executing the actual Jira fetching, mapping, and merging logic.
+ * Correctly paginates using Jira Cloud startAt and maxResults.
+ */
+function executeJiraSyncEngine(JQL, isFullSync) {
   const scriptProperties = PropertiesService.getScriptProperties();
   const JIRA_BASE = scriptProperties.getProperty('JIRA_BASE_URL') || 'https://osttra.atlassian.net';
-  const USER_EMAIL = scriptProperties.getProperty('JIRA_USER_EMAIL') || 'damak.k@osttra.com';
-  const API_TOKEN = scriptProperties.getProperty('JIRA_API_TOKEN') || '';
-  
-  if (!API_TOKEN) {
-    throw new Error("Jira API Token is missing in Script Properties (JIRA_API_TOKEN).");
-  }
-  
-  // Fetch all issues from TPM and PSS projects to get Epics, Deployments, and Child tickets
-  const JQL = 'project in ("TPM", "PSS") ORDER BY updated DESC';
 
   const COLUMNS_TO_EXTRACT = [
     "Key", "Issue_Type", "Parent_Key", "Account_Name", "Summary", "Status", "Go Live & Onboarding EE",
@@ -29,10 +42,7 @@ function syncTpmJiraData() {
     "Expected project start date", "Created", "Updated", "Technical go-live date", "Opportunity Close Date", "Assignee", "Secondary Assignee", "Planned end", "Planned start"
   ];
 
-  const authHeader = { 
-    Authorization: 'Basic ' + Utilities.base64Encode(`${USER_EMAIL}:${API_TOKEN}`), 
-    Accept: 'application/json' 
-  };
+  const authHeader = getJiraHeaders();
 
   // 1. Fetch Field Metadata to map names to field IDs
   const fieldResponse = UrlFetchApp.fetch(`${JIRA_BASE}/rest/api/3/field`, {
@@ -40,14 +50,13 @@ function syncTpmJiraData() {
     headers: authHeader,
     muteHttpExceptions: true
   });
-  
+
   const fieldData = JSON.parse(fieldResponse.getContentText());
   const nameToIdMap = {};
-  
+
   if (Array.isArray(fieldData)) {
     fieldData.forEach(f => {
       nameToIdMap[f.name] = f.id;
-      // Also map standard lowercase fields
       nameToIdMap[f.name.toLowerCase()] = f.id;
     });
   }
@@ -62,21 +71,20 @@ function syncTpmJiraData() {
   const apiFieldsToRequest = COLUMNS_TO_EXTRACT
     .map(name => nameToIdMap[name] || nameToIdMap[name.toLowerCase()])
     .filter(id => id !== undefined); 
-    
+
   apiFieldsToRequest.push('key'); 
 
-  // 2. Fetch all matching issues
-  const maxResults = 100;
+  // 2. Fetch all matching issues using the mandatory /search/jql endpoint with cursor-based pagination
   let nextPageToken = null;
   let allIssues = [];
 
   do {
     const payload = {
       jql: JQL,
-      maxResults: maxResults,
+      maxResults: 100,
       fields: apiFieldsToRequest
     };
-    
+
     if (nextPageToken) {
       payload.nextPageToken = nextPageToken;
     }
@@ -93,18 +101,18 @@ function syncTpmJiraData() {
     const data = JSON.parse(response.getContentText());
 
     if (data.errorMessages) throw new Error("Jira API Error: " + data.errorMessages.join(", "));
-    
+
     if (data.issues && data.issues.length > 0) {
       data.issues.forEach(issue => allIssues.push(issue));
     }
-    
+
     nextPageToken = data.nextPageToken;
 
   } while (nextPageToken);
 
   // 3. Resolve assignee emails using the employees roster
   const employees = getSheetData(CONFIG.SHEETS.EMPLOYEES);
-  
+
   const getValueAsString = (f) => {
     if (f === null || f === undefined) return "";
     if (typeof f !== 'object') return String(f);
@@ -121,10 +129,10 @@ function syncTpmJiraData() {
   const resolveEmail = (assigneeObj) => {
     if (!assigneeObj) return "unassigned@osttra.com";
     if (assigneeObj.emailAddress) return assigneeObj.emailAddress.toLowerCase().trim();
-    
+
     const displayName = String(assigneeObj.displayName || "").toLowerCase().trim();
     if (!displayName) return "unassigned@osttra.com";
-    
+
     for (let i = 0; i < employees.length; i++) {
       const emp = employees[i];
       const hrName = String(emp["HR Name"] || "").toLowerCase().trim();
@@ -143,7 +151,7 @@ function syncTpmJiraData() {
     "Go Live & Onboarding EE", "Project start date", "Go-live date", 
     "UAT Estimate", "Effort Estimate (Effort days)", "Expected Go Live Date", 
     "UAT start date", "Project Sizing", "Expected UAT start date", 
-    "Expected project start date", "Created", "Updated", "Technical go-live date", "Planned end", "Planned start"
+    "Expected project start date", "Created", "Updated", "Technical go-live date", "Opportunity Close Date", "Planned end", "Planned start"
   ];
 
   const rows = [headers];
@@ -151,7 +159,7 @@ function syncTpmJiraData() {
   allIssues.forEach(issue => {
     const f = issue.fields;
     const row = [];
-    
+
     headers.forEach(h => {
       if (h === "Key") {
         row.push(issue.key);
@@ -183,17 +191,72 @@ function syncTpmJiraData() {
     rows.push(row);
   });
 
-  // 5. Overwrite the sheet cache
+  // 5. Overwrite/Merge local cache sheet
   return runWithWriteLock(() => {
     const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
     let sheet = ss.getSheetByName(CONFIG.SHEETS.TPM_JIRA_CACHE);
     if (!sheet) {
       sheet = ss.insertSheet(CONFIG.SHEETS.TPM_JIRA_CACHE);
     }
+
+    let mergedRows = [];
+    if (!isFullSync) {
+      // Incremental Sync Merge logic
+      let existingData = [];
+      try {
+        existingData = sheet.getDataRange().getValues();
+      } catch (e) {}
+
+      if (existingData.length > 0 && existingData[0].length > 0) {
+        const headerRow = existingData[0];
+        mergedRows.push(headerRow);
+
+        const keyColIndex = headerRow.indexOf("Key");
+        const existingRowsMap = {};
+        for (let i = 1; i < existingData.length; i++) {
+          const r = existingData[i];
+          const key = String(r[keyColIndex]).toUpperCase().trim();
+          if (key) {
+            existingRowsMap[key] = r;
+          }
+        }
+
+        // Merge newly fetched tickets
+        for (let i = 1; i < rows.length; i++) {
+          const newRow = rows[i];
+          const key = String(newRow[0]).toUpperCase().trim();
+          existingRowsMap[key] = newRow;
+        }
+
+        Object.keys(existingRowsMap).forEach(k => {
+          mergedRows.push(existingRowsMap[k]);
+        });
+      } else {
+        mergedRows = rows;
+      }
+    } else {
+      // Full sync overwrite
+      mergedRows = rows;
+    }
+
     sheet.clearContents();
-    sheet.getRange(1, 1, rows.length, rows[0].length).setValues(rows);
+    sheet.getRange(1, 1, mergedRows.length, mergedRows[0].length).setValues(mergedRows);
     clearSheetCache(CONFIG.SHEETS.TPM_JIRA_CACHE);
-    return `Sync Complete. Cached ${allIssues.length} TPM Epics.`;
+
+    // Instrument telemetry & system events for Jira sync
+    try {
+      const activeUser = getCurrentUserSession().email || "System Sync";
+      logSystemEvent(activeUser, "GLOBAL", "TPM Jira Sync Executed", CONFIG.SHEETS.TPM_JIRA_CACHE, "N/A", isFullSync ? "Full Sync" : "Delta Sync");
+      logBackendTelemetry("TPM_JIRA_SYNCED", CONFIG.SHEETS.TPM_JIRA_CACHE, isFullSync ? "Full Sync" : "Delta Sync", "SYSTEM");
+    } catch(telErr) {
+      console.warn("Failed to log TPM Jira sync telemetry: " + telErr.message);
+    }
+
+    if (isFullSync) {
+      return `Full Sync Complete. Replaced cache with ${mergedRows.length - 1} total active tickets from Jira.`;
+    } else {
+      return `Quick Sync Complete. Incremental fetch merged ${allIssues.length} updated tickets. Total tickets in cache: ${mergedRows.length - 1}.`;
+    }
   });
 }
 
@@ -208,12 +271,9 @@ function getTpmTimesheetData(weekStartDateStr, showAllEpics = false, forceRefres
     throw new Error("Unauthorized: TPM Workspace is restricted to Tier-4 TPM hierarchy.");
   }
 
-  // Always force-evict the timesheet logs cache to ensure subsequent background fetches
-  // on week navigation (using arrows) always pull 100% fresh, live logged hours from the sheet.
-  clearSheetCache(CONFIG.SHEETS.TPM_TIMESHEET_LOGS);
-
   if (forceRefresh) {
     clearSheetCache(CONFIG.SHEETS.TPM_JIRA_CACHE);
+    clearSheetCache(CONFIG.SHEETS.TPM_TIMESHEET_LOGS);
     console.log("[CACHE_BUST] Successfully busted timesheet and jira cache for fresh load.");
   }
 
@@ -271,11 +331,12 @@ function getTpmTimesheetData(weekStartDateStr, showAllEpics = false, forceRefres
 
   const activeTpmStatuses = [
     'assigned', 'preparing deployment', 'initiation', 'implementation', 
-    'tpm handover approved', 'go live', 'uat', 'technical go live'
+    'tpm handover approved', 'go live', 'uat', 'technical go live',
+    'returned', 'reopened', 'answered', 'retracted', 'preparing development', 'completed'
   ];
   const activePssStatuses = [
     'flow seen', 'flow pending', 'awaiting implementation', 'new', 
-    '4-eye approval', 'review'
+    '4-eye approval', 'review', 'completed', 'rolled back'
   ];
 
   const userEpics = cacheData.filter(row => {
@@ -449,6 +510,63 @@ function getTpmTimesheetData(weekStartDateStr, showAllEpics = false, forceRefres
   });
   activeEpicsList.sort((a, b) => a.key.localeCompare(b.key));
 
+  // Extract a unique list of all active BSM tickets with summaries from cache
+  const activeBsmTickets = [];
+  const bsmSet = new Set();
+  cacheData.forEach(row => {
+    const issueType = String(row["Issue_Type"] || "").toLowerCase().trim();
+    const key = String(row["Key"] || "").toUpperCase();
+    const status = String(row["Status"] || "").toLowerCase().trim();
+    
+    const excludedBsmStatuses = ['completed', 'canceled', 'closed', 'resolved', 'done', 'declined'];
+    if (excludedBsmStatuses.includes(status)) return;
+    
+    const isBsm = issueType === "bsm" || key.startsWith("BSM-");
+    if (isBsm && !bsmSet.has(key)) {
+      bsmSet.add(key);
+      activeBsmTickets.push({
+        key: key,
+        summary: row["Summary"] || "BSM support ticket",
+        status: row["Status"] || "Active",
+        issueType: "BSM"
+      });
+    }
+  });
+  activeBsmTickets.sort((a, b) => a.key.localeCompare(b.key));
+
+  // Determine if user is in Nikita Jain's hierarchy (direct/indirect reports, or Nikita herself)
+  let isSolutionDesignEligible = false;
+  if (userEmail === 'nikita.jain@osttra.com') {
+    isSolutionDesignEligible = true;
+  } else {
+    try {
+      const allEmployees = getSheetData(CONFIG.SHEETS.EMPLOYEES);
+      const empMap = {};
+      allEmployees.forEach(emp => {
+        const email = String(emp["Email Address"] || "").trim().toLowerCase();
+        if (email) empMap[email] = emp;
+      });
+
+      let current = userEmail;
+      let depth = 0;
+      const visited = new Set();
+      while (current && depth <= 10) {
+        visited.add(current);
+        const rec = empMap[current];
+        const nextMgr = rec ? String(rec["Direct Manager Email"] || "").trim().toLowerCase() : "";
+        if (!nextMgr || nextMgr === current || visited.has(nextMgr)) break;
+        if (nextMgr === 'nikita.jain@osttra.com') {
+          isSolutionDesignEligible = true;
+          break;
+        }
+        current = nextMgr;
+        depth++;
+      }
+    } catch (e) {
+      console.error("Failed to trace Nikita Jain hierarchy:", e);
+    }
+  }
+
   return {
     epics: userEpics,
     childTickets: childTickets,
@@ -456,7 +574,9 @@ function getTpmTimesheetData(weekStartDateStr, showAllEpics = false, forceRefres
     weekDates: weekDates,
     allPssTickets: activePssTickets,
     allEpics: activeEpicsList,
-    historicalLoggedKeys: Array.from(allUserLoggedKeys)
+    allBsmTickets: activeBsmTickets,
+    historicalLoggedKeys: Array.from(allUserLoggedKeys),
+    isSolutionDesignEligible: isSolutionDesignEligible
   };
 }
 
@@ -653,7 +773,7 @@ function saveTpmTimesheetData(payload) {
           case "Other_Hours": return otherHours;
           case "Jira_Status": 
             const keyUpper = String(log.jiraKey || "").toUpperCase().trim();
-            if (keyUpper === "ADMIN" || keyUpper === "MGMT" || keyUpper === "OOO") return "Persistent";
+            if (keyUpper === "ADMIN" || keyUpper === "MGMT" || keyUpper === "OOO" || keyUpper === "SOLUTION-DESIGN") return "Persistent";
             // Resolve status strictly from backend lookups to completely prevent frontend overwrite corruptions
             return cacheStatusLookup[keyUpper] || oldStatusLookup[keyUpper] || log.jiraStatus || "Active";
           case "Week_Of": return payload.weekStartDate;
@@ -667,63 +787,16 @@ function saveTpmTimesheetData(payload) {
     sheet.getRange(1, 1, filteredRows.length, filteredRows[0].length).setValues(filteredRows);
     clearSheetCache(CONFIG.SHEETS.TPM_TIMESHEET_LOGS);
 
-    // Sync all logged hours (Three Things + OOO) to Allocation Historical for TPM Users
+    // Instrument telemetry & system events for timesheet submission
     try {
-      const targetMonthYear = getMonthYearFromDateStr(payload.weekStartDate);
-      
-      const emailIdx = headers.indexOf("User_Email");
-      const keyIdx = headers.indexOf("Jira_Key");
-      const dateIdx = headers.indexOf("Date_Logged");
-      const hoursIdx = headers.indexOf("Hours_Logged");
-
-      let totalMgmtHours = 0;
-      let totalAdminHours = 0;
-      let totalOooHours = 0;
-      let totalEpicHours = 0;
-
-      for (let i = 1; i < filteredRows.length; i++) {
-        const row = filteredRows[i];
-        const email = String(row[emailIdx] || "").toLowerCase().trim();
-        const key = String(row[keyIdx] || "").toLowerCase().trim();
-        const date = String(row[dateIdx] || "").trim();
-        const hours = parseFloat(row[hoursIdx]) || 0;
-
-        if (email === userEmail && getMonthYearFromDateStr(date) === targetMonthYear) {
-          const lowerKey = key.toLowerCase();
-          if (lowerKey === "mgmt") {
-            totalMgmtHours += hours;
-          } else if (lowerKey === "non-bau" || lowerKey === "admin") {
-            totalAdminHours += hours;
-          } else if (lowerKey === "ooo") {
-            totalOooHours += hours;
-          } else {
-            // All other keys are standard Jira project Epics (representing core BAU)
-            totalEpicHours += hours;
-          }
-        }
-      }
-
-      // 1. Sync Management hours if the user is a TPM Manager
-      if (session.isTpmManager) {
-        console.log("[TIMESHEET_AUTO_SYNC] Syncing total of " + totalMgmtHours + " mgmt hours for " + userEmail + " in " + targetMonthYear);
-        syncTpmAllocationHours(ss, userEmail, targetMonthYear, "Mgmt", "Mgmt", totalMgmtHours);
-      }
-
-      // 2. Sync Non-BAU hours for all TPM Users
-      console.log("[TIMESHEET_AUTO_SYNC] Syncing total of " + totalAdminHours + " Non-BAU hours for " + userEmail + " in " + targetMonthYear);
-      syncTpmAllocationHours(ss, userEmail, targetMonthYear, "Non-BAU", "Non-BAU", totalAdminHours);
-
-      // 3. Sync BAU (Jira Epic Project) hours for all TPM Users
-      console.log("[TIMESHEET_AUTO_SYNC] Syncing total of " + totalEpicHours + " BAU project hours for " + userEmail + " in " + targetMonthYear);
-      syncTpmAllocationHours(ss, userEmail, targetMonthYear, "BAU", "BAU", totalEpicHours);
-
-      // 4. Sync OOO (Out of Office) hours for all TPM Users
-      console.log("[TIMESHEET_AUTO_SYNC] Syncing total of " + totalOooHours + " OOO hours for " + userEmail + " in " + targetMonthYear);
-      syncTpmAllocationHours(ss, userEmail, targetMonthYear, "OOO", "OOO", totalOooHours);
-
-    } catch (syncErr) {
-      console.error("Auto-sync of TPM hours to Allocations failed: " + syncErr.message);
+      logSystemEvent(userEmail, "SYSTEM", "TPM Timesheet Submitted", CONFIG.SHEETS.TPM_TIMESHEET_LOGS, "N/A", `Logged ${payload.logs.length} entries for week of ${payload.weekStartDate}`);
+      logBackendTelemetry("TPM_TIMESHEET_SUBMITTED", CONFIG.SHEETS.TPM_TIMESHEET_LOGS, `Logged ${payload.logs.length} entries for week of ${payload.weekStartDate}`, userEmail);
+    } catch(telErr) {
+      console.warn("Failed to log TPM Timesheet submission telemetry: " + telErr.message);
     }
+
+    // NOTE: The TPM Timesheet Auto-Sync bridge to the Allocation Historical database
+    // has been intentionally removed per user request.
 
     return true;
   });
@@ -929,9 +1002,8 @@ function getTpmDashboardData(startDateStr, endDateStr, forceRefresh = false) {
     if (teamEmails.includes(email) && weekDates.includes(date)) {
       if (key === "ooo") {
         oooMap[email].add(date);
-      } else {
-        hoursMap[email][date] = (hoursMap[email][date] || 0) + hours;
       }
+      hoursMap[email][date] = (hoursMap[email][date] || 0) + hours;
     }
   });
 
@@ -1005,9 +1077,12 @@ function getTpmDashboardData(startDateStr, endDateStr, forceRefresh = false) {
         } else if (keyUpper === "MGMT") {
           summaryText = "Time spent in management activity";
           statusText = "Persistent";
+        } else if (keyUpper === "SOLUTION-DESIGN") {
+          summaryText = "Solution Design Cases (Salesforce)";
+          statusText = "Persistent";
         }
 
-        const isPersistentKey = ["ADMIN", "MGMT", "OOO"].includes(keyUpper);
+        const isPersistentKey = ["ADMIN", "MGMT", "OOO", "SOLUTION-DESIGN"].includes(keyUpper);
 
         ticketLogsMap[email][key] = {
           key: key,
@@ -1071,12 +1146,10 @@ function getTpmDashboardData(startDateStr, endDateStr, forceRefresh = false) {
     });
 
     // 2. Compute targets (standard 100% FTE baseline)
-    const oooDaysCount = memberOooDates.filter(d => weekDates.includes(d)).length;
-    const weeklyTargetHours = Math.max((standardWeekdaysCount - oooDaysCount) * 8, 0);
+    const weeklyTargetHours = Math.max(standardWeekdaysCount * 8, 0);
 
     // Compute expected pace-to-date
-    const pastOooDaysCount = memberOooDates.filter(d => weekDates.includes(d) && d <= todayStr).length;
-    const paceTarget = Math.max((pastWeekdaysCount - pastOooDaysCount) * 8, 0);
+    const paceTarget = Math.max(pastWeekdaysCount * 8, 0);
 
     // Default to standard 100% FTE (keep it simple, no allocation handshake)
     const allocatedFte = 100;
@@ -1184,9 +1257,8 @@ function getTpmDashboardData(startDateStr, endDateStr, forceRefresh = false) {
       if (teamEmails.includes(email) && dates.includes(date)) {
         if (key === "ooo") {
           oMap[email].add(date);
-        } else {
-          tMap[email][date] = (tMap[email][date] || 0) + hours;
         }
+        tMap[email][date] = (tMap[email][date] || 0) + hours;
       }
     });
 
@@ -1434,7 +1506,7 @@ function sendTpmComplianceNudge(emails, weekStartDateStr, customSubject = "", cu
       "This is an automated reminder from the Nexus.\n\n" +
       "Our records indicate that your timesheet entries for [MissedDates] are currently incomplete (missing hours or below your standard allocated capacity).\n\n" +
       "Please log into Nexus and update your timesheet as soon as possible.\n\n" +
-      "Link to Nexus: " + ScriptApp.getService().getUrl() + "\n\n" +
+      "Link to Nexus: " + CONFIG.NEXUS_BASE_URL + "\n\n" +
       "Thank you for your prompt cooperation,\n" +
       "Team Nexus"
     );
@@ -1450,7 +1522,7 @@ function sendTpmComplianceNudge(emails, weekStartDateStr, customSubject = "", cu
     body = body.replace(/\[Name\]/g, rName).replace(/\[Week\]/g, weekStartDateStr).replace(/\[MissedDates\]/g, missedStr);
 
     const htmlBodyContent = body.replace(/\n/g, "<br>");
-    const portalUrl = ScriptApp.getService().getUrl() || "https://nexus.osttra.com";
+    const portalUrl = CONFIG.NEXUS_BASE_URL;
     const wrappedHtmlBody = getEmailHtml(
       "Action Required: Update Your Timesheet Logs",
       `
@@ -1471,9 +1543,36 @@ function sendTpmComplianceNudge(emails, weekStartDateStr, customSubject = "", cu
     } catch (e) {
       console.error("Failed to send nudge email to " + email + ": " + e.message);
     }
+
+    // Simultaneous Google Chat Direct Message Ping
+    try {
+      const memberships = [{ member: { name: 'users/' + email, type: 'HUMAN' } }];
+      const space = Chat.Spaces.setup({
+        space: {
+          spaceType: 'DIRECT_MESSAGE'
+        },
+        memberships: memberships
+      });
+
+      // Format markdown nicely for Google Chat
+      const chatMessage = `*${subject}*\n\n${body}\n\n*Portal Link:* ${portalUrl}`;
+      Chat.Spaces.Messages.create({ text: chatMessage }, space.name);
+      console.log("Successfully sent Google Chat nudge to " + email);
+    } catch (chatErr) {
+      console.error("Failed to send Google Chat nudge to " + email + ": " + chatErr.message);
+    }
   });
 
-  return "Successfully sent " + emails.length + " compliance reminder emails!";
+  // Instrument telemetry & system events for compliance nudges
+  try {
+    const details = `Nudged ${emails.length} users: ${emails.join(', ')}`;
+    logSystemEvent(session.email, "MULTIPLE", "Sent TPM Compliance Nudge", "TPM Workspace", "N/A", details);
+    logBackendTelemetry("TPM_COMPLIANCE_NUDGE_SENT", "TPM Workspace", details, "SYSTEM");
+  } catch(telErr) {
+    console.warn("Failed to log TPM compliance nudge telemetry: " + telErr.message);
+  }
+
+  return "Successfully sent " + emails.length + " compliance reminder emails and Google Chat pings!";
 }
 
 /**
@@ -1553,18 +1652,14 @@ function fetchJiraTicketSummary(key) {
   // 2. Fall back to Live Atlassian Jira API Query
   const scriptProperties = PropertiesService.getScriptProperties();
   const JIRA_BASE = scriptProperties.getProperty('JIRA_BASE_URL') || 'https://osttra.atlassian.net';
-  const USER_EMAIL = scriptProperties.getProperty('JIRA_USER_EMAIL') || 'damak.k@osttra.com';
-  const API_TOKEN = scriptProperties.getProperty('JIRA_API_TOKEN') || '';
 
-  if (!API_TOKEN) {
-    console.warn("Jira API Token is missing in Script Properties (JIRA_API_TOKEN) for live ticket fetch.");
+  let authHeader;
+  try {
+    authHeader = getJiraHeaders();
+  } catch (e) {
+    console.warn(e.message + " for live ticket fetch.");
     return null;
   }
-
-  const authHeader = { 
-    Authorization: 'Basic ' + Utilities.base64Encode(`${USER_EMAIL}:${API_TOKEN}`), 
-    Accept: 'application/json' 
-  };
 
   try {
     const response = UrlFetchApp.fetch(`${JIRA_BASE}/rest/api/3/issue/${normalizedKey}?fields=summary,status,issuetype,assignee`, {
@@ -1588,4 +1683,106 @@ function fetchJiraTicketSummary(key) {
     console.error("Error fetching live issue from Jira: " + e.message);
   }
   return null;
+}
+
+/**
+ * Executes the automated TPM compliance nudges for both Chat and Email.
+ * Triggered every Friday at 8 AM GMT.
+ */
+function executeAutomatedTpmNudge() {
+  console.log("Starting automated Friday TPM compliance nudge execution...");
+
+  const today = new Date();
+  const dayOfWeek = today.getDay() || 7; 
+  const monday = new Date(today);
+  monday.setDate(today.getDate() - (dayOfWeek - 1));
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+
+  const getStr = (d) => {
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  };
+
+  const mondayStr = getStr(monday);
+  const sundayStr = getStr(sunday);
+  const todayStr = getStr(today);
+
+  let dashboardData;
+  try {
+    dashboardData = getTpmDashboardData(mondayStr, sundayStr, true);
+  } catch (err) {
+    console.error("Automated Nudge Failed: Error generating dashboard payload: " + err.message);
+    return;
+  }
+
+  if (!dashboardData || !dashboardData.matrix) return;
+
+  const targets = dashboardData.matrix.filter(r => r.isCompliant === false);
+
+  if (targets.length === 0) {
+    console.log("Automated Nudge: No non-compliant members found. Exiting cleanly.");
+    return;
+  }
+
+  const emailsToNudge = [];
+  const missedDatesMap = {};
+
+  targets.forEach(row => {
+    emailsToNudge.push(row.email);
+    
+    const missedDays = [];
+    dashboardData.weekDates.forEach((dateStr, idx) => {
+      const parts = dateStr.split('-');
+      const dObj = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+      const dow = dObj.getDay();
+      const isWeekend = (dow === 0 || dow === 6);
+
+      if (!isWeekend && dateStr <= todayStr && !(row.oooDates && row.oooDates.includes(dateStr))) {
+        const hoursLogged = dashboardData.weekDates.indexOf(dateStr) !== -1 ? row.dailyHours[idx] : 0;
+        if (hoursLogged <= 0) {
+          const yr = parts[0].substring(2);
+          const mIdx = parseInt(parts[1], 10) - 1;
+          const day = parseInt(parts[2], 10);
+          const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+          missedDays.push(`${day}-${months[mIdx]}-${yr}`);
+        }
+      }
+    });
+    missedDatesMap[row.email] = missedDays;
+  });
+
+  try {
+    const result = sendTpmComplianceNudge(emailsToNudge, mondayStr, "", "", missedDatesMap);
+    console.log("Automated Nudge Success: " + result);
+  } catch (err) {
+    console.error("Automated Nudge Exception during dispatch: " + err.message);
+  }
+}
+
+/**
+ * TRIGGER: Installs the weekly automated TPM compliance nudge.
+ * Runs on Fridays between 8:00 AM and 9:00 AM.
+ * Execute this once from the Apps Script editor.
+ */
+function setupAutomatedTpmNudgeTrigger() {
+  const functionName = "executeAutomatedTpmNudge";
+
+  const triggers = ScriptApp.getProjectTriggers();
+  triggers.forEach(t => {
+    if (t.getHandlerFunction() === functionName) {
+      ScriptApp.deleteTrigger(t);
+    }
+  });
+
+  ScriptApp.newTrigger(functionName)
+    .timeBased()
+    .everyWeeks(1)
+    .onWeekDay(ScriptApp.WeekDay.FRIDAY)
+    .atHour(8)
+    .create();
+
+  console.log(`Weekly trigger successfully established for ${functionName}() (Runs Fridays between 8:00 AM - 9:00 AM).`);
 }

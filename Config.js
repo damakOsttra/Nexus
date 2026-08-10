@@ -4,6 +4,9 @@
  */
 
 const CONFIG = {
+  // Production URL for the deployed Web App (used in emails & chats)
+  NEXUS_BASE_URL: 'https://script.google.com/a/macros/osttra.com/s/AKfycby7bDQ1d4cvOdK3aRqWmFlygrTLo5Jeio123wJQglApifdcnMbPleqymrfKoxhljOov/exec',
+
   // Environment Flag (Gates telemetry logging: PROD/UAT/DEV)
   ENVIRONMENT: 'PROD',
 
@@ -25,7 +28,10 @@ const CONFIG = {
     SNAPSHOT_LOGS: "App Snapshot Logs (Read / Write)",
     TPM_JIRA_CACHE: "TPM_Jira_Cache",
     TPM_TIMESHEET_LOGS: "TPM_Timesheet_Logs",
-    MANUAL_INACTIVES: "App Manual Inactives (Read / Write)"
+    MANUAL_INACTIVES: "App Manual Inactives (Read / Write)",
+    OPEX_PROJECT_TRACKER: "App OPEX Project Tracker (Read / Write)",
+    HEADCOUNT_TREND: "App Headcount Trend (Read / Write)",
+    HEADCOUNT_AUDIT: "App Headcount Audit (Read / Write)"
   },
 
   // Google Drive Folder Configuration
@@ -90,4 +96,26 @@ function getActivePeriod() {
   d.setMonth(d.getMonth() - 1);
   const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
   return months[d.getMonth()] + " " + d.getFullYear();
+}
+
+/**
+ * Dynamically constructs Jira API headers from secure Script Properties.
+ * Supports both JIRA_USER and the older JIRA_USER_EMAIL formats.
+ */
+function getJiraHeaders() {
+  const scriptProperties = PropertiesService.getScriptProperties();   
+  const username = scriptProperties.getProperty('JIRA_USER') || scriptProperties.getProperty('JIRA_USER_EMAIL');
+  const token = scriptProperties.getProperty('JIRA_API_TOKEN');       
+
+  if (!username || !token) {
+    throw new Error("Jira credentials (JIRA_USER or JIRA_API_TOKEN) are not set in Script Properties.");
+  }
+
+  const encodedAuth = Utilities.base64Encode(username + ':' + token); 
+
+  return {
+    "Authorization": "Basic " + encodedAuth,
+    "Accept": "application/json",
+    "Content-Type": "application/json"
+  };
 }

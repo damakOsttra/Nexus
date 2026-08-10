@@ -1,0 +1,1608 @@
+<div class="p-8 h-full flex flex-col animate-in fade-in duration-300 overflow-hidden relative">
+  <!-- Header Section with Glow and Action Controls -->
+  <div class="flex justify-between items-center mb-8 shrink-0 relative">
+    <div class="absolute -top-10 -left-10 w-48 h-48 bg-osttra-rubine/5 rounded-full blur-3xl pointer-events-none"></div>
+    <div>
+      <h1 class="text-3xl font-black text-white tracking-tight uppercase">Operational Excellence</h1>
+      <p class="text-white/50 text-xs font-semibold uppercase tracking-widest mt-1">Project Portfolio Tracker</p>
+    </div>
+    
+    <!-- Action Panel (Admins/Opex Leads Only) -->
+    <div id="admin-actions-container" class="hidden flex items-center gap-4">
+      <button onclick="triggerJiraSync()" class="px-5 py-2.5 bg-white/5 hover:bg-white/10 text-white/80 text-xs font-black uppercase tracking-widest rounded-xl border border-white/10 flex items-center gap-2 transition-all duration-200">
+        <i class="fas fa-sync-alt"></i>
+        <span>Sync JIRA</span>
+      </button>
+      <button onclick="openProjectForm(null)" class="px-5 py-2.5 bg-gradient-to-r from-osttra-rubine to-osttra-violet text-white text-xs font-black uppercase tracking-widest rounded-xl hover:scale-[1.03] active:scale-95 transition-all duration-200 shadow-lg shadow-osttra-rubine/20 border border-white/10 flex items-center gap-2">
+        <i class="fas fa-plus"></i>
+        <span>Create Project</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Search & Global Controls -->
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4 shrink-0">
+    <div class="relative">
+      <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-white/30 text-sm">
+        <i class="fas fa-search"></i>
+      </span>
+      <input type="text" id="opex-search" oninput="filterBoard()" placeholder="Search Project Name, ID, or Jira Key..." class="w-full pl-10 pr-4 py-3 bg-white/5 border border-white/5 hover:border-white/10 focus:border-osttra-rubine/40 rounded-xl text-xs text-white placeholder-white/20 outline-none transition-all duration-300">
+    </div>
+    <div class="relative">
+      <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-white/30 text-sm">
+        <i class="fas fa-user-tag"></i>
+      </span>
+      <input type="text" id="champion-search" oninput="filterBoard()" placeholder="Filter by Champion Email..." class="w-full pl-10 pr-4 py-3 bg-white/5 border border-white/5 hover:border-white/10 focus:border-osttra-rubine/40 rounded-xl text-xs text-white placeholder-white/20 outline-none transition-all duration-300">
+    </div>
+    <div class="flex items-center gap-2 justify-end text-right">
+      <p id="total-counts-label" class="text-[10px] font-black uppercase tracking-widest text-white/40">Loading Portfolio...</p>
+    </div>
+  </div>
+
+  <!-- Advanced Filters Row -->
+  <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6 shrink-0 bg-white/[0.02] border border-white/5 p-4 rounded-2xl">
+    <!-- Status Filter (Multi-Select) -->
+    <div class="relative custom-multi-select">
+      <label class="block text-[8px] font-black text-white/30 uppercase tracking-[0.2em] mb-1.5">Filter by Status</label>
+      <button onclick="document.getElementById('status-dropdown').classList.toggle('hidden'); document.getElementById('lead-dropdown').classList.add('hidden'); event.stopPropagation();" class="w-full px-3 py-2 bg-[#222222]/80 border border-white/5 hover:border-white/10 rounded-lg text-xs text-white/70 outline-none transition-all flex justify-between items-center text-left">
+        <span id="status-btn-text" class="truncate">All Statuses</span>
+        <i class="fas fa-chevron-down text-[10px]"></i>
+      </button>
+      <div id="status-dropdown" class="hidden absolute left-0 right-0 mt-1 bg-[#1a1a1a] border border-white/10 rounded-lg shadow-xl z-50 max-h-48 overflow-y-auto no-scrollbar">
+        <div id="status-dropdown-options"></div>
+      </div>
+    </div>
+    
+    <!-- Champion Assignment Filter -->
+    <div>
+      <label class="block text-[8px] font-black text-white/30 uppercase tracking-[0.2em] mb-1.5">Filter by Assignment</label>
+      <select id="filter-champion-assigned" onchange="filterBoard()" class="w-full px-3 py-2 bg-[#222222]/80 border border-white/5 hover:border-white/10 rounded-lg text-xs text-white/70 outline-none transition-all">
+        <option value="All" class="bg-[#141414]">All Assignments</option>
+        <option value="Assigned" class="bg-[#141414]">Has Champions Assigned</option>
+        <option value="Unassigned" class="bg-[#141414]">No Champions Assigned</option>
+      </select>
+    </div>
+
+    <!-- Ops Ex Lead Filter (Multi-Select) -->
+    <div class="relative custom-multi-select">
+      <label class="block text-[8px] font-black text-white/30 uppercase tracking-[0.2em] mb-1.5">Filter by Ops Ex Lead</label>
+      <button onclick="document.getElementById('lead-dropdown').classList.toggle('hidden'); document.getElementById('status-dropdown').classList.add('hidden'); event.stopPropagation();" class="w-full px-3 py-2 bg-[#222222]/80 border border-white/5 hover:border-white/10 rounded-lg text-xs text-white/70 outline-none transition-all flex justify-between items-center text-left">
+        <span id="lead-btn-text" class="truncate">All Leads</span>
+        <i class="fas fa-chevron-down text-[10px]"></i>
+      </button>
+      <div id="lead-dropdown" class="hidden absolute left-0 right-0 mt-1 bg-[#1a1a1a] border border-white/10 rounded-lg shadow-xl z-50 max-h-48 overflow-y-auto no-scrollbar">
+        <div id="lead-dropdown-options"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stream Navigation Tabs -->
+  <div class="flex border-b border-white/5 mb-8 shrink-0 gap-6">
+    <button id="tab-all" onclick="switchStream('All')" class="pb-3.5 border-b-2 border-transparent text-white/40 hover:text-white text-xs font-black uppercase tracking-wider transition-all duration-300">
+      All Projects
+    </button>
+    <button id="tab-growth" onclick="switchStream('CTB (Growth Initiatives)')" class="pb-3.5 border-b-2 border-transparent text-white/40 hover:text-white text-xs font-black uppercase tracking-wider transition-all duration-300">
+      Growth Initiatives
+    </button>
+    <button id="tab-nongrowth" onclick="switchStream('CTB (Non-Growth)')" class="pb-3.5 border-b-2 border-transparent text-white/40 hover:text-white text-xs font-black uppercase tracking-wider transition-all duration-300">
+      Non-Growth CTB
+    </button>
+    <button id="tab-process" onclick="switchStream('Process Improvements')" class="pb-3.5 border-b-2 border-transparent text-white/40 hover:text-white text-xs font-black uppercase tracking-wider transition-all duration-300">
+      Process Improvements
+    </button>
+    <button id="tab-digiops" onclick="switchStream('DigiOps')" class="pb-3.5 border-b-2 border-transparent text-white/40 hover:text-white text-xs font-black uppercase tracking-wider transition-all duration-300">
+      DigiOps
+    </button>
+  </div>
+
+  <!-- Cards View area (Scrollable Container stretched to maximum of page) -->
+  <div id="grid-container" class="flex-1 overflow-hidden h-full min-h-0 flex flex-col">
+    <!-- Empty State -->
+    <div id="empty-state" class="hidden h-64 border border-dashed border-white/10 rounded-2xl flex flex-col items-center justify-center text-center p-8">
+      <div class="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center mb-4">
+        <i class="fas fa-folder-open text-white/30 text-lg"></i>
+      </div>
+      <h3 class="text-sm font-bold text-white uppercase tracking-wider">No Projects Found</h3>
+      <p class="text-white/40 text-xs mt-1 max-w-xs">There are no active initiatives matching this stream or search filters.</p>
+    </div>
+
+    <!-- Smart Shimmering Loading Skeleton Screen (New Upgrade) -->
+    <div id="opex-loading-skeleton" class="hidden flex-1 overflow-hidden h-full min-h-0 flex flex-col pb-4 animate-pulse">
+      <div class="h-4 w-48 bg-white/10 rounded mb-4"></div>
+      <div class="border border-white/5 rounded-2xl bg-white/[0.01] overflow-hidden">
+        <div class="border-b border-white/10 bg-white/[0.02] p-4 flex justify-between">
+          <div class="h-3 w-16 bg-white/10 rounded"></div>
+          <div class="h-3 w-24 bg-[#FF0061]/10 rounded"></div>
+          <div class="h-3 w-48 bg-white/10 rounded"></div>
+          <div class="h-3 w-32 bg-white/10 rounded"></div>
+          <div class="h-3 w-32 bg-white/10 rounded"></div>
+          <div class="h-3 w-20 bg-white/10 rounded"></div>
+        </div>
+        <div class="space-y-4 p-4">
+          <div class="flex justify-between items-center py-2 border-b border-white/5">
+            <div class="h-3 w-12 bg-white/5 rounded"></div>
+            <div class="h-3 w-20 bg-[#FF0061]/5 rounded"></div>
+            <div class="h-3 w-64 bg-white/5 rounded"></div>
+            <div class="h-3 w-24 bg-white/5 rounded"></div>
+            <div class="h-3 w-28 bg-white/5 rounded"></div>
+            <div class="h-6 w-20 bg-white/5 rounded-lg"></div>
+          </div>
+          <div class="flex justify-between items-center py-2 border-b border-white/5">
+            <div class="h-3 w-12 bg-white/5 rounded"></div>
+            <div class="h-3 w-20 bg-[#FF0061]/5 rounded"></div>
+            <div class="h-3 w-48 bg-white/5 rounded"></div>
+            <div class="h-3 w-24 bg-white/5 rounded"></div>
+            <div class="h-3 w-28 bg-white/5 rounded"></div>
+            <div class="h-6 w-20 bg-white/5 rounded-lg"></div>
+          </div>
+          <div class="flex justify-between items-center py-2">
+            <div class="h-3 w-12 bg-white/5 rounded"></div>
+            <div class="h-3 w-20 bg-[#FF0061]/5 rounded"></div>
+            <div class="h-3 w-56 bg-white/5 rounded"></div>
+            <div class="h-3 w-24 bg-white/5 rounded"></div>
+            <div class="h-3 w-28 bg-white/5 rounded"></div>
+            <div class="h-6 w-20 bg-white/5 rounded-lg"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Active Projects Table Container -->
+    <div id="projects-table-container" class="flex-1 overflow-y-auto h-full min-h-0 pr-2 pb-12 no-scrollbar"></div>
+  </div>
+
+  <!-- Master Project Form Template Container (hidden by default) -->
+  <div id="master-project-form-container" class="hidden">
+    <!-- Master Moveable Project Form -->
+    <div id="master-project-form" class="space-y-4">
+      <!-- Read-Only Status Label (Champs indicator) -->
+      <div id="role-badge-container" class="p-2.5 bg-osttra-rubine/10 border border-osttra-rubine/20 rounded-lg flex items-center gap-2 hidden">
+        <i class="fas fa-user-shield text-osttra-rubine text-xs"></i>
+        <p class="text-[9px] font-bold text-osttra-rubine uppercase tracking-wider">Limited Access: Read-only except Status</p>
+      </div>
+
+      <!-- Hidden Project Fields -->
+      <input type="hidden" id="form-projectId">
+      <input type="hidden" id="form-jiraKey">
+
+      <!-- Compact Grid for Basic Info -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <!-- Stream Select -->
+        <div>
+          <label class="block text-[9px] font-bold text-white/40 uppercase tracking-widest mb-1.5">Stream / Category</label>
+          <select id="form-stream" class="form-input w-full px-3 py-2 bg-white/5 border border-white/5 hover:border-white/10 rounded-lg text-xs text-white outline-none transition-all">
+            <option value="CTB (Growth Initiatives)" class="bg-[#141414]">Growth Initiatives</option>
+            <option value="CTB (Non-Growth)" class="bg-[#141414]">Non-Growth CTB</option>
+          </select>
+        </div>
+
+        <!-- Project Name -->
+        <div>
+          <label class="block text-[9px] font-bold text-white/40 uppercase tracking-widest mb-1.5">Project Name</label>
+          <input type="text" id="form-projectName" class="form-input w-full px-3 py-2 bg-white/5 border border-white/5 hover:border-white/10 focus:border-osttra-rubine/40 rounded-lg text-xs text-white placeholder-white/20 outline-none transition-all" placeholder="Enter descriptive project name...">
+        </div>
+
+        <!-- Status -->
+        <div id="status-selection-container">
+          <label class="block text-[9px] font-bold text-white/40 uppercase tracking-widest mb-1.5">Status</label>
+          <div id="status-interactive-element">
+            <select id="form-status" class="w-full px-3 py-2 bg-white/5 border border-white/5 hover:border-white/10 rounded-lg text-xs text-white outline-none transition-all">
+              <option value="Backlog" class="bg-[#141414]">Backlog</option>
+              <option value="Active" class="bg-[#141414]">Active</option>
+              <option value="Blocked" class="bg-[#141414]">Blocked</option>
+              <option value="Completed" class="bg-[#141414]">Completed</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Compact Grid for Personnel -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-white/5 pt-4">
+        <!-- Searchable Multi-Select Ops Ex Leads -->
+        <div>
+          <label class="block text-[9px] font-bold text-white/40 uppercase tracking-widest mb-1.5">Ops Ex Lead / Assignee</label>
+          <div class="relative form-input mb-1.5">
+            <input type="text" id="lead-search-input" onfocus="showLeadSuggestions()" oninput="filterLeadSuggestions()" class="w-full px-3 py-2 bg-white/5 border border-white/5 hover:border-white/10 focus:border-osttra-rubine/40 rounded-lg text-xs text-white placeholder-white/20 outline-none transition-all" placeholder="Type name or email...">
+            <!-- Lead Suggestions Dropdown -->
+            <div id="lead-suggestions" class="hidden absolute left-0 top-full mt-1 w-full max-h-40 bg-[#1a1a1a] border border-white/10 rounded-lg shadow-2xl overflow-y-auto z-[60] no-scrollbar"></div>
+          </div>
+          <!-- Leads pills container -->
+          <div id="lead-pills-container" class="flex flex-wrap gap-1.5 min-h-[28px]"></div>
+          <!-- Hidden leads payload input -->
+          <input type="hidden" id="form-leadEmail">
+        </div>
+
+        <!-- Searchable Multi-Select Champions -->
+        <div>
+          <label class="block text-[9px] font-bold text-white/40 uppercase tracking-widest mb-1.5">Project Champions</label>
+          <div class="relative form-input mb-1.5">
+            <input type="text" id="champion-search-input" onfocus="showChampSuggestions()" oninput="filterChampSuggestions()" class="w-full px-3 py-2 bg-white/5 border border-white/5 hover:border-white/10 focus:border-osttra-rubine/40 rounded-lg text-xs text-white placeholder-white/20 outline-none transition-all" placeholder="Type name or email...">
+            <!-- Suggestions Dropdown -->
+            <div id="champ-suggestions" class="hidden absolute left-0 top-full mt-1 w-full max-h-40 bg-[#1a1a1a] border border-white/10 rounded-lg shadow-2xl overflow-y-auto z-[60] no-scrollbar"></div>
+          </div>
+          <!-- Pills container -->
+          <div id="champion-pills-container" class="flex flex-wrap gap-1.5 min-h-[28px]"></div>
+          <!-- Hidden payload input -->
+          <input type="hidden" id="form-champions">
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="flex items-center justify-end gap-3 pt-4 border-t border-white/5 mt-2">
+        <button onclick="closeProjectForm()" class="px-4 py-2 bg-white/5 hover:bg-white/10 text-white/70 hover:text-white text-[10px] font-black uppercase tracking-widest rounded-lg border border-white/5 transition-all">
+          Cancel
+        </button>
+        <button id="btn-save-project" onclick="saveProjectForm()" class="px-4 py-2 bg-[#FF0061] hover:scale-[1.02] active:scale-95 text-white text-[10px] font-black uppercase tracking-widest rounded-lg transition-all shadow-lg shadow-[#FF0061]/20 flex items-center gap-2">
+          <span id="save-spinner" class="hidden"><i class="fas fa-circle-notch animate-spin"></i></span>
+          <span id="save-btn-text">Save Changes</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Centered Pop-up Modal dialog box to Create New manual projects -->
+  <div id="create-modal-backdrop" class="hidden fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4 transition-all duration-300 opacity-0 pointer-events-none">
+    <div class="bg-[#141414] border border-white/10 rounded-3xl w-full max-w-lg shadow-2xl flex flex-col overflow-hidden max-h-[90vh]">
+      <!-- Modal Header -->
+      <div class="p-6 border-b border-white/5 flex justify-between items-center bg-[#181818] shrink-0">
+        <div>
+          <h3 id="create-modal-title" class="text-sm font-black text-white uppercase tracking-wider">Launch New Project</h3>
+          <p class="text-white/40 text-[10px] uppercase font-bold tracking-widest mt-1">Manual/Nexus CTB Initiative</p>
+        </div>
+        <button onclick="closeProjectForm()" class="w-8 h-8 rounded-full bg-white/5 border border-white/5 hover:bg-white/10 hover:border-white/10 text-white/60 hover:text-white flex items-center justify-center text-sm transition-all cursor-pointer">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <!-- Modal Body -->
+      <div id="create-modal-body" class="p-6 overflow-y-auto flex-1 no-scrollbar">
+        <!-- Master form will be appended here dynamically for Creation -->
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Global View Model State
+  var opexState = {
+    projects: [],
+    permissions: 'CHAMPION', // default restrictive
+    activeStream: 'All', // default tab is now 'All'
+    filterStatuses: [],
+    filterLeads: [],
+    isFetchingData: true // Prevent empty state flash on initial load
+  };
+
+  // Pre-defined Project Champion Roles and Responsibilities derived directly from the Charter Document
+  var ROLES_AND_RESPONSIBILITIES_OPTIONS = [
+    "Functional Advocacy & Resource Mapping",
+    "Operational Reality Check",
+    "Cross-Functional Process Design",
+    "Operational Readiness Input (Tools & Capacity)",
+    "Artifact & SOP Sign-Off",
+    "Internal UAT Ownership & Sign-Off",
+    "Client UAT Test Pack & Support",
+    "Internal Communication Bridge",
+    "Feedback Aggregation & Escalate",
+    "Global Training Leadership",
+    "Hypercare First-Line Support",
+    "Adoption & Glitch Monitoring",
+    "POC Environment Validation (TPM)",
+    "Integration Scalability (TPM)",
+    "Message Guide Validation (TPM)",
+    "Requirement Gathering",
+    "Deciding Scope"
+  ];
+
+  // Cached Corporate Employee Roster for search-select dropdowns
+  var globalEmployeesRoster = [];
+  var selectedChampions = [];
+  var selectedLeads = [];
+  var selectedRoles = [];
+
+  /**
+   * Resets all search boxes and filter selections to their default empty/All states.
+   * This is critical to ensure each stream tab behaves as an independent, isolated workspace.
+   */
+  function resetFilters() {
+    const fAssigned = document.getElementById('filter-champion-assigned');
+    const sQuery = document.getElementById('opex-search');
+    const cQuery = document.getElementById('champion-search');
+    
+    if (fAssigned) fAssigned.value = 'All';
+    if (sQuery) sQuery.value = '';
+    if (cQuery) cQuery.value = '';
+
+    opexState.filterStatuses = [];
+    opexState.filterLeads = [];
+    const sBtn = document.getElementById('status-btn-text');
+    const lBtn = document.getElementById('lead-btn-text');
+    if (sBtn) sBtn.innerText = 'All Statuses';
+    if (lBtn) lBtn.innerText = 'All Leads';
+  }
+
+  /**
+   * Switches the active Stream / Category tab and filters the board
+   */
+  function switchStream(streamName) {
+    opexState.activeStream = streamName;
+
+    // Reset filters and search inputs to preserve independent workspace state per-tab
+    resetFilters();
+    
+    // Update active tab styles
+    const tabs = {
+      'All': 'tab-all',
+      'CTB (Growth Initiatives)': 'tab-growth',
+      'CTB (Non-Growth)': 'tab-nongrowth',
+      'Process Improvements': 'tab-process',
+      'DigiOps': 'tab-digiops'
+    };
+    
+    for (const key in tabs) {
+      const tabEl = document.getElementById(tabs[key]);
+      if (!tabEl) continue;
+      if (key === streamName) {
+        tabEl.classList.remove('text-white/40', 'border-transparent');
+        tabEl.classList.add('text-white', 'border-osttra-rubine');
+      } else {
+        tabEl.classList.remove('text-white', 'border-osttra-rubine');
+        tabEl.classList.add('text-white/40', 'border-transparent');
+      }
+    }
+    
+    // Dynamically rebuild status options based strictly on active stream's unique data values
+    populateStatusFilterOptions();
+
+    filterBoard();
+  }
+
+  /**
+   * Resolves the proper Tailwind CSS classes and icon for Status badges dynamically.
+   * Semantic parser automatically supports both custom statuses and raw JIRA statuses with corporate brand styling.
+   */
+  function getStatusBadgeConfig(status) {
+    const s = String(status || "").toLowerCase().trim();
+    
+    // Standard JIRA Done or Completed mappings
+    if (s.includes('done') || s.includes('completed') || s.includes('closed') || s.includes('resolved') || s.includes('approved') || s.includes('deployed')) {
+      return { style: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20', icon: 'fa-check-circle' };
+    }
+    // Blocked, hold, pause mappings
+    if (s.includes('block') || s.includes('stuck') || s.includes('hold') || s.includes('on hold') || s.includes('pause')) {
+      return { style: 'bg-red-500/10 text-red-400 border-red-500/20', icon: 'fa-ban' };
+    }
+    // Backlog, todo, open mappings
+    if (s.includes('backlog') || s.includes('to do') || s.includes('open') || s.includes('new') || s.includes('ready') || s.includes('select')) {
+      return { style: 'bg-slate-500/10 text-slate-400 border-slate-500/20', icon: 'fa-pause-circle' };
+    }
+    // Default Active or In Progress mappings
+    return { style: 'bg-amber-500/10 text-amber-400 border-amber-500/20', icon: 'fa-spinner animate-spin-slow' };
+  }
+
+  /**
+   * Evaluates if a given status represents a blocked or paused priority roadblock
+   */
+  function isStatusBlocked(status) {
+    const s = String(status || "").toLowerCase().trim();
+    return s.includes("block") || s.includes("stuck") || s.includes("hold") || s.includes("pause");
+  }
+
+  /**
+   * Translates a cell list of emails into compact display names for cards
+   */
+  function resolveDisplayNamesList(emailsCell, limit = 2) {
+    const raw = String(emailsCell || "").trim();
+    if (!raw) return "";
+    
+    const emails = raw.split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
+    const names = emails.map(email => {
+      const emp = globalEmployeesRoster.find(e => String(e.email).toLowerCase().trim() === email);
+      if (emp && emp.name) {
+        // Truncate to first name and last initial e.g., "Alice S."
+        const parts = emp.name.split(' ');
+        if (parts.length >= 2) {
+          return `${parts[0]} ${parts[1].charAt(0)}.`;
+        }
+        return parts[0];
+      }
+      return email.split('@')[0];
+    });
+    
+    if (names.length <= limit) {
+      return names.join(', ');
+    } else {
+      return `${names.slice(0, limit).join(', ')} +${names.length - limit}`;
+    }
+  }
+
+  /**
+   * Helper function to construct a styled table for a stream category.
+   */
+  function createTableHtml(title, projects) {
+    if (projects.length === 0) return '';
+
+    const tableId = 'table-' + title.replace(/\s+/g, '-').toLowerCase();
+
+    let rowsHtml = '';
+    projects.forEach(proj => {
+      const isBlocked = isStatusBlocked(proj["Status"]);
+      const badgeConfig = getStatusBadgeConfig(proj["Status"]);
+      const championNames = resolveDisplayNamesList(proj["Project Champion Emails"], 3) || "No Champions";
+      const leadNames = resolveDisplayNamesList(proj["Ops Ex Lead Email"], 2) || "Unassigned Lead";
+      const fullChampionsTooltip = proj["Project Champion Emails"] ? proj["Project Champion Emails"].split(', ').join('\n') : 'No Champions assigned';
+      const fullLeadsTooltip = proj["Ops Ex Lead Email"] ? proj["Ops Ex Lead Email"].split(', ').join('\n') : 'Unassigned Lead';
+
+      const jiraKey = String(proj["Jira Key"] || "").trim().toUpperCase();
+      const hasJiraKey = jiraKey !== "" && jiraKey !== "N/A";
+      const jiraLink = hasJiraKey 
+        ? `<a href="https://osttra.atlassian.net/browse/${jiraKey}" target="_blank" class="px-2.5 py-1 text-[10px] font-black tracking-widest text-[#FF0061] uppercase bg-[#FF0061]/5 border border-[#FF0061]/15 hover:bg-[#FF0061]/10 rounded-lg shrink-0 transition-all">${jiraKey}</a>` 
+        : `<span class="text-white/20 text-xs">-</span>`;
+
+      // Status badge
+      const statusBadge = `
+        <span class="px-2 py-1 text-[10px] font-bold uppercase tracking-wider rounded-lg border inline-flex items-center gap-1.5 ${badgeConfig.style}">
+          <i class="fas ${badgeConfig.icon} text-[8px]"></i>
+          <span>${proj["Status"]}</span>
+        </span>
+      `;
+
+      // JSON string representation of project for Edit click event
+      const projJson = JSON.stringify(proj).replace(/'/g, "&apos;").replace(/"/g, "&quot;");
+
+      rowsHtml += `
+        <tr onclick='toggleInlineForm(${projJson}, this)' class="border-b border-white/5 hover:bg-white/[0.04] transition-all duration-300 cursor-pointer group">
+          <td class="py-4 px-4">${jiraLink}</td>
+          <td class="py-4 px-4 text-xs font-bold text-white uppercase tracking-tight max-w-xs truncate" title="${proj["Project Name"]}">${proj["Project Name"]}</td>
+          <td class="py-4 px-4 text-xs text-white/60 truncate max-w-[150px]" title="${fullLeadsTooltip}">${leadNames}</td>
+          <td class="py-4 px-4 text-xs text-white/60 truncate max-w-[200px]" title="${fullChampionsTooltip}">${championNames}</td>
+          <td class="py-4 px-4">${statusBadge}</td>
+          <td class="py-4 px-4 text-right">
+            <i class="fas fa-chevron-down text-white/20 group-hover:text-white/60 transition-transform duration-300 opex-row-chevron"></i>
+          </td>
+        </tr>
+      `;
+    });
+
+    return `
+      <div class="mb-10">
+        <!-- Collapsible Button Header -->
+        <button onclick="toggleTable('${tableId}')" class="w-full flex items-center justify-between mb-4 p-3 bg-white/[0.02] hover:bg-white/[0.04] border border-white/5 hover:border-white/10 rounded-xl group focus:outline-none transition-all duration-300">
+          <div class="flex items-center gap-3">
+            <div class="w-7 h-7 rounded-lg bg-white/5 flex items-center justify-center group-hover:bg-white/10 transition-colors">
+              <i id="icon-${tableId}" class="fas fa-chevron-up text-white/40 group-hover:text-white transition-transform duration-300"></i>
+            </div>
+            <h2 class="text-xs font-black text-osttra-rubine uppercase tracking-[0.2em] group-hover:text-white transition-colors">
+              ${title} <span class="text-white/30 ml-2">(${projects.length})</span>
+            </h2>
+          </div>
+          <span class="text-[9px] text-white/20 uppercase font-bold tracking-widest group-hover:text-white/60 transition-all opacity-0 group-hover:opacity-100 mr-2">Click to toggle</span>
+        </button>
+        
+        <!-- Table container (Collapsible) -->
+        <div id="${tableId}" class="overflow-x-auto border border-white/5 rounded-2xl bg-[#141414] transition-all duration-300">
+          <table class="w-full text-left border-collapse min-w-[800px]">
+            <thead>
+              <tr class="border-b border-white/10 bg-white/[0.02] sticky top-0 z-10">
+                <th class="py-3 px-4 text-[10px] font-black uppercase tracking-widest text-white/40">Jira Key</th>
+                <th class="py-3 px-4 text-[10px] font-black uppercase tracking-widest text-white/40">Project Name</th>
+                <th class="py-3 px-4 text-[10px] font-black uppercase tracking-widest text-white/40">Ops Ex Lead</th>
+                <th class="py-3 px-4 text-[10px] font-black uppercase tracking-widest text-white/40">Champions</th>
+                <th class="py-3 px-4 text-[10px] font-black uppercase tracking-widest text-white/40">Status</th>
+                <th class="py-3 px-4 w-10 text-right"></th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHtml}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+  }
+
+  /**
+   * Renders the tabular layout. Handles grouped rendering for "All" tab or single stream rendering.
+   */
+  function renderProjectsGrid(filteredProjects) {
+    const tableContainer = document.getElementById('projects-table-container');
+    const emptyState = document.getElementById('empty-state');
+    const skeleton = document.getElementById('opex-loading-skeleton');
+    
+    if (!tableContainer) return;
+
+    // Prevent flashing empty state "No Projects Found" on initial load
+    if (opexState.isFetchingData) {
+      if (emptyState) emptyState.classList.add('hidden');
+      if (tableContainer) tableContainer.classList.add('hidden');
+      return;
+    }
+
+    if (skeleton) skeleton.classList.add('hidden');
+
+    tableContainer.innerHTML = '';
+    
+    if (filteredProjects.length === 0) {
+      emptyState.classList.remove('hidden');
+      tableContainer.classList.add('hidden');
+      return;
+    }
+    
+    emptyState.classList.add('hidden');
+    tableContainer.classList.remove('hidden');
+
+    if (opexState.activeStream === 'All') {
+      // Group and render multiple tables
+      const growth = filteredProjects.filter(p => p["Stream"] === 'CTB (Growth Initiatives)');
+      const nongrowth = filteredProjects.filter(p => p["Stream"] === 'CTB (Non-Growth)');
+      const process = filteredProjects.filter(p => p["Stream"] === 'Process Improvements');
+      const digiops = filteredProjects.filter(p => p["Stream"] === 'DigiOps');
+
+      let html = '';
+      html += createTableHtml('Growth Initiatives', growth);
+      html += createTableHtml('Non-Growth CTB', nongrowth);
+      html += createTableHtml('Process Improvements', process);
+      html += createTableHtml('DigiOps', digiops);
+
+      tableContainer.innerHTML = html;
+    } else {
+      // Render single table
+      let title = opexState.activeStream;
+      if (title === 'CTB (Growth Initiatives)') title = 'Growth Initiatives';
+      else if (title === 'CTB (Non-Growth)') title = 'Non-Growth CTB';
+      
+      tableContainer.innerHTML = createTableHtml(title, filteredProjects);
+    }
+  }
+
+  /**
+   * Filters the master dataset based on active stream tab and search controls
+   */
+  function filterBoard() {
+    const searchVal = document.getElementById('opex-search').value.trim().toLowerCase();
+    const champVal = document.getElementById('champion-search').value.trim().toLowerCase();
+    
+    const filterAssigned = document.getElementById('filter-champion-assigned').value;
+
+    const filtered = opexState.projects.filter(p => {
+      // 1. Filter by Stream (skip if 'All')
+      if (opexState.activeStream !== 'All' && p["Stream"] !== opexState.activeStream) return false;
+      
+      // 2. Hide Backlog (Improve experience, filter out 350+ backlog items)
+      const sCell = String(p["Status"] || "").toLowerCase().trim();
+      const standardBacklog = ["backlog", "to do", "open", "new", "select"];
+      if (sCell === 'backlog' || standardBacklog.includes(sCell)) return false;
+
+      // 3. Filter by search query (Name, ID, or Jira Key)
+      if (searchVal) {
+        const name = String(p["Project Name"] || "").toLowerCase();
+        const key = String(p["Jira Key"] || "").toLowerCase();
+        const id = String(p["Project ID"] || "").toLowerCase();
+        if (!name.includes(searchVal) && !key.includes(searchVal) && !id.includes(searchVal)) return false;
+      }
+      
+      // 4. Filter by Status (Multi-Select Array)
+      if (opexState.filterStatuses.length > 0) {
+        // Map raw JIRA status dynamically or do exact match
+        const isMatched = opexState.filterStatuses.some(selStatus => {
+          const fs = selStatus.toLowerCase();
+          if (fs === 'active') {
+            const standardActive = ["in progress", "active", "selected for development", "development", "ready for development", "under review", "in review"];
+            return p["Status"] === 'Active' || standardActive.includes(sCell);
+          } else if (fs === 'blocked') {
+            const standardBlocked = ["blocked", "stuck", "hold", "on hold", "paused"];
+            return p["Status"] === 'Blocked' || standardBlocked.includes(sCell);
+          } else if (fs === 'completed') {
+            const standardCompleted = ["done", "completed", "closed", "resolved", "approved", "deployed"];
+            return p["Status"] === 'Completed' || standardCompleted.includes(sCell);
+          }
+          return p["Status"].toLowerCase() === fs;
+        });
+        if (!isMatched) return false;
+      }
+
+      // 5. Filter by Champion assigned select dropdown
+      const hasChamps = String(p["Project Champion Emails"] || "").trim() !== "";
+      if (filterAssigned === 'Assigned' && !hasChamps) return false;
+      if (filterAssigned === 'Unassigned' && hasChamps) return false;
+
+      // 6. Filter by Ops Ex Lead (Multi-Select Array)
+      if (opexState.filterLeads.length > 0) {
+        const leads = String(p["Ops Ex Lead Email"] || "").toLowerCase().split(',').map(e => e.trim());
+        const isLeadMatched = opexState.filterLeads.some(selLead => leads.includes(selLead.toLowerCase()));
+        if (!isLeadMatched) return false;
+      }
+
+      // 7. Text Filter by Project Champion Emails (Supports Comma-Separated OR Logic)
+      if (champVal) {
+        const searchEmails = champVal.split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
+        const champs = String(p["Project Champion Emails"] || "").toLowerCase();
+        const isChampMatched = searchEmails.some(searchEmail => champs.includes(searchEmail));
+        if (!isChampMatched) return false;
+      }
+      
+      return true;
+    });
+    
+    renderProjectsGrid(filtered);
+    
+    // Update Counts Indicator
+    const totalCount = opexState.projects.length;
+    const streamCount = opexState.activeStream === 'All' 
+      ? opexState.projects.filter(p => {
+          const s = String(p["Status"] || "").toLowerCase().trim();
+          return s !== 'backlog' && s !== 'to do' && s !== 'open';
+        }).length
+      : opexState.projects.filter(p => {
+          const s = String(p["Status"] || "").toLowerCase().trim();
+          return p["Stream"] === opexState.activeStream && s !== 'backlog' && s !== 'to do' && s !== 'open';
+        }).length;
+        
+    const filteredCount = filtered.length;
+    
+    document.getElementById('total-counts-label').innerText = 
+      `Stream: ${streamCount} | Matching: ${filteredCount} | Total Active Portfolio: ${totalCount}`;
+  }
+
+  /**
+   * Toggles a lead filter selection array and updates UI
+   */
+  function toggleLeadFilter(email) {
+    if (opexState.filterLeads.includes(email)) {
+      opexState.filterLeads = opexState.filterLeads.filter(e => e !== email);
+    } else {
+      opexState.filterLeads.push(email);
+    }
+    
+    const btnText = document.getElementById('lead-btn-text');
+    if (opexState.filterLeads.length === 0) {
+      btnText.innerText = 'All Leads';
+    } else if (opexState.filterLeads.length === 1) {
+      const emp = globalEmployeesRoster.find(e => String(e.email).toLowerCase().trim() === opexState.filterLeads[0]);
+      btnText.innerText = emp ? emp.name : opexState.filterLeads[0].split('@')[0];
+    } else {
+      btnText.innerText = `${opexState.filterLeads.length} Leads Selected`;
+    }
+    
+    filterBoard();
+    populateLeadFilterOptions();
+  }
+
+  /**
+   * Scans current projects and populates unique Leads checkboxes dynamically
+   */
+  function populateLeadFilterOptions() {
+    const container = document.getElementById('lead-dropdown-options');
+    if (!container) return;
+    
+    // Gather unique leads
+    const leadsSet = new Set();
+    opexState.projects.forEach(p => {
+      const cell = String(p["Ops Ex Lead Email"] || "").toLowerCase();
+      if (cell) {
+        cell.split(',').forEach(email => {
+          const trimmed = email.trim();
+          if (trimmed) leadsSet.add(trimmed);
+        });
+      }
+    });
+    
+    container.innerHTML = '';
+    
+    if (leadsSet.size === 0) {
+      container.innerHTML = '<div class="p-3 text-xs text-white/30 text-center">No Leads available</div>';
+      return;
+    }
+    
+    Array.from(leadsSet).sort().forEach(email => {
+      const emp = globalEmployeesRoster.find(e => String(e.email).toLowerCase().trim() === email);
+      const name = emp ? emp.name : email.split('@')[0];
+      const isChecked = opexState.filterLeads.includes(email);
+      
+      const opt = document.createElement('div');
+      opt.className = 'px-3 py-2 hover:bg-white/5 cursor-pointer text-xs text-white/70 flex items-center gap-2 transition-colors';
+      opt.innerHTML = `
+        <input type="checkbox" ${isChecked ? 'checked' : ''} class="accent-[#FF0061] pointer-events-none rounded bg-white/5 border-white/10">
+        <span class="truncate uppercase font-medium text-[10px] tracking-wide">${name}</span>
+      `;
+      opt.onclick = (e) => {
+        e.stopPropagation();
+        toggleLeadFilter(email);
+      };
+      container.appendChild(opt);
+    });
+  }
+
+  /**
+   * Toggles a status filter selection array and updates UI
+   */
+  function toggleStatusFilter(status) {
+    if (opexState.filterStatuses.includes(status)) {
+      opexState.filterStatuses = opexState.filterStatuses.filter(s => s !== status);
+    } else {
+      opexState.filterStatuses.push(status);
+    }
+    
+    const btnText = document.getElementById('status-btn-text');
+    if (opexState.filterStatuses.length === 0) {
+      btnText.innerText = 'All Statuses';
+    } else if (opexState.filterStatuses.length === 1) {
+      btnText.innerText = opexState.filterStatuses[0];
+    } else {
+      btnText.innerText = `${opexState.filterStatuses.length} Statuses Selected`;
+    }
+    
+    filterBoard();
+    populateStatusFilterOptions();
+  }
+
+  /**
+   * Dynamically populates unique statuses of the active tab stream into custom checkboxes
+   */
+  function populateStatusFilterOptions() {
+    const container = document.getElementById('status-dropdown-options');
+    if (!container) return;
+    
+    // Gather unique statuses present in the current stream tab
+    const statusesSet = new Set();
+    opexState.projects.forEach(p => {
+      if (opexState.activeStream === 'All' || p["Stream"] === opexState.activeStream) {
+        const status = String(p["Status"] || "").trim();
+        const sLower = status.toLowerCase();
+        // Skip backlog statuses
+        if (status && sLower !== 'backlog' && sLower !== 'to do' && sLower !== 'open' && sLower !== 'new' && sLower !== 'select') {
+          statusesSet.add(status);
+        }
+      }
+    });
+    
+    // If empty (e.g. no projects loaded yet), load active defaults as backup
+    if (statusesSet.size === 0) {
+      ["Active", "Blocked", "Completed"].forEach(s => statusesSet.add(s));
+    }
+    
+    container.innerHTML = '';
+    
+    Array.from(statusesSet).sort().forEach(s => {
+      const isChecked = opexState.filterStatuses.includes(s);
+      
+      const opt = document.createElement('div');
+      opt.className = 'px-3 py-2 hover:bg-white/5 cursor-pointer text-xs text-white/70 flex items-center gap-2 transition-colors';
+      opt.innerHTML = `
+        <input type="checkbox" ${isChecked ? 'checked' : ''} class="accent-[#FF0061] pointer-events-none rounded bg-white/5 border-white/10">
+        <span class="truncate uppercase font-medium text-[10px] tracking-wide">${s}</span>
+      `;
+      opt.onclick = (e) => {
+        e.stopPropagation();
+        toggleStatusFilter(s);
+      };
+      container.appendChild(opt);
+    });
+  }
+
+  /**
+   * Renders beautiful glassmorphic skeleton loaders corresponding to the active view stream tab.
+   * Prevents visual popping during asynchronous server-side fetching callbacks.
+   */
+  function showOpexSkeletons() {
+    const tableContainer = document.getElementById('projects-table-container');
+    const emptyState = document.getElementById('empty-state');
+    const skeleton = document.getElementById('opex-loading-skeleton');
+    
+    if (!skeleton || !tableContainer || !emptyState) return;
+    
+    // Hide active components
+    tableContainer.classList.add('hidden');
+    emptyState.classList.add('hidden');
+    
+    // Show parent skeleton container
+    skeleton.classList.remove('hidden');
+  }
+
+  /* Multi-Select Ops Ex Leads Search-Select Helpers */
+  
+  function showLeadSuggestions() {
+    const dropdown = document.getElementById('lead-suggestions');
+    if (!dropdown) return;
+    dropdown.classList.remove('hidden');
+    filterLeadSuggestions();
+  }
+
+  function filterLeadSuggestions() {
+    const input = document.getElementById('lead-search-input');
+    const dropdown = document.getElementById('lead-suggestions');
+    if (!input || !dropdown) return;
+    
+    const q = input.value.trim().toLowerCase();
+    
+    const filtered = globalEmployeesRoster.filter(emp => {
+      const email = String(emp.email || "").toLowerCase().trim();
+      if (selectedLeads.includes(email)) return false;
+      
+      if (!q) return true;
+      const name = String(emp.name || "").toLowerCase();
+      return name.includes(q) || email.includes(q);
+    });
+    
+    dropdown.innerHTML = '';
+    if (filtered.length === 0) {
+      dropdown.innerHTML = `<div class="p-3 text-xs text-white/30 text-center uppercase tracking-widest font-black">No matching contacts</div>`;
+      return;
+    }
+    
+    filtered.slice(0, 10).forEach(emp => {
+      const item = document.createElement('div');
+      item.className = 'p-3 text-xs text-white/70 hover:text-white hover:bg-white/5 cursor-pointer transition-colors border-b border-white/5 flex justify-between items-center';
+      item.innerHTML = `
+        <div>
+          <p class="font-bold uppercase tracking-wide text-left">${emp.name}</p>
+          <p class="text-[9px] text-white/40 text-left">${emp.email}</p>
+        </div>
+        <i class="fas fa-plus text-white/30 text-[10px]"></i>
+      `;
+      item.onclick = () => {
+        addLeadPill(emp.email);
+        input.value = '';
+        dropdown.classList.add('hidden');
+      };
+      dropdown.appendChild(item);
+    });
+  }
+
+  function addLeadPill(email) {
+    const cleanEmail = String(email || "").toLowerCase().trim();
+    if (!cleanEmail || selectedLeads.includes(cleanEmail)) return;
+    
+    selectedLeads.push(cleanEmail);
+    renderLeadPills();
+    syncLeadsFormValue();
+  }
+
+  function removeLeadPill(email) {
+    selectedLeads = selectedLeads.filter(e => e !== email);
+    renderLeadPills();
+    syncLeadsFormValue();
+  }
+
+  function renderLeadPills() {
+    const container = document.getElementById('lead-pills-container');
+    if (!container) return;
+    
+    container.innerHTML = '';
+    
+    if (selectedLeads.length === 0) {
+      container.innerHTML = `<p class="text-[10px] text-white/20 uppercase tracking-widest font-bold m-auto">No Leads assigned</p>`;
+      return;
+    }
+    
+    selectedLeads.forEach(email => {
+      const emp = globalEmployeesRoster.find(e => String(e.email).toLowerCase().trim() === email);
+      const name = emp ? emp.name : email.split('@')[0];
+      
+      const pill = document.createElement('div');
+      pill.className = 'px-3 py-1.5 bg-osttra-violet/20 border border-osttra-violet/40 rounded-lg text-[10px] font-bold text-white flex items-center gap-2 animate-in zoom-in duration-200';
+      
+      const isChamp = opexState.permissions === 'CHAMPION';
+      const streamVal = document.getElementById('form-stream') ? document.getElementById('form-stream').value : '';
+      const isJiraProject = streamVal === 'DigiOps' || streamVal === 'Process Improvements';
+      const canEdit = !isChamp && !isJiraProject;
+
+      pill.innerHTML = `
+        <span class="uppercase tracking-wide">${name}</span>
+        ${canEdit ? `<button onclick="removeLeadPill('${email}')" class="text-white/40 hover:text-white transition-colors cursor-pointer"><i class="fas fa-times"></i></button>` : ''}
+      `;
+      container.appendChild(pill);
+    });
+  }
+
+  function syncLeadsFormValue() {
+    const hiddenInput = document.getElementById('form-leadEmail');
+    if (hiddenInput) {
+      hiddenInput.value = selectedLeads.join(', ');
+    }
+  }
+
+  /* Search-Select Champions Multi-Select Helpers */
+  
+  function showChampSuggestions() {
+    const dropdown = document.getElementById('champ-suggestions');
+    if (!dropdown) return;
+    dropdown.classList.remove('hidden');
+    filterChampSuggestions();
+  }
+
+  function filterChampSuggestions() {
+    const input = document.getElementById('champion-search-input');
+    const dropdown = document.getElementById('champ-suggestions');
+    if (!input || !dropdown) return;
+    
+    const q = input.value.trim().toLowerCase();
+    
+    const filtered = globalEmployeesRoster.filter(emp => {
+      const email = String(emp.email || "").toLowerCase().trim();
+      if (selectedChampions.includes(email)) return false;
+      
+      if (!q) return true;
+      const name = String(emp.name || "").toLowerCase();
+      return name.includes(q) || email.includes(q);
+    });
+    
+    dropdown.innerHTML = '';
+    if (filtered.length === 0) {
+      dropdown.innerHTML = `<div class="p-3 text-xs text-white/30 text-center uppercase tracking-widest font-black">No matching contacts</div>`;
+      return;
+    }
+    
+    filtered.slice(0, 10).forEach(emp => {
+      const item = document.createElement('div');
+      item.className = 'p-3 text-xs text-white/70 hover:text-white hover:bg-white/5 cursor-pointer transition-colors border-b border-white/5 flex justify-between items-center';
+      item.innerHTML = `
+        <div>
+          <p class="font-bold uppercase tracking-wide text-left">${emp.name}</p>
+          <p class="text-[9px] text-white/40 text-left">${emp.email}</p>
+        </div>
+        <i class="fas fa-plus text-white/30 text-[10px]"></i>
+      `;
+      item.onclick = () => {
+        addChampionPill(emp.email);
+        input.value = '';
+        dropdown.classList.add('hidden');
+      };
+      dropdown.appendChild(item);
+    });
+  }
+
+  function addChampionPill(email) {
+    const cleanEmail = String(email || "").toLowerCase().trim();
+    if (!cleanEmail || selectedChampions.includes(cleanEmail)) return;
+    
+    selectedChampions.push(cleanEmail);
+    renderChampionPills();
+    syncChampionsFormValue();
+  }
+
+  function removeChampionPill(email) {
+    selectedChampions = selectedChampions.filter(e => e !== email);
+    renderChampionPills();
+    syncChampionsFormValue();
+  }
+
+  function renderChampionPills() {
+    const container = document.getElementById('champion-pills-container');
+    if (!container) return;
+    
+    container.innerHTML = '';
+    
+    if (selectedChampions.length === 0) {
+      container.innerHTML = `<p class="text-[10px] text-white/20 uppercase tracking-widest font-bold m-auto">No champions assigned</p>`;
+      return;
+    }
+    
+    selectedChampions.forEach(email => {
+      const emp = globalEmployeesRoster.find(e => String(e.email).toLowerCase().trim() === email);
+      const name = emp ? emp.name : email.split('@')[0];
+      
+      const pill = document.createElement('div');
+      pill.className = 'px-3 py-1.5 bg-[#FF0061]/10 border border-[#FF0061]/20 rounded-lg text-[10px] font-bold text-white flex items-center gap-2 animate-in zoom-in duration-200';
+      
+      const isChamp = opexState.permissions === 'CHAMPION';
+      pill.innerHTML = `
+        <span class="uppercase tracking-wide">${name}</span>
+        ${!isChamp ? `<button onclick="removeChampionPill('${email}')" class="text-white/40 hover:text-white transition-colors cursor-pointer"><i class="fas fa-times"></i></button>` : ''}
+      `;
+      container.appendChild(pill);
+    });
+  }
+
+  function syncChampionsFormValue() {
+    const hiddenInput = document.getElementById('form-champions');
+    if (hiddenInput) {
+      hiddenInput.value = selectedChampions.join(', ');
+    }
+  }
+
+
+  /* Search-Select Roles & Responsibilities Picklist Multi-Select Helpers */
+  
+  function showRoleSuggestions() {
+    const dropdown = document.getElementById('role-suggestions');
+    if (!dropdown) return;
+    dropdown.classList.remove('hidden');
+    filterRoleSuggestions();
+  }
+
+  function filterRoleSuggestions() {
+    const input = document.getElementById('role-search-input');
+    const dropdown = document.getElementById('role-suggestions');
+    if (!input || !dropdown) return;
+    
+    const q = input.value.trim().toLowerCase();
+    
+    const filtered = ROLES_AND_RESPONSIBILITIES_OPTIONS.filter(role => {
+      if (selectedRoles.includes(role)) return false;
+      if (!q) return true;
+      return role.toLowerCase().includes(q);
+    });
+    
+    dropdown.innerHTML = '';
+    if (filtered.length === 0) {
+      dropdown.innerHTML = `<div class="p-3 text-xs text-white/30 text-center uppercase tracking-widest font-black">No matching roles</div>`;
+      return;
+    }
+    
+    filtered.forEach(role => {
+      const item = document.createElement('div');
+      item.className = 'p-3 text-xs text-white/70 hover:text-white hover:bg-white/5 cursor-pointer transition-colors border-b border-white/5 flex justify-between items-center';
+      item.innerHTML = `
+        <span class="font-semibold text-left line-clamp-1 max-w-[320px]">${role}</span>
+        <i class="fas fa-plus text-white/30 text-[10px]"></i>
+      `;
+      item.onclick = () => {
+        addRolePill(role);
+        input.value = '';
+        dropdown.classList.add('hidden');
+      };
+      dropdown.appendChild(item);
+    });
+  }
+
+  function addRolePill(role) {
+    if (!role || selectedRoles.includes(role)) return;
+    selectedRoles.push(role);
+    renderRolePills();
+    syncRolesFormValue();
+  }
+
+  function removeRolePill(role) {
+    selectedRoles = selectedRoles.filter(r => r !== role);
+    renderRolePills();
+    syncRolesFormValue();
+  }
+
+  function renderRolePills() {
+    const container = document.getElementById('role-pills-container');
+    if (!container) return;
+    
+    container.innerHTML = '';
+    
+    if (selectedRoles.length === 0) {
+      container.innerHTML = `<p class="text-[10px] text-white/20 uppercase tracking-widest font-bold m-auto">No roles assigned</p>`;
+      return;
+    }
+    
+    selectedRoles.forEach(role => {
+      const pill = document.createElement('div');
+      pill.className = 'px-3 py-1.5 bg-[#FE952D]/15 border border-[#FE952D]/35 rounded-lg text-[10px] font-bold text-white flex items-center gap-2 animate-in zoom-in duration-200';
+      
+      const isChamp = opexState.permissions === 'CHAMPION';
+      pill.innerHTML = `
+        <span class="uppercase tracking-wide">${role}</span>
+        ${!isChamp ? `<button onclick="removeRolePill('${role}')" class="text-white/40 hover:text-white transition-colors cursor-pointer"><i class="fas fa-times"></i></button>` : ''}
+      `;
+      container.appendChild(pill);
+    });
+  }
+
+  function syncRolesFormValue() {
+    const hiddenInput = document.getElementById('form-roles');
+    if (hiddenInput) {
+      hiddenInput.value = selectedRoles.join(', ');
+    }
+  }
+
+
+  // Close suggestions and custom multi-select dropdowns on outside clicks
+  document.addEventListener('click', e => {
+    // 1. Close Champion Suggestions
+    const cDropdown = document.getElementById('champ-suggestions');
+    const cInput = document.getElementById('champion-search-input');
+    if (cDropdown && !cDropdown.contains(e.target) && e.target !== cInput) {
+      cDropdown.classList.add('hidden');
+    }
+
+    // 2. Close Lead Suggestions (form editing)
+    const lDropdown = document.getElementById('lead-suggestions');
+    const lInput = document.getElementById('lead-search-input');
+    if (lDropdown && !lDropdown.contains(e.target) && e.target !== lInput) {
+      lDropdown.classList.add('hidden');
+    }
+
+    // 3. Close Roles Suggestions
+    const rDropdown = document.getElementById('role-suggestions');
+    const rInput = document.getElementById('role-search-input');
+    if (rDropdown && !rDropdown.contains(e.target) && e.target !== rInput) {
+      rDropdown.classList.add('hidden');
+    }
+
+    // 4. Close Status Custom Multi-Select Filter Panel
+    const statusContainer = e.target.closest('.custom-multi-select');
+    if (!statusContainer) {
+      const sDropdown = document.getElementById('status-dropdown');
+      const leadDropdown = document.getElementById('lead-dropdown');
+      if (sDropdown) sDropdown.classList.add('hidden');
+      if (leadDropdown) leadDropdown.classList.add('hidden');
+    }
+  });
+
+
+  /**
+   * Collapses or expands a specific category table accordion
+   */
+  function toggleTable(tableId) {
+    const tableEl = document.getElementById(tableId);
+    const iconEl = document.getElementById('icon-' + tableId);
+    if (!tableEl) return;
+    
+    const isHidden = tableEl.classList.contains('hidden');
+    if (isHidden) {
+      tableEl.classList.remove('hidden');
+      if (iconEl) {
+        iconEl.classList.remove('rotate-180');
+      }
+    } else {
+      tableEl.classList.add('hidden');
+      if (iconEl) {
+        iconEl.classList.add('rotate-180');
+      }
+    }
+  }
+
+  /**
+   * Safe wrapper to click-to-toggle rows smoothly
+   */
+  function toggleInlineForm(project, rowElement) {
+    const existingEditRow = document.getElementById('inline-edit-row');
+    const isCurrentlyOpenHere = existingEditRow && existingEditRow.previousElementSibling === rowElement;
+
+    // Always close any active form first
+    closeProjectForm();
+
+    if (!isCurrentlyOpenHere) {
+      // If the row clicked is NOT the one that was open, open it!
+      openProjectForm(project, rowElement);
+    }
+  }
+
+  /**
+   * Opens the moveable master project form either inline (for editing) or centered in the modal (for creation)
+   */
+  function openProjectForm(project, btnElement) {
+    const masterForm = document.getElementById('master-project-form');
+    const createModalBackdrop = document.getElementById('create-modal-backdrop');
+    const createModalBody = document.getElementById('create-modal-body');
+    const roleBadge = document.getElementById('role-badge-container');
+    const streamSelect = document.getElementById('form-stream');
+
+    if (!masterForm) return;
+
+    // Remove any previously open inline edit rows
+    const existingEditRow = document.getElementById('inline-edit-row');
+    if (existingEditRow) {
+      // Return form back to storage before removing row to prevent loss of DOM element references
+      const formStorage = document.getElementById('master-project-form-container');
+      if (formStorage) {
+        formStorage.appendChild(masterForm);
+      }
+      existingEditRow.remove();
+    }
+
+    // Reset Form Fields
+    document.getElementById('form-projectId').value = '';
+    document.getElementById('form-projectName').value = '';
+    document.getElementById('form-jiraKey').value = '';
+    
+    selectedChampions = [];
+    selectedLeads = [];
+    renderChampionPills();
+    renderLeadPills();
+    syncChampionsFormValue();
+    syncLeadsFormValue();
+    
+    // Determine edit restrictions based on roles
+    const isChamp = opexState.permissions === 'CHAMPION';
+    const formInputs = document.querySelectorAll('#master-project-form input, #master-project-form select');
+    const cSearch = document.getElementById('champion-search-input');
+    const lSearch = document.getElementById('lead-search-input');
+    
+    if (isChamp) {
+      if (roleBadge) roleBadge.classList.remove('hidden');
+      formInputs.forEach(input => {
+        if (input.id !== 'form-projectId') {
+          input.setAttribute('disabled', 'true');
+          input.setAttribute('readonly', 'true');
+          input.classList.add('opacity-40');
+        }
+      });
+      if (cSearch) { cSearch.setAttribute('disabled', 'true'); cSearch.setAttribute('readonly', 'true'); cSearch.classList.add('opacity-40'); }
+      if (lSearch) { lSearch.setAttribute('disabled', 'true'); lSearch.setAttribute('readonly', 'true'); lSearch.classList.add('opacity-40'); }
+    } else {
+      if (roleBadge) roleBadge.classList.add('hidden');
+      formInputs.forEach(input => {
+        input.removeAttribute('disabled');
+        input.removeAttribute('readonly');
+        input.classList.remove('opacity-40');
+      });
+      if (cSearch) { cSearch.removeAttribute('disabled'); cSearch.removeAttribute('readonly'); cSearch.classList.remove('opacity-40'); }
+      if (lSearch) { lSearch.removeAttribute('disabled'); lSearch.removeAttribute('readonly'); lSearch.classList.remove('opacity-40'); }
+    }
+    
+    if (project) {
+      // 1. EDIT MODE: Move form inline directly beneath clicked table row
+      if (createModalBackdrop) {
+        createModalBackdrop.classList.add('hidden');
+        createModalBackdrop.classList.add('pointer-events-none');
+        createModalBackdrop.classList.add('opacity-0');
+      }
+
+      const clickedRow = btnElement ? btnElement.closest('tr') : null;
+      if (!clickedRow) return;
+
+      // Highlight the clicked row to show it is active/expanded
+      clickedRow.classList.add('bg-[#FF0061]/5', 'border-l-2', 'border-[#FF0061]');
+      clickedRow.classList.remove('hover:bg-white/[0.04]', 'border-white/5');
+      const chevron = clickedRow.querySelector('.opex-row-chevron');
+      if (chevron) chevron.classList.add('rotate-180');
+
+      // Construct a new expanded TR to hold the form with distinct "nested drawer" styling
+      const newRow = document.createElement('tr');
+      newRow.id = 'inline-edit-row';
+      newRow.className = 'bg-[#0a0a0a] shadow-[inset_0_4px_10px_rgba(0,0,0,0.5)] animate-in slide-in-from-top-2 duration-300';
+      
+      const newCell = document.createElement('td');
+      newCell.colSpan = 6;
+      newCell.className = 'p-6 border-l-4 border-[#FF0061]';
+      newCell.appendChild(masterForm);
+      
+      newRow.appendChild(newCell);
+      clickedRow.after(newRow);
+
+      // Populate data
+      const jiraKey = String(project["Jira Key"] || "").trim().toUpperCase();
+      const isJiraProject = project["Stream"] === 'DigiOps' || project["Stream"] === 'Process Improvements';
+
+      if (streamSelect) {
+        if (isJiraProject) {
+          // If JIRA project, only render its locked category as the option
+          streamSelect.innerHTML = `
+            <option value="${project["Stream"]}" class="bg-[#141414]">${project["Stream"] === 'Process Improvements' ? 'Process Improvements' : 'DigiOps'}</option>
+          `;
+        } else {
+          // Manual project - only allow converting between Growth Initiatives and Non-Growth CTB
+          streamSelect.innerHTML = `
+            <option value="CTB (Growth Initiatives)" class="bg-[#141414]">Growth Initiatives</option>
+            <option value="CTB (Non-Growth)" class="bg-[#141414]">Non-Growth CTB</option>
+          `;
+        }
+        streamSelect.value = project["Stream"];
+        
+        // Lock Stream / Category field for JIRA-backed projects (Must be edited in Jira)
+        if (isJiraProject) {
+          streamSelect.setAttribute('disabled', 'true');
+          streamSelect.classList.add('opacity-50', 'cursor-not-allowed');
+        } else if (!isChamp) {
+          // Re-enable if manual project and user is Admin
+          streamSelect.removeAttribute('disabled');
+          streamSelect.classList.remove('opacity-50', 'cursor-not-allowed');
+        }
+      }
+
+      // Configure interactive status selector element based on source
+      const statusContainer = document.getElementById('status-interactive-element');
+      if (statusContainer) {
+        if (isJiraProject) {
+          statusContainer.innerHTML = `
+            <input type="text" id="form-status" class="w-full px-3 py-2 bg-white/5 border border-white/5 rounded-lg text-xs text-white/50 cursor-not-allowed outline-none transition-all" value="${project["Status"] || 'Backlog'}" disabled readonly>
+          `;
+        } else {
+          statusContainer.innerHTML = `
+            <select id="form-status" class="w-full px-3 py-2 bg-white/5 border border-white/5 hover:border-white/10 rounded-lg text-xs text-white outline-none transition-all">
+              <option value="Backlog" class="bg-[#141414]">Backlog</option>
+              <option value="Active" class="bg-[#141414]">Active</option>
+              <option value="Blocked" class="bg-[#141414]">Blocked</option>
+              <option value="Completed" class="bg-[#141414]">Completed</option>
+            </select>
+          `;
+          document.getElementById('form-status').value = project["Status"] || 'Backlog';
+        }
+      }
+      
+      document.getElementById('form-projectId').value = project["Project ID"];
+      document.getElementById('form-projectName').value = project["Project Name"];
+      document.getElementById('form-jiraKey').value = project["Jira Key"] || '';
+      
+      // Lock remaining JIRA fields (Project Name, Leads) if coming from JIRA source
+      const pNameInput = document.getElementById('form-projectName');
+      const lSearchInput = document.getElementById('lead-search-input');
+      if (isJiraProject) {
+        if (pNameInput) {
+          pNameInput.setAttribute('disabled', 'true');
+          pNameInput.setAttribute('readonly', 'true');
+          pNameInput.classList.add('opacity-50', 'cursor-not-allowed');
+        }
+        if (lSearchInput) {
+          lSearchInput.setAttribute('disabled', 'true');
+          lSearchInput.setAttribute('readonly', 'true');
+          lSearchInput.classList.add('opacity-50', 'cursor-not-allowed');
+          lSearchInput.placeholder = "Leads managed in JIRA";
+        }
+      } else if (!isChamp) {
+        // Restore editability for manual projects (if Admin)
+        if (pNameInput) {
+          pNameInput.removeAttribute('disabled');
+          pNameInput.removeAttribute('readonly');
+          pNameInput.classList.remove('opacity-50', 'cursor-not-allowed');
+        }
+        if (lSearchInput) {
+          lSearchInput.removeAttribute('disabled');
+          lSearchInput.removeAttribute('readonly');
+          lSearchInput.classList.remove('opacity-50', 'cursor-not-allowed');
+          lSearchInput.placeholder = "Type name or email...";
+        }
+      }
+
+      // Load multi-select champions into pills
+      const champsCell = String(project["Project Champion Emails"] || "").toLowerCase();
+      if (champsCell) {
+        selectedChampions = champsCell.split(',').map(e => e.trim()).filter(Boolean);
+      }
+      renderChampionPills();
+      syncChampionsFormValue();
+
+      // Load multi-select leads into pills
+      const leadsCell = String(project["Ops Ex Lead Email"] || "").toLowerCase();
+      if (leadsCell) {
+        selectedLeads = leadsCell.split(',').map(e => e.trim()).filter(Boolean);
+      }
+      renderLeadPills();
+      syncLeadsFormValue();
+
+    } else {
+      // 2. CREATION MODE: Move master form into centered pop-up modal
+      if (createModalBody) {
+        createModalBody.appendChild(masterForm);
+      }
+
+      // Restrict creation only to manual CTB Streams!
+      if (streamSelect) {
+        streamSelect.innerHTML = `
+          <option value="CTB (Growth Initiatives)" class="bg-[#141414]">Growth Initiatives</option>
+          <option value="CTB (Non-Growth)" class="bg-[#141414]">Non-Growth CTB</option>
+        `;
+        if (opexState.activeStream === 'CTB (Growth Initiatives)' || opexState.activeStream === 'CTB (Non-Growth)') {
+          streamSelect.value = opexState.activeStream;
+        } else {
+          streamSelect.value = 'CTB (Growth Initiatives)';
+        }
+      }
+
+      // Default Status configuration for creation
+      const statusContainer = document.getElementById('status-interactive-element');
+      if (statusContainer) {
+        statusContainer.innerHTML = `
+          <select id="form-status" class="w-full px-3 py-2 bg-white/5 border border-white/5 hover:border-white/10 rounded-lg text-xs text-white outline-none transition-all">
+            <option value="Backlog" class="bg-[#141414]">Backlog</option>
+            <option value="Active" class="bg-[#141414]">Active</option>
+            <option value="Blocked" class="bg-[#141414]">Blocked</option>
+            <option value="Completed" class="bg-[#141414]">Completed</option>
+          </select>
+        `;
+      }
+
+      // Show pop-up dialog with animation
+      if (createModalBackdrop) {
+        createModalBackdrop.classList.remove('hidden');
+        createModalBackdrop.classList.remove('pointer-events-none');
+        createModalBackdrop.classList.remove('opacity-0');
+        createModalBackdrop.classList.add('opacity-100');
+      }
+    }
+  }
+
+  /**
+   * Closes the project form and restores DOM structures safely
+   */
+  function closeProjectForm() {
+    const masterForm = document.getElementById('master-project-form');
+    const formStorage = document.getElementById('master-project-form-container');
+    const createModalBackdrop = document.getElementById('create-modal-backdrop');
+    
+    // Hide Pop-up modal
+    if (createModalBackdrop) {
+      createModalBackdrop.classList.add('opacity-0');
+      createModalBackdrop.classList.add('pointer-events-none');
+      setTimeout(() => {
+        createModalBackdrop.classList.add('hidden');
+      }, 300);
+    }
+
+    // Collapse any open inline edit row and restore parent row styles
+    const existingEditRow = document.getElementById('inline-edit-row');
+    if (existingEditRow) {
+      const prevRow = existingEditRow.previousElementSibling;
+      if (prevRow) {
+        prevRow.classList.remove('bg-[#FF0061]/5', 'border-l-2', 'border-[#FF0061]');
+        prevRow.classList.add('hover:bg-white/[0.04]', 'border-white/5');
+        const chevron = prevRow.querySelector('.opex-row-chevron');
+        if (chevron) chevron.classList.remove('rotate-180');
+      }
+      existingEditRow.remove();
+    }
+
+    // Safely return form back to storage to preserve references
+    if (formStorage && masterForm) {
+      formStorage.appendChild(masterForm);
+    }
+  }
+
+  /**
+   * Gathers form inputs and triggers server-side project save
+   */
+  function saveProjectForm() {
+    const projectId = document.getElementById('form-projectId').value.trim();
+    const saveSpinner = document.getElementById('save-spinner');
+    const saveBtnText = document.getElementById('save-btn-text');
+    const saveBtn = document.getElementById('btn-save-project');
+    
+    const payload = {
+      "Project ID": projectId,
+      "Stream": document.getElementById('form-stream').value,
+      "Project Name": document.getElementById('form-projectName').value.trim(),
+      "Jira Key": document.getElementById('form-jiraKey').value.trim(),
+      "Ops Ex Lead Email": document.getElementById('form-leadEmail').value.trim(),
+      "Project Champion Emails": document.getElementById('form-champions').value.trim(),
+      "Status": document.getElementById('form-status').value
+    };
+    
+    // Basic Form validation for Admins creating new items
+    if (opexState.permissions === 'ADMIN') {
+      if (!payload["Project Name"]) {
+        alertNotification('🚫 Validation Failed: Project Name is required.', 'error');
+        return;
+      }
+      if (!payload["Ops Ex Lead Email"]) {
+        alertNotification('🚫 Validation Failed: Ops Ex Lead Email is required.', 'error');
+        return;
+      }
+    }
+    
+    // Show loading spinner inside the button
+    saveSpinner.classList.remove('hidden');
+    saveBtnText.innerText = 'Saving...';
+    saveBtn.setAttribute('disabled', 'true');
+    saveBtn.classList.add('opacity-60');
+    
+    google.script.run
+      .withSuccessHandler(res => {
+        // Reset save buttons
+        saveSpinner.classList.add('hidden');
+        saveBtnText.innerText = 'Save Changes';
+        saveBtn.removeAttribute('disabled');
+        saveBtn.classList.remove('opacity-60');
+        
+        // Notify user of success
+        alertNotification(`✅ ${res.message}`, 'success');
+        closeProjectForm();
+        
+        // Pull latest state asynchronously to completely reflect edits
+        loadOpexData();
+      })
+      .withFailureHandler(err => {
+        // Reset save buttons
+        saveSpinner.classList.add('hidden');
+        saveBtnText.innerText = 'Save Changes';
+        saveBtn.removeAttribute('disabled');
+        saveBtn.classList.remove('opacity-60');
+        
+        alertNotification(`❌ Save Failed: ${err.message}`, 'error');
+      })
+      .saveOpexProject(payload);
+  }
+
+  /**
+   * Triggers background JIRA Sync asynchronously
+   */
+  function triggerJiraSync() {
+    const overlay = document.getElementById('loading-overlay');
+    const msg = document.getElementById('loading-message');
+    if (overlay) overlay.classList.remove('hidden');
+    if (msg) msg.innerText = 'Synchronizing portfolio with JIRA...';
+    
+    google.script.run
+      .withSuccessHandler(res => {
+        if (overlay) overlay.classList.add('hidden');
+        alertNotification(`✅ ${res.message}`, 'success');
+        loadOpexData();
+      })
+      .withFailureHandler(err => {
+        if (overlay) overlay.classList.add('hidden');
+        alertNotification(`❌ Sync Failed: ${err.message}`, 'error');
+      })
+      .syncOpexJiraData();
+  }
+
+  /**
+   * Fetches fresh OPEX projects from Google Sheets securely
+   */
+  function loadOpexData() {
+    showOpexSkeletons(); // Display smart shimmering skeleton loaders instantly!
+    
+    google.script.run
+      .withSuccessHandler(data => {
+        opexState.isFetchingData = false;
+        opexState.projects = data.projects || [];
+        opexState.permissions = data.permissions || 'CHAMPION';
+        
+        // Show administrative actions panel if OPEX Lead/Admin
+        const adminPanel = document.getElementById('admin-actions-container');
+        if (opexState.permissions === 'ADMIN') {
+          adminPanel.classList.remove('hidden');
+          adminPanel.classList.add('flex');
+        } else {
+          adminPanel.classList.remove('flex');
+          adminPanel.classList.add('hidden');
+        }
+        
+        // Populate dynamic filter lists and refresh grid
+        populateLeadFilterOptions();
+        switchStream(opexState.activeStream);
+      })
+      .withFailureHandler(err => {
+        opexState.isFetchingData = false;
+        console.error("Failed to load OPEX projects:", err);
+        alertNotification("⚠️ Failed to load portfolio: " + err.message, "error");
+      })
+      .getOpexProjects();
+  }
+
+  /**
+   * Pulls the corporate master roster to feed the searchable select dropdowns
+   */
+  function loadEmployeeRoster() {
+    google.script.run
+      .withSuccessHandler(data => {
+        globalEmployeesRoster = data.employees || [];
+        
+        // Dynamic options rebuild on roster arrive
+        populateLeadFilterOptions();
+        switchStream(opexState.activeStream);
+      })
+      .withFailureHandler(err => {
+        console.error("Failed to load employee roster for search select dropdowns:", err);
+      })
+      .getGlobalHeadcountData();
+  }
+
+  /**
+   * Displays corporate-styled overlay notifications in the main shell container
+   */
+  function alertNotification(msg, type = 'success') {
+    const container = document.getElementById('notification-container');
+    if (!container) return;
+    
+    const notification = document.createElement('div');
+    notification.className = `p-4 rounded-xl border flex items-center gap-3 shadow-2xl pointer-events-auto animate-in slide-in-from-right duration-300 max-w-sm ${
+      type === 'success' 
+        ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' 
+        : 'bg-red-500/10 text-red-400 border-red-500/20'
+    }`;
+    
+    notification.innerHTML = `
+      <i class="fas ${type === 'success' ? 'fa-check-circle' : 'fa-exclamation-triangle'}"></i>
+      <span class="text-[11px] font-bold uppercase tracking-wider">${msg}</span>
+    `;
+    
+    container.appendChild(notification);
+    
+    // Auto-remove notification after 4 seconds
+    setTimeout(() => {
+      notification.classList.add('animate-out', 'fade-out', 'duration-300');
+      setTimeout(() => notification.remove(), 300);
+    }, 4000);
+  }
+
+  // Component Bootstrap Entrypoint
+  setTimeout(() => {
+    switchStream('All');
+    loadOpexData();
+    loadEmployeeRoster();
+  }, 100);
+</script>

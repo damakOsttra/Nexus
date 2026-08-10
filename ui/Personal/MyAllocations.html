@@ -20,7 +20,7 @@
     <!-- Tabular Entry Grid (Left) -->
     <div class="space-y-6">
       <!-- Working Days Capacity Tracking (Progressive Disclosure) -->
-      <div class="glass rounded-[2rem] border border-white/5 p-6 space-y-6">
+      <div class="glass rounded-[2rem] border border-white/5 p-6 space-y-6 hidden">
         <div class="flex items-center gap-2 border-b border-white/5 pb-3">
           <i class="fas fa-calendar-alt text-osttra-ochre text-sm"></i>
           <h4 class="text-xs font-black uppercase tracking-[0.2em] text-osttra-ochre">Working Days & Capacity</h4>
@@ -113,45 +113,35 @@
         </div>
       </div>
 
-      <!-- Bottom Section: Checklist, Submission & Guidelines -->
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <!-- Checklist & Submit -->
-        <div class="lg:col-span-2 p-8 glass rounded-[2rem] border border-white/5 space-y-6 flex flex-col justify-between">
-          <div class="space-y-4">
-            <h4 class="text-xs font-black uppercase tracking-widest text-white/30">Compliance Checklist</h4>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div id="check-products" class="flex items-center gap-3 text-xs text-white/40">
-                <i class="fas fa-check-circle text-white/10"></i>
-                <span>Has assigned products</span>
-              </div>
-              <div id="check-hours" class="flex items-center gap-3 text-xs text-white/40">
-                <i class="fas fa-check-circle text-white/10"></i>
-                <span>Total sum matches 100%</span>
-              </div>
-              <div id="check-working-days" class="flex items-center gap-3 text-xs text-white/40">
-                <i class="fas fa-check-circle text-white/10"></i>
-                <span>Working Days Valid</span>
-              </div>
-              <div id="check-comments" class="flex items-center gap-3 text-xs text-white/40">
-                <i class="fas fa-check-circle text-white/10"></i>
-                <span>Comments (Optional)</span>
-              </div>
+      <!-- Bottom Section: Checklist & Submission -->
+      <div class="p-8 glass rounded-[2rem] border border-white/5 space-y-6 flex flex-col justify-between">
+        <div class="space-y-4">
+          <h4 class="text-xs font-black uppercase tracking-widest text-white/30">Compliance Checklist</h4>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div id="check-products" class="flex items-center gap-3 text-xs text-white/40">
+              <i class="fas fa-check-circle text-white/10"></i>
+              <span>Has assigned products</span>
+            </div>
+            <div id="check-hours" class="flex items-center gap-3 text-xs text-white/40">
+              <i class="fas fa-check-circle text-white/10"></i>
+              <span>Total sum matches 100%</span>
+            </div>
+            <div id="check-working-days" class="flex items-center gap-3 text-xs text-white/40 hidden">
+              <i class="fas fa-check-circle text-white/10"></i>
+              <span>Working Days Valid</span>
+            </div>
+            <div id="check-comments" class="flex items-center gap-3 text-xs text-white/40">
+              <i class="fas fa-check-circle text-white/10"></i>
+              <span>Comments (Optional)</span>
             </div>
           </div>
-          <button id="submit-btn" onclick="openConfirmModal()" disabled class="w-full py-5 osttra-gradient text-white rounded-2xl font-black uppercase tracking-[0.2em] text-xs hover:brightness-110 hover:scale-[1.02] active:scale-95 transition-all duration-200 shadow-xl shadow-osttra-rubine/20 disabled:opacity-25 disabled:cursor-not-allowed">
-            Submit Allocation
-          </button>
         </div>
+        <button id="submit-btn" onclick="openConfirmModal()" disabled class="w-full py-5 osttra-gradient text-white rounded-2xl font-black uppercase tracking-[0.2em] text-xs hover:brightness-110 hover:scale-[1.02] active:scale-95 transition-all duration-200 shadow-xl shadow-osttra-rubine/20 disabled:opacity-25 disabled:cursor-not-allowed">
+          Submit Allocation
+        </button>
 
-        <!-- Allocation Guidelines -->
-        <div class="p-6 bg-white/5 rounded-[2rem] border border-white/5 space-y-2.5 text-left flex flex-col justify-center">
-          <h5 class="text-[9px] font-black uppercase tracking-widest text-osttra-ochre">Allocation Guidelines</h5>
-          <ul class="text-[10px] text-white/50 list-disc pl-4 space-y-1.5 font-semibold leading-relaxed uppercase tracking-wider">
-            <li>Deduct any PTO, Sick Leave, or Public Holidays from your <strong class="text-white">Total Working Days</strong>.</li>
-            <li>Standard weekdays baseline for this month is <strong id="working-days-baseline" class="text-white">--</strong> days.</li>
-            <li>If you worked weekend shifts or overtime, check the box on the left to log extra shift ranging from 0.5 to 8.</li>
-          </ul>
-        </div>
+        <!-- Hidden Working Days baseline for backend validation reference -->
+        <span id="working-days-baseline" class="hidden">--</span>
       </div>
     </div>
   </div>
@@ -843,7 +833,7 @@
       allocations: mappedAllocations,
       lastKnownTimestamp: window.lastKnownTimestamp || "",
       workingDays: {
-        standardWeekdays: document.getElementById('working-days-baseline').innerText,
+        standardWeekdays: parseInt(document.getElementById('working-days-baseline').textContent) || 20,
         regularDays: document.getElementById('working-days-total').value,
         workedWeekend: workedWeekendCheck,
         weekendDays: workedWeekendCheck ? parseFloat(document.getElementById('working-days-weekend').value) || 0 : 0,
