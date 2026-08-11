@@ -942,6 +942,12 @@
         oooBtn.style.opacity = '0.3';
         oooBtn.style.cursor = 'not-allowed';
         oooBtn.title = 'Cannot set OOO for future dates';
+      } else if (idx === 0 || idx === 6) { // Sunday is 0, Saturday is 6
+        oooBtn.disabled = true;
+        oooBtn.style.opacity = '0.25';
+        oooBtn.style.cursor = 'not-allowed';
+        oooBtn.title = 'Cannot set OOO on weekends';
+        oooBtn.className = 'mt-1.5 px-2 py-0.5 rounded-md text-[8px] font-black uppercase flex items-center gap-1 mx-auto bg-white/5 text-white/20';
       } else {
         oooBtn.addEventListener('click', (e) => {
           e.stopPropagation();
@@ -2586,8 +2592,14 @@
       return;
     }
 
-    // Automatically append OOO logs (8 hours per OOO day)
+    // Automatically append OOO logs (8 hours per OOO day, strictly excluding weekends)
     oooDates.forEach(date => {
+      const parts = date.split('-');
+      const dObj = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+      const day = dObj.getDay();
+      const isWeekend = (day === 0 || day === 6);
+      if (isWeekend) return; // Skip weekends
+
       logs.push({
         jiraKey: 'ooo',
         date: date,
