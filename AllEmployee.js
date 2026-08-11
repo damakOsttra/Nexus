@@ -356,6 +356,33 @@ function exportAnupOrgMasterData() {
       }
     });
 
+    // Manually inject Nexus Service Account as an employee reporting to damak.k@osttra.com
+    allRows.push([
+      "ADMIN-999", 
+      "Nexus", 
+      "Service Account", 
+      "System Administrator", 
+      "System Administrator", 
+      "svc-nexus@osttra.com", 
+      "https://ui-avatars.com/api/?name=System+Admin&background=FF0061&color=fff", 
+      "N/A", 
+      "Anup Hariharan", 
+      "Damak Varshney", 
+      "damak.k@osttra.com", 
+      "N/A", 
+      "Anup Hariharan > Jack Jeffreys > Damak Varshney", 
+      "Super Admin", 
+      "Service Account", 
+      "2026-08-10", 
+      "2026-08-10", 
+      "Active (No Term Date)", 
+      "Active", 
+      "N/A", 
+      "OSTTRA", 
+      "Yes", 
+      "Yes"
+    ]);
+
     if (allRows.length > 1) {
       // **NEW: Capture previous data for Headcount Trend comparison BEFORE overwriting**
       let previousData = [];
