@@ -52,7 +52,7 @@ const CONFIG = {
  * Returns a list of Admin emails.
  */
 function getAdminEmails() {
-  return ["damak.k@osttra.com", "richard.crossley@osttra.com"];
+  return ["damak.k@osttra.com", "richard.crossley@osttra.com", "svc-nexus@osttra.com"];
 }
 
 /**
