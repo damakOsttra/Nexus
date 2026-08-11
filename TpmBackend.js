@@ -652,7 +652,10 @@ function saveTpmTimesheetData(payload) {
     const sheet = ss.getSheetByName(CONFIG.SHEETS.TPM_TIMESHEET_LOGS);
     if (!sheet) throw new Error("TPM Timesheet Logs sheet not found.");
 
-    const todayStr = Utilities.formatDate(new Date(), ss.getSpreadsheetTimeZone(), "yyyy-MM-dd");
+    // Calculate a safe future date threshold (adding 1 day) to act as a timezone grace period for APAC users
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const safeFutureStr = Utilities.formatDate(tomorrow, ss.getSpreadsheetTimeZone(), "yyyy-MM-dd");
 
     // Block any attempt to log hours for future dates (exempting weekends) and enforce strict 24-hour daily limits
     const dailyTotals = {};
@@ -663,7 +666,7 @@ function saveTpmTimesheetData(payload) {
       const d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
       const isWeekend = d.getDay() === 0 || d.getDay() === 6;
 
-      if (log.date > todayStr) {
+      if (log.date > safeFutureStr && !isWeekend) {
         throw new Error("Validation Error: Cannot log hours for future dates (" + log.date + ").");
       }
 
