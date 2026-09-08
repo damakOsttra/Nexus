@@ -94,6 +94,7 @@
           <ul class="list-disc pl-4 space-y-2 pr-2">
             <li><strong class="text-white font-bold">Active Whitelists:</strong> Only TPM tickets with active statuses (`Assigned`, `Preparing Deployment`, `Initiation`, `Implementation`, `TPM Handover approved`, `Go Live`, `UAT`, `Technical Go Live`, `Returned`, `Reopened`, `Answered`, `Retracted`, `Preparing Development`, `Completed`) and PSS tickets with (`Flow Seen`, `Flow Pending`, `Awaiting implementation`, `New`, `4-Eye Approval`, `Review`, `Completed`, `Rolled Back`) are active by default.</li>
             <li><strong class="text-white font-bold">Hiding & Overrides:</strong> Unwhitelisted tickets are completely hidden by default to keep your grid clean (unless they have active saved hours). Toggle <strong class="text-white">Show Excluded Epics</strong> to reveal and unlock them using the padlock icon on demand.</li>
+            <li><strong class="text-white font-bold">Strict Week-Locking:</strong> Weeks older than the previous week are strictly locked for editing to preserve historical data.</li>
             <li><strong class="text-white font-bold">Phase Borders:</strong> Left-side colors show Epic phase:
               <ul class="list-none pl-1 mt-1 space-y-1">
                 <li>ΓÇó ≡ƒö╣ <span class="text-blue-400 font-bold">Blue:</span> Integration Phase.</li>
@@ -111,9 +112,12 @@
           </h4>
           <ul class="list-disc pl-4 space-y-2 pr-2">
             <li><strong class="text-white font-bold">Daily Limits:</strong> 1 Day JIRA baseline = 8.00h. Hard daily cell limit is 24.00h (glows <span class="text-osttra-rubine">Red</span> on over-allocation). Standard weekly goal is 40.00h.</li>
+            <li><strong class="text-white font-bold">Future Dates:</strong> Future dates are locked for logging hours, except weekends which are exempt. A 1-day timezone grace period is automatically applied for APAC users to prevent save lockouts.</li>
+            <li><strong class="text-white font-bold">Out of Office (OOO):</strong> Setting OOO on weekends is disabled, and weekend dates are excluded from OOO logging. Logging hours on days marked as OOO is strictly blocked.</li>
             <li><strong class="text-white font-bold">Keyboard Navigation (Excel):</strong> Use keyboard \`Enter\` to navigate cells rapidly. Selecting a cell highlights its contents for instant overwrite.</li>
-            <li><strong class="text-white font-bold">Drafts & Resets:</strong> Inputs auto-save locally. Use <strong class="text-white"><i class="fas fa-undo-alt text-white/50"></i> Reset Drafts</strong> to discard unsaved changes and reload original database data.</li>
-            <li><strong class="text-white font-bold">Commit:</strong> You must click <strong class="text-white">Save Timesheet Entries</strong> to push drafts and OOO logs to the permanent database.</li>
+            <li><strong class="text-white font-bold">Resets:</strong> Use <strong class="text-white"><i class="fas fa-undo-alt text-white/50"></i> Reset Grid</strong> to discard your unsaved changes and reload the last saved database entries.</li>
+            <li><strong class="text-white font-bold">Commit:</strong> You must click <strong class="text-white">Save Timesheet Entries</strong> to push your logged hours and OOO logs to the permanent database.</li>
+            <li><strong class="text-white font-bold">Documentation:</strong> Access the full <a href="#" target="_blank" class="text-osttra-rubine underline hover:text-osttra-rubine/80">TPM Confluence Wiki Page</a> for detailed usage guidelines, workflow definitions, and FAQ.</li>
           </ul>
         </div>
       </div>
@@ -135,7 +139,7 @@
         </button>
         <div class="w-px h-5 bg-white/10"></div>
         <button onclick="resetWeekData()" class="px-3 py-1.5 rounded-lg hover:bg-white/10 text-white/70 hover:text-white text-[10px] font-black uppercase tracking-widest active:scale-95 transition-all flex items-center gap-1.5 focus:outline-none" title="Discard unsaved changes and reload original data">
-          <i class="fas fa-undo-alt"></i> Reset Drafts
+          <i class="fas fa-undo-alt"></i> Reset Grid
         </button>
       </div>
 
@@ -188,23 +192,6 @@
     </button>
   </div>
 
-  <!-- Gentle Autosave Restore Banner -->
-  <div id="autosave-restore-banner" class="hidden bg-white/[0.02] border border-white/5 rounded-2xl p-4 flex items-center justify-between gap-4 animate-in slide-in-from-top duration-300">
-    <div class="flex items-center gap-3">
-      <div class="w-8 h-8 rounded-xl bg-osttra-ochre/10 border border-osttra-ochre/20 flex items-center justify-center text-osttra-ochre">
-        <i class="fas fa-magic text-sm animate-bounce"></i>
-      </div>
-      <div class="space-y-0.5">
-        <p class="text-xs font-bold text-white">We found an unsaved timesheet draft!</p>
-        <p class="text-[10px] text-white/40 uppercase tracking-widest font-black">You have unstaged timesheet entries from your previous session.</p>
-      </div>
-    </div>
-    <div class="flex items-center gap-2.5">
-      <button onclick="discardAutosaveDraft()" class="px-3.5 py-1.5 bg-white/5 hover:bg-white/10 border border-white/5 rounded-lg text-white/60 text-[9px] font-black uppercase tracking-widest transition-all">Discard</button>
-      <button onclick="restoreAutosaveDraft()" class="px-4 py-1.5 bg-osttra-ochre hover:brightness-110 rounded-lg text-white text-[9px] font-black uppercase tracking-widest transition-all shadow-md shadow-osttra-ochre/10">Restore Draft</button>
-    </div>
-  </div>
-
   <!-- Timesheet Lock Banner -->
   <div id="timesheet-lock-banner" class="hidden bg-white/[0.02] border border-white/5 rounded-2xl p-4 flex items-center gap-3 animate-in slide-in-from-top duration-300">
     <div class="w-8 h-8 rounded-xl bg-osttra-rubine/10 border border-osttra-rubine/20 flex items-center justify-center text-osttra-rubine">
@@ -224,10 +211,9 @@
       <table class="w-full text-left border-collapse min-w-[1100px] relative">
         <thead class="sticky top-0 z-30 bg-[#222222] shadow-[0_4px_6px_-1px_rgba(0,0,0,0.3)]">
           <tr class="border-b border-white/5 bg-white/[0.02]">
-            <th class="p-4 text-[10px] font-black uppercase tracking-widest text-white/40 pl-6 w-32 cursor-pointer hover:text-white hover:bg-white/5 transition-colors select-none sticky left-0 z-40 bg-[#222222]" onclick="sortEpics('Key')">Jira Key <span id="sort-Key" class="text-osttra-rubine font-black"></span></th>
-            <th class="p-4 text-[10px] font-black uppercase tracking-widest text-white/40 w-48 bg-[#222222]/90 backdrop-blur">Summary</th>
+            <th class="p-4 text-[10px] font-black uppercase tracking-widest text-white/40 pl-6 w-40 min-w-[160px] max-w-[160px] cursor-pointer hover:text-white hover:bg-white/5 transition-colors select-none sticky left-0 z-40 bg-[#222222]" onclick="sortEpics('Key')">Jira Key <span id="sort-Key" class="text-osttra-rubine font-black"></span></th>
+            <th class="p-4 text-[10px] font-black uppercase tracking-widest text-white/40 w-48 sticky left-[160px] z-40 bg-[#222222]/90 backdrop-blur">Summary</th>
             <th class="p-4 text-[10px] font-black uppercase tracking-widest text-white/40 w-24 text-center cursor-pointer hover:text-white hover:bg-white/5 transition-colors select-none bg-[#222222]/90 backdrop-blur" onclick="sortEpics('Status')">Status <span id="sort-Status" class="text-osttra-rubine font-black"></span></th>
-            <th class="p-4 text-[10px] font-black uppercase tracking-widest text-white/40 w-20 text-center cursor-pointer hover:text-white hover:bg-white/5 transition-colors select-none bg-[#222222]/90 backdrop-blur" onclick="sortEpics('Project Sizing')">Sizing <span id="sort-Project Sizing" class="text-osttra-rubine font-black"></span></th>
             <th class="p-4 text-[10px] font-black uppercase tracking-widest text-white/40 w-24 text-center cursor-pointer hover:text-white hover:bg-white/5 transition-colors select-none bg-[#222222]/90 backdrop-blur" onclick="sortEpics('Created')">Created <span id="sort-Created" class="text-osttra-rubine font-black"></span></th>
             <th class="p-4 text-[10px] font-black uppercase tracking-widest text-white/40 w-24 text-center cursor-pointer hover:text-white hover:bg-white/5 transition-colors select-none bg-[#222222]/90 backdrop-blur" onclick="sortEpics('Updated')">Updated <span id="sort-Updated" class="text-osttra-rubine font-black"></span></th>
             <th id="th-sun" class="p-4 text-[10px] font-black uppercase tracking-widest text-white/20 text-center w-20 bg-[#222222]/90 backdrop-blur">Sun</th>
@@ -244,7 +230,7 @@
         </tbody>
         <tfoot class="sticky bottom-0 z-30 bg-[#1a1a1a] shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.3)] border-t border-white/10">
           <tr>
-            <td colspan="6" class="p-4 pl-6 font-black uppercase tracking-widest text-[10px] text-white/60 text-right sticky left-0 z-40 bg-[#1a1a1a]">
+            <td colspan="5" class="p-4 pl-6 font-black uppercase tracking-widest text-[10px] text-white/60 text-right sticky left-0 z-40 bg-[#1a1a1a]">
               Daily Target / Limits
             </td>
             <td class="p-3 text-center"><div id="total-sun" class="text-[10px] font-mono font-bold bg-black/40 px-2 py-1 rounded-md text-white/20 transition-colors">0.00h</div></td>
@@ -277,150 +263,16 @@
   var childTickets = [];
   var existingLogs = [];
   var weekDates = [];
-  var oooDates = []; // Track daily OOO state
+  var oooStates = {}; // Track daily OOO state (full, half, or undefined)
   var manuallyAddedTickets = []; // User manually added ticket keys
   var manuallyAddedTicketObjects = []; // User manually added ticket full objects
   var allSearchableTickets = []; // Unified list of cached active Epics and PSS tickets
   var manuallyUnlockedTickets = []; // Track ticket keys manually unlocked by user
   var historicalLoggedKeys = []; // Track keys historically logged by the user
-  var autosaveTimeout = null;
   var isTimesheetLockedGlobal = false;
+  var activeUnlockExceptions = []; // Track active timesheet week unlock exceptions (manager overrides)
   var isChangingWeekGlobal = false;
   var isSolutionDesignEligible = false; // Flag for APAC Solution Design cases eligibility
-
-  // --- BACKGROUND AUTOSAVE & RESTORE HANDLERS ---
-  function triggerAutosave() {
-    if (autosaveTimeout) clearTimeout(autosaveTimeout);
-    autosaveTimeout = setTimeout(executeAutosave, 1000); // 1-second debounce
-  }
-
-  function executeAutosave() {
-    if (!window.currentUser || weekDates.length < 7) return;
-    const userEmail = window.currentUser.email.toLowerCase().trim();
-    const saveKey = `tpm_timesheet_autosave_${userEmail}_${currentSunday}`;
-    
-    const logs = getFormData();
-    
-    // Save to localStorage
-    localStorage.setItem(saveKey, JSON.stringify(logs));
-    localStorage.setItem(`tpm_timesheet_has_autosave_${userEmail}_${currentSunday}`, "true");
-  }
-
-  function checkAndOfferAutosave() {
-    if (!window.currentUser || weekDates.length < 7) return;
-    const userEmail = window.currentUser.email.toLowerCase().trim();
-    const saveKey = `tpm_timesheet_autosave_${userEmail}_${currentSunday}`;
-    const hasAutosave = localStorage.getItem(`tpm_timesheet_has_autosave_${userEmail}_${currentSunday}`);
-    
-    if (hasAutosave === "true") {
-      const autosaveStr = localStorage.getItem(saveKey);
-      if (autosaveStr) {
-        try {
-          const autosaveLogs = JSON.parse(autosaveStr);
-          
-          // Compare autosave with existingLogs to ensure differences exist
-          const simplAutosave = autosaveLogs.map(l => `${l.jiraKey}_${l.date}_${l.hours}`).sort().join('|');
-          const simplExisting = existingLogs.map(l => `${l.Jira_Key}_${l.Date_Logged}_${parseFloat(l.Hours_Logged) || 0}`).sort().join('|');
-          
-          if (simplAutosave !== simplExisting && autosaveLogs.length > 0) {
-            const banner = document.getElementById('autosave-restore-banner');
-            if (banner) banner.classList.remove('hidden');
-          } else {
-            // No actual differences, clean up
-            clearAutosaveDraft();
-          }
-        } catch (e) {
-          console.error("Autosave compare failed", e);
-        }
-      }
-    }
-  }
-
-  function clearAutosaveDraft() {
-    if (!window.currentUser) return;
-    const userEmail = window.currentUser.email.toLowerCase().trim();
-    localStorage.removeItem(`tpm_timesheet_autosave_${userEmail}_${currentSunday}`);
-    localStorage.removeItem(`tpm_timesheet_has_autosave_${userEmail}_${currentSunday}`);
-    const banner = document.getElementById('autosave-restore-banner');
-    if (banner) banner.classList.add('hidden');
-  }
-
-  function discardAutosaveDraft() {
-    if (confirm("Are you sure you want to permanently discard this local draft?")) {
-      clearAutosaveDraft();
-    }
-  }
-
-  function restoreAutosaveDraft() {
-    if (!window.currentUser) return;
-    const userEmail = window.currentUser.email.toLowerCase().trim();
-    const saveKey = `tpm_timesheet_autosave_${userEmail}_${currentSunday}`;
-    const autosaveStr = localStorage.getItem(saveKey);
-    
-    if (autosaveStr) {
-      try {
-        const autosaveLogs = JSON.parse(autosaveStr);
-        
-        // Push missing keys to manuallyAddedTickets so inputs are rendered
-        let addedAny = false;
-        autosaveLogs.forEach(l => {
-          const key = String(l.jiraKey).toUpperCase().trim();
-          if (key === 'ooo' || key === 'ADMIN' || key === 'MGMT' || key === 'SOLUTION-DESIGN') return;
-          if (!manuallyAddedTickets.includes(key)) {
-            manuallyAddedTickets.push(key);
-            addedAny = true;
-          }
-        });
-        
-        // Re-render grid so the manually added keys' inputs exist
-        renderTimesheetGrid();
-        
-        // Clear all current inputs
-        document.querySelectorAll('input[data-key]').forEach(input => {
-          input.value = input.getAttribute('data-date') === 'ooo' ? '' : '0.00';
-        });
-
-        // Set inputs based on autosave logs
-        autosaveLogs.forEach(l => {
-          const key = String(l.jiraKey).toUpperCase().trim();
-          const date = l.date;
-          
-          // Set splits if it's an Epic
-          const hasSplits = l.intHours > 0 || l.uatHours > 0;
-          if (hasSplits || key.startsWith('TPM-')) {
-            const splitIntEl = document.getElementById(`split-int-${key}-${date}`);
-            const splitUatGoEl = document.getElementById(`split-uatgo-${key}-${date}`);
-            const splitOtherEl = document.getElementById(`split-other-${key}-${date}`);
-            
-            const totalSplit = parseFloat(l.hours) || 0;
-            const intSplit = parseFloat(l.intHours) || 0;
-            const uatSplit = parseFloat(l.uatHours) || 0;
-            const otherSplit = Math.max(totalSplit - (intSplit + uatSplit), 0);
-            
-            if (splitIntEl) splitIntEl.value = intSplit > 0 ? intSplit.toFixed(2) : '0.00';
-            if (splitUatGoEl) splitUatGoEl.value = uatSplit > 0 ? uatSplit.toFixed(2) : '0.00';
-            if (splitOtherEl) splitOtherEl.value = otherSplit > 0 ? otherSplit.toFixed(2) : '0.00';
-            
-            const mainInput = document.querySelector(`input[data-key="${key}"][data-date="${date}"]:not([data-bucket])`);
-            if (mainInput) mainInput.value = totalSplit > 0 ? totalSplit.toFixed(2) : '0.00';
-          } else {
-            const input = document.querySelector(`input[data-key="${key}"][data-date="${date}"]:not([data-bucket])`);
-            if (input) {
-              input.value = parseFloat(l.hours) > 0 ? parseFloat(l.hours).toFixed(2) : '0.00';
-            }
-          }
-        });
-
-        // Update totals & hide banner
-        updateDailyTotals();
-        const banner = document.getElementById('autosave-restore-banner');
-        if (banner) banner.classList.add('hidden');
-      } catch (e) {
-        console.error("Failed to restore autosave", e);
-        showNotification('error', 'Restore Failed', 'Could not parse the local timesheet draft.');
-      }
-    }
-  }
 
   function toggleTicketUnlock(key) {
     const idx = manuallyUnlockedTickets.indexOf(key);
@@ -642,8 +494,8 @@
     for (let i = 0; i < 5; i++) {
       html += `
         <tr class="animate-pulse border-b border-white/5">
-          <td class="p-4 pl-6 sticky left-0 bg-[#222222] shadow-[4px_0_8px_-4px_rgba(0,0,0,0.6)] border-r border-white/5"><div class="h-4.5 bg-white/10 rounded w-16"></div></td>
-          <td class="p-4"><div class="h-4.5 bg-white/5 rounded w-48"></div></td>
+          <td class="p-4 pl-6 sticky left-0 bg-[#222222] shadow-[4px_0_8px_-4px_rgba(0,0,0,0.6)] border-r border-white/5 w-40 min-w-[160px] max-w-[160px]"><div class="h-4.5 bg-white/10 rounded w-16"></div></td>
+          <td class="p-4 sticky left-[160px] z-10 bg-[#222222] shadow-[4px_0_8px_-4px_rgba(0,0,0,0.6)] border-r border-white/5"><div class="h-4.5 bg-white/5 rounded w-48"></div></td>
           <td class="p-4"><div class="h-4.5 bg-white/5 rounded-full w-14 mx-auto"></div></td>
           <td class="p-4"><div class="h-4.5 bg-white/5 rounded w-8 mx-auto"></div></td>
           <td class="p-4"><div class="h-4 bg-white/5 rounded w-16 mx-auto"></div></td>
@@ -688,9 +540,7 @@
     existingLogs = data.logs || [];
     weekDates = data.weekDates || [];
     historicalLoggedKeys = data.historicalLoggedKeys || [];
-    
-    // Check for autosave discrepancies on fetch
-    checkAndOfferAutosave();
+    activeUnlockExceptions = data.unlockedWeeks || []; // Correctly inject the backend overrides payload into the UI state
     
     // Populate actual Jira statuses for all tickets in the dropdown filter
     const allTicketsList = [...activeEpics, ...childTickets];
@@ -717,70 +567,18 @@
     }
     updateStatusFilterLabel();
 
-    // Merge active Epics and PSS tickets into a single searchable list
-    allSearchableTickets = [];
-    if (data.allEpics) {
-      data.allEpics.forEach(e => {
-        allSearchableTickets.push({ key: e.key, summary: e.summary, status: e.status, type: 'Epic' });
-      });
-    }
-    if (data.allPssTickets) {
-      data.allPssTickets.forEach(p => {
-        allSearchableTickets.push({ key: p.key, summary: p.summary, status: p.status, type: 'PSS' });
-      });
-    }
-    if (data.allBsmTickets) {
-      data.allBsmTickets.forEach(b => {
-        allSearchableTickets.push({ key: b.key, summary: b.summary, status: b.status, type: 'BSM' });
-      });
-    }
+    // Merge ALL searchable tickets natively from the backend (Bypassing status exclusions)
+    allSearchableTickets = data.allSearchable || [];
     renderUnifiedDropdown();
 
-    const userEmail = window.currentUser.email.toLowerCase().trim();
-    const draftKey = `tpm_draft_${userEmail}_${currentSunday}`;
-    const oooDraftKey = `tpm_ooo_draft_${userEmail}_${currentSunday}`;
-    const localDraft = localStorage.getItem(draftKey);
-    const localOooDraft = localStorage.getItem(oooDraftKey);
-
-    // Check if there is an unsaved local draft for this week
-    if (localDraft || localOooDraft) {
-      // Show notification only on active manual loading/refresh to avoid nagging on silent tab switching
-      if (!isFromCache) {
-        showNotification('warning', 'Draft Restored', '💾 Loaded your unsaved draft for this week.');
+    // Standard OOO extraction from logs
+    existingLogs.forEach(l => {
+      if (String(l["Jira_Key"]).toLowerCase() === 'ooo') {
+        const date = String(l["Date_Logged"]).trim();
+        const hrs = parseFloat(l["Hours_Logged"]) || 8;
+        oooStates[date] = hrs < 8 ? 'half' : 'full';
       }
-      
-      if (localOooDraft) {
-        oooDates = JSON.parse(localOooDraft);
-      } else {
-        oooDates = existingLogs
-          .filter(l => String(l["Jira_Key"]).toLowerCase() === 'ooo')
-          .map(l => String(l["Date_Logged"]).trim());
-      }
-
-      if (localDraft) {
-        const draftLogs = JSON.parse(localDraft);
-        existingLogs = draftLogs.map(d => ({
-          "Jira_Key": d.jiraKey,
-          "Date_Logged": d.date,
-          "Hours_Logged": d.hours,
-          "UAT_Hours": d.uatHours || 0,
-          "Int_Hours": d.intHours || 0,
-          "GoLive_Hours": d.goLiveHours || 0
-        }));
-        
-        oooDates.forEach(date => {
-          const hasOooLog = existingLogs.some(l => l["Jira_Key"] === 'ooo' && l["Date_Logged"] === date);
-          if (!hasOooLog) {
-            existingLogs.push({ "Jira_Key": "ooo", "Date_Logged": date, "Hours_Logged": 8, "UAT_Hours": 0, "Int_Hours": 0, "GoLive_Hours": 0 });
-          }
-        });
-      }
-    } else {
-      // Standard OOO extraction from logs
-      oooDates = existingLogs
-        .filter(l => String(l["Jira_Key"]).toLowerCase() === 'ooo')
-        .map(l => String(l["Date_Logged"]).trim());
-    }
+    });
 
     // Evaluate Grace-Period Strict Older-Week Locking Rule
     try {
@@ -800,7 +598,8 @@
 
       // Strictly lock any week that is older than the previous week (strictly locked for all users, 0.00h or not!)
       const isOlderWeek = loadedSundayObj < prevWeekSundayObj;
-      if (isOlderWeek) {
+      const isUnlockedByManager = activeUnlockExceptions.includes(currentSunday);
+      if (isOlderWeek && !isUnlockedByManager) {
         isTimesheetLockedGlobal = true;
       } else {
         isTimesheetLockedGlobal = false;
@@ -810,10 +609,31 @@
       isTimesheetLockedGlobal = false;
     }
 
+    const isUnlockedByManager = activeUnlockExceptions.includes(currentSunday);
     const lockBanner = document.getElementById('timesheet-lock-banner');
     if (lockBanner) {
       if (isTimesheetLockedGlobal) {
         lockBanner.classList.remove('hidden');
+        lockBanner.innerHTML = `
+          <div class="w-8 h-8 rounded-xl bg-osttra-rubine/10 border border-osttra-rubine/20 flex items-center justify-center text-osttra-rubine">
+            <i class="fas fa-lock text-sm animate-pulse"></i>
+          </div>
+          <div class="space-y-0.5">
+            <p class="text-xs font-bold text-white">Timesheet Locked</p>
+            <p class="text-[10px] text-white/40 uppercase tracking-widest font-black">Editing is restricted for older weeks that have already been submitted. Please contact your manager for adjustments.</p>
+          </div>
+        `;
+      } else if (isUnlockedByManager) {
+        lockBanner.classList.remove('hidden');
+        lockBanner.innerHTML = `
+          <div class="w-8 h-8 rounded-xl bg-osttra-ochre/10 border border-osttra-ochre/20 flex items-center justify-center text-osttra-ochre animate-pulse">
+            <i class="fas fa-lock-open text-sm"></i>
+          </div>
+          <div class="space-y-0.5">
+            <p class="text-xs font-bold text-osttra-ochre">Timesheet Unlocked by Manager</p>
+            <p class="text-[10px] text-osttra-ochre/70 uppercase tracking-widest font-black">An active administrative logging override is enabled. Saving your time will consume the unlock exception and lock the week again.</p>
+          </div>
+        `;
       } else {
         lockBanner.classList.add('hidden');
       }
@@ -839,7 +659,7 @@
     childTickets = [];
     existingLogs = [];
     weekDates = [];
-    oooDates = [];
+    oooStates = {};
     allSearchableTickets = [];
     historicalLoggedKeys = [];
 
@@ -917,7 +737,9 @@
     days.forEach((day, idx) => {
       const dateStr = weekDates[idx];
       const formatted = formatDateFriendly(dateStr);
-      const isOoo = oooDates.includes(dateStr);
+      const oooState = oooStates[dateStr];
+      const isOooFull = oooState === 'full';
+      const isOooHalf = oooState === 'half';
       const isFuture = dateStr > todayStr;
 
       const th = document.getElementById(`th-${day}`);
@@ -936,7 +758,7 @@
       th.appendChild(dateSpan);
 
       const oooBtn = document.createElement('button');
-      oooBtn.className = `mt-1.5 px-2 py-0.5 rounded-md text-[8px] font-black uppercase flex items-center gap-1 mx-auto transition-all ${isOoo ? 'bg-osttra-rubine text-white' : 'bg-white/5 text-white/40 hover:bg-white/10'}`;
+      oooBtn.className = `mt-1.5 px-2 py-0.5 rounded-md text-[8px] font-black uppercase flex items-center gap-1 mx-auto transition-all ${isOooFull ? 'bg-osttra-rubine text-white' : (isOooHalf ? 'bg-osttra-ochre text-white' : 'bg-white/5 text-white/40 hover:bg-white/10')}`;
       if (isFuture) {
         oooBtn.disabled = true;
         oooBtn.style.opacity = '0.3';
@@ -953,25 +775,22 @@
           e.stopPropagation();
           toggleDayOOO(dateStr);
         });
-        oooBtn.title = isOoo ? 'Cancel OOO for this day' : 'Mark this day as Out of Office';
+        oooBtn.title = isOooFull ? 'Click to change to Half Day OOO (4h)' : (isOooHalf ? 'Click to cancel OOO for this day' : 'Click once for Full Day OOO (8h), click again for Half Day OOO (4h)');
       }
 
       const planeIcon = document.createElement('i');
       planeIcon.className = 'fas fa-plane';
       oooBtn.appendChild(planeIcon);
-      oooBtn.appendChild(document.createTextNode(' OOO'));
+      oooBtn.appendChild(document.createTextNode(isOooHalf ? ' OOO(½)' : ' OOO'));
 
       th.appendChild(oooBtn);
     });
   }
 
   function toggleDayOOO(dateStr) {
-    const idx = oooDates.indexOf(dateStr);
-    if (idx !== -1) {
-      oooDates.splice(idx, 1);
-    } else {
-      oooDates.push(dateStr);
-      // Clear any typed hours for this OOO day
+    if (!oooStates[dateStr]) {
+      oooStates[dateStr] = 'full';
+      // Clear typed hours for this OOO day
       document.querySelectorAll(`input[data-date="${dateStr}"]`).forEach(input => {
         input.value = '';
       });
@@ -980,8 +799,11 @@
         let rowDate = String(l["Date_Logged"] || "").trim().substring(0, 10);
         return !(rowDate === dateStr && String(l["Jira_Key"]).toLowerCase() !== "ooo");
       });
+    } else if (oooStates[dateStr] === 'full') {
+      oooStates[dateStr] = 'half';
+    } else {
+      delete oooStates[dateStr];
     }
-    saveLocalDraft();
     renderWeekDisplay(); // Redraw header OOO buttons
     renderTimesheetGrid(); // Redraw inputs
   }
@@ -1463,6 +1285,49 @@
     const added = [];
     const skipped = [];
 
+    // Helper to evaluate if a ticket is currently actively rendered in the grid
+    const isRenderedAndVisible = (ticketKey) => {
+      const upperKey = String(ticketKey).toUpperCase().trim();
+      const t = [...activeEpics, ...childTickets].find(x => String(x.Key || x.key || "").toUpperCase().trim() === upperKey);
+      if (!t) return false;
+      
+      const key = String(t.Key || t.key || "").toUpperCase().trim();
+      const statusLower = String(t.Status || "Active").toLowerCase().trim();
+      
+      // Static, manually added, or logged tickets are always visible
+      if (manuallyAddedTickets.includes(key) || historicalLoggedKeys.includes(key)) return true;
+      
+      // Filter by selected status (e.g. if we are looking at specific categories)
+      const isStatusMatch = (status) => {
+        if (selectedStatuses.includes("ALL")) return true;
+        return selectedStatuses.map(v => v.toLowerCase().trim()).includes(String(status || "").toLowerCase().trim());
+      };
+      if (!isStatusMatch(t.Status)) return false;
+
+      // Status whitelists for rendering
+      const activeTpmStatuses = [
+        'assigned', 'preparing deployment', 'initiation', 'implementation', 
+        'tpm handover approved', 'go live', 'uat', 'technical go live',
+        'returned', 'reopened', 'answered', 'retracted', 'preparing development', 'completed'
+      ];
+      const activePssStatuses = [
+        'flow seen', 'flow pending', 'awaiting implementation', 'new', 
+        '4-eye approval', 'review', 'completed', 'rolled back'
+      ];
+      
+      const isPss = String(t.Issue_Type || "").toLowerCase() === 'pss' || key.startsWith('PSS-');
+      const isBsm = key.startsWith('BSM-');
+      
+      if (isPss) {
+        return activePssStatuses.includes(statusLower);
+      } else if (isBsm) {
+        const excludedBsmStatuses = ['completed', 'canceled', 'closed', 'resolved', 'done', 'declined'];
+        return !excludedBsmStatuses.includes(statusLower);
+      } else {
+        return activeTpmStatuses.includes(statusLower);
+      }
+    };
+
     // Separate lookups for speed
     const activeEpicKeys = activeEpics.map(e => String(e["Key"]).trim().toUpperCase());
     const childTicketKeys = childTickets.map(c => String(c["Key"]).trim().toUpperCase());
@@ -1473,10 +1338,20 @@
     keysToAdd.forEach(item => {
       const val = item.key;
       const isEpicType = item.type === 'Epic';
-      const exists = activeEpicKeys.includes(val) || childTicketKeys.includes(val);
       
-      if (exists) {
+      // 1. If it is already rendered and visible on screen, skip it (no duplicates)
+      if (isRenderedAndVisible(val)) {
         skipped.push(val);
+        checkCompletion();
+        return;
+      }
+
+      // 2. If it exists in the data payload but was hidden by status filters,
+      // force it to show up by pushing its key into manuallyAddedTickets!
+      const existsInPayload = activeEpicKeys.includes(val) || childTicketKeys.includes(val);
+      if (existsInPayload) {
+        manuallyAddedTickets.push(val);
+        added.push(val);
         checkCompletion();
         return;
       }
@@ -1581,20 +1456,24 @@
     if (!tbody) return;
 
     // Preserve unsaved user inputs across redraws (e.g. padlock, OOO toggle, sorting, filtering)
-    const activeInputs = document.querySelectorAll('input[data-key]:not([data-bucket])');
-    if (activeInputs.length > 0) {
-      const currentTypedLogs = getFormData();
-      existingLogs = currentTypedLogs.map(l => {
-        return {
-          "Jira_Key": l.jiraKey,
-          "Date_Logged": l.date,
-          "Hours_Logged": l.hours,
-          "UAT_Hours": l.uatHours || 0,
-          "Int_Hours": l.intHours || 0,
-          "GoLive_Hours": l.goLiveHours || 0,
-          "Other_Hours": Math.max(0, l.hours - ((l.intHours || 0) + (l.uatHours || 0)))
-        };
-      });
+    // CRITICAL GUARD: Do not preserve inputs if the user is actively changing weeks, 
+    // otherwise the inputs from the current week will 'leak' and overwrite the new week's fetched data!
+    if (!isChangingWeekGlobal) {
+      const activeInputs = document.querySelectorAll('input[data-key]:not([data-bucket])');
+      if (activeInputs.length > 0) {
+        const currentTypedLogs = getFormData();
+        existingLogs = currentTypedLogs.map(l => {
+          return {
+            "Jira_Key": l.jiraKey,
+            "Date_Logged": l.date,
+            "Hours_Logged": l.hours,
+            "UAT_Hours": l.uatHours || 0,
+            "Int_Hours": l.intHours || 0,
+            "GoLive_Hours": l.goLiveHours || 0,
+            "Other_Hours": Math.max(0, l.hours - ((l.intHours || 0) + (l.uatHours || 0)))
+          };
+        });
+      }
     }
 
     tbody.innerHTML = '';
@@ -1670,10 +1549,25 @@
           return key.startsWith('BSM-');
         });
       } else if (cat.id === 'cat-support') {
+        const twoWeeksAgo = new Date();
+        twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
+
         tickets = childTickets.filter(c => {
           const type = String(c["Issue_Type"] || "").toLowerCase();
           const key = String(c["Key"] || "").toUpperCase();
-          return !key.startsWith('PSS-') && !key.startsWith('BSM-') && type !== 'pss' && (type === 'task' || type === 'sub-task' || type === 'bug');
+          const isSupportType = !key.startsWith('PSS-') && !key.startsWith('BSM-') && type !== 'pss' && (type === 'task' || type === 'sub-task' || type === 'bug');
+          
+          if (!isSupportType) return false;
+
+          // Check ticket age to prevent UI bloat
+          // If the ticket was created or updated more than 14 days ago, it should not render natively.
+          const createdStr = c["Created"];
+          const updatedStr = c["Updated"];
+          
+          let lastActiveDate = new Date(updatedStr || createdStr);
+          if (isNaN(lastActiveDate.getTime())) return true; // If we can't parse a date, err on the side of showing it
+
+          return lastActiveDate >= twoWeeksAgo;
         });
       } else if (cat.id === 'cat-general') {
         tickets = childTickets.filter(c => {
@@ -1706,11 +1600,12 @@
       if (!showAllEpics && cat.id !== 'cat-admin') {
         const activeTpmStatuses = [
           'assigned', 'preparing deployment', 'initiation', 'implementation', 
-          'tpm handover approved', 'go live', 'uat', 'technical go live'
+          'tpm handover approved', 'go live', 'uat', 'technical go live',
+          'returned', 'reopened', 'answered', 'retracted', 'preparing development', 'completed'
         ];
         const activePssStatuses = [
           'flow seen', 'flow pending', 'awaiting implementation', 'new', 
-          '4-eye approval', 'review'
+          '4-eye approval', 'review', 'completed', 'rolled back'
         ];
 
         tickets = tickets.filter(t => {
@@ -1768,6 +1663,7 @@
       // Render items for this category
       tickets.forEach((ticket, idx) => {
         const tr = document.createElement('tr');
+        let splitTr = null;
         
         const key = ticket["Key"];
         const summary = ticket["Summary"] || 'No Summary';
@@ -1776,31 +1672,6 @@
 
         const statusLower = status.toLowerCase().trim();
         let rawStatusDisabled = false;
-
-        const activeTpmStatuses = [
-          'assigned', 'preparing deployment', 'initiation', 'implementation', 
-          'tpm handover approved', 'go live', 'uat', 'technical go live'
-        ];
-        const activePssStatuses = [
-          'flow seen', 'flow pending', 'awaiting implementation', 'new', 
-          '4-eye approval', 'review'
-        ];
-
-        if (cat.id === 'cat-pss') {
-          const excludedPssStatuses = ['declined', 'rollbackbacked', 'rollbacked', 'completed', 'canceled'];
-          if (excludedPssStatuses.includes(statusLower)) {
-            rawStatusDisabled = true;
-          }
-        } else if (cat.id === 'cat-bsm') {
-          const excludedBsmStatuses = ['completed', 'canceled', 'closed', 'resolved', 'done', 'declined'];
-          if (excludedBsmStatuses.includes(statusLower)) {
-            rawStatusDisabled = true;
-          }
-        } else if (cat.id !== 'cat-nonbau' && cat.id !== 'cat-admin') {
-          if (!activeTpmStatuses.includes(statusLower)) {
-            rawStatusDisabled = true;
-          }
-        }
 
         const isManuallyUnlocked = manuallyUnlockedTickets.includes(key);
 
@@ -1814,7 +1685,7 @@
           phaseBorder = 'border-l-4 border-l-emerald-500';
         }
 
-        tr.className = `${cat.id} main-row hover:bg-white/[0.03] transition-colors border-b border-white/5 ${phaseBorder}`;
+        tr.className = `${cat.id} main-row hover:bg-white/[0.03] group transition-colors border-b border-white/5 ${phaseBorder}`;
 
         // Choose status color
         let statusClass = 'text-gray-400 bg-gray-500/10 border-gray-500/20';
@@ -1823,7 +1694,7 @@
 
         // TD 1: Key (with Secondary Assignee badge support & Sticky Left-lock)
         const tdKey = document.createElement('td');
-        tdKey.className = 'p-4 pl-6 border-b border-white/5 font-mono text-xs font-black sticky left-0 z-10 bg-[#222222] shadow-[4px_0_8px_-4px_rgba(0,0,0,0.6)] border-r border-white/5 transition-colors group-hover:bg-white/[0.04]';
+        tdKey.className = 'p-4 pl-6 border-b border-white/5 font-mono text-xs font-black sticky left-0 z-10 bg-[#222222] shadow-[4px_0_8px_-4px_rgba(0,0,0,0.6)] border-r border-white/5 transition-colors group-hover:bg-white/[0.04] w-40 min-w-[160px] max-w-[160px]';
 
         const assignee = String(ticket["Assignee_Email"] || "").toLowerCase().trim();
         const secondary = String(ticket["Secondary_Assignee_Email"] || "").toLowerCase().trim();
@@ -1926,12 +1797,49 @@
         if (secondaryBadge) {
           keyContainer.appendChild(secondaryBadge);
         }
+
+        // Add Delete Button if not a static key (Resolves padlock/delete requirement)
+        if (!isStaticKey) {
+          const deleteBtn = document.createElement('button');
+          deleteBtn.type = 'button';
+          deleteBtn.className = 'w-7 h-7 rounded bg-white/10 hover:bg-osttra-rubine text-xs flex items-center justify-center focus:outline-none transition-all text-white shrink-0 ml-2 border border-white/20 hover:border-transparent shadow-sm';
+          deleteBtn.innerHTML = `<i class="fas fa-trash-alt"></i>`;
+          deleteBtn.title = 'Remove this ticket from grid';
+          deleteBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (confirm(`Are you sure you want to remove ${key} from your grid? All unsaved hours logged for this ticket will be cleared.`)) {
+              // 1. Set all day inputs for this ticket to 0 in local state / DOM so they get cleared
+              const inputs = tr.querySelectorAll('input[type="number"]');
+              inputs.forEach(input => {
+                input.value = '0.00';
+              });
+              if (splitTr) {
+                const splitInputs = splitTr.querySelectorAll('input[type="number"]');
+                splitInputs.forEach(input => {
+                  input.value = '0.00';
+                });
+              }
+              
+              // 2. Remove row and split row (if exists) from DOM
+              tr.remove();
+              if (splitTr) splitTr.remove();
+              
+              // 3. Recalculate totals
+              updateDailyTotals();
+
+              // 4. Trigger immediate save to backend
+              saveTimesheet();
+            }
+          });
+          keyContainer.appendChild(deleteBtn);
+        }
+
         tdKey.appendChild(keyContainer);
         tr.appendChild(tdKey);
 
         // TD 2: Summary
         const tdSummary = document.createElement('td');
-        tdSummary.className = 'p-4 text-xs font-medium text-white/60 border-b border-white/5 whitespace-normal';
+        tdSummary.className = 'p-4 text-xs font-medium text-white/60 border-b border-white/5 whitespace-normal sticky left-[160px] z-10 bg-[#222222] shadow-[4px_0_8px_-4px_rgba(0,0,0,0.6)] border-r border-white/5 transition-colors group-hover:bg-white/[0.04]';
         tdSummary.textContent = summary;
         tr.appendChild(tdSummary);
 
@@ -1940,13 +1848,6 @@
         tdStatus.className = 'p-4 text-center border-b border-white/5';
         tdStatus.innerHTML = `<span class="px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-wider border ${statusClass}">${status}</span>`;
         tr.appendChild(tdStatus);
-
-        // TD 3.5: Project Sizing
-        const tdSizing = document.createElement('td');
-        tdSizing.className = 'p-4 text-center text-[10px] font-black text-white/50 border-b border-white/5 uppercase tracking-wider';
-        const sizingVal = String(ticket["Project Sizing"] || "-").trim();
-        tdSizing.textContent = sizingVal;
-        tr.appendChild(tdSizing);
 
         // TD 4: Created Date
         const tdCreated = document.createElement('td');
@@ -1961,14 +1862,13 @@
         tr.appendChild(tdUpdated);
 
         // Build Epic split-drawer row immediately
-        let splitTr = null;
         if (isEpic) {
           splitTr = document.createElement('tr');
           splitTr.id = `split-drawer-${key}`;
           splitTr.className = `${cat.id} split-row hidden bg-[#161616] border-b border-white/5 shadow-inner`;
           
           const tdLabel = document.createElement('td');
-          tdLabel.colSpan = 6;
+          tdLabel.colSpan = 5;
           tdLabel.className = 'p-4 pl-12 text-[10px] text-white/50 align-top';
           
           const uatEst = parseFloat(ticket["UAT Estimate"]) || 0;
@@ -2147,7 +2047,7 @@
           splitTr.className = `${cat.id} split-row hidden bg-[#161616] border-b border-white/5 shadow-inner`;
           
           const tdLabel = document.createElement('td');
-          tdLabel.colSpan = 6;
+          tdLabel.colSpan = 5;
           tdLabel.className = 'p-4 pl-12 text-[10px] text-white/50 align-top';
           
           const pStart = ticket["Planned start"] || "N/A";
@@ -2184,17 +2084,19 @@
           const currentStatus = status.toLowerCase().trim();
           let isStatusDisabled = rawStatusDisabled && !isManuallyUnlocked;
 
-          const isOoo = oooDates.includes(date);
+          const oooState = oooStates[date];
+          const isOooFull = oooState === 'full';
+          const isOooHalf = oooState === 'half';
           const todayStr = formatDateString(new Date());
           const isFuture = date > todayStr;
-          const isDisabled = isFuture || isOoo || isStatusDisabled || isTimesheetLockedGlobal;
+          const isDisabled = isFuture || isOooFull || isStatusDisabled || isTimesheetLockedGlobal;
 
           // Calculate predictions strictly for placeholders
           let predictedInt = 0;
           let predictedUatGo = 0;
           let predictedHours = 0;
           
-          if (!isOoo && !isFuture && !isWeekend) {
+          if (!isOooFull && !isFuture && !isWeekend) {
             if (isEpic) {
               predictedInt = getEpicPrediction(ticket, date, 'INT') || 0;
               predictedUatGo = getEpicPrediction(ticket, date, 'UAT_GO') || 0;
@@ -2235,13 +2137,13 @@
 
           const inputMain = document.createElement('input');
           inputMain.type = 'number';
-          inputMain.step = '0.25';
+          inputMain.step = '0.5';
           inputMain.min = '0';
           inputMain.max = '24';
           
           // Set dynamic placeholder to show prediction suggestion if no logged data exists
           let mainPlaceholder = '0.00';
-          if (isOoo) mainPlaceholder = 'OOO';
+          if (isOooFull) mainPlaceholder = 'OOO';
           else if (isStatusDisabled || isFuture) mainPlaceholder = 'Lock';
           else if (!log && predictedHours > 0) mainPlaceholder = predictedHours.toFixed(2);
           
@@ -2249,8 +2151,8 @@
           inputMain.setAttribute('data-key', key);
           inputMain.setAttribute('data-date', date);
           
-          // Enforce 0.00 default if not OOO or locked
-          inputMain.value = isOoo ? '' : (log ? hoursVal.toFixed(2) : '0.00');
+          // Enforce 0.00 default if not full OOO or locked
+          inputMain.value = isOooFull ? '' : (log ? hoursVal.toFixed(2) : '0.00');
 
           if (isDisabled) {
             inputMain.disabled = true;
@@ -2263,9 +2165,7 @@
               if (isNaN(val) || val < 0) val = 0;
               if (val > 24) val = 24;
               this.value = val.toFixed(2);
-              saveLocalDraft();
               updateDailyTotals();
-              triggerAutosave();
             });
 
             inputMain.addEventListener('input', function() {
@@ -2300,9 +2200,7 @@
                   }
                 }
               }
-              saveLocalDraft();
               updateDailyTotals();
-              triggerAutosave();
             });
           }
 
@@ -2321,12 +2219,12 @@
             const inputInt = document.createElement('input');
             inputInt.type = 'number';
             inputInt.id = `split-int-${key}-${date}`;
-            inputInt.step = '0.25';
+            inputInt.step = '0.5';
             inputInt.min = '0';
             inputInt.max = '24';
             inputInt.placeholder = (!log && predictedInt > 0) ? predictedInt.toFixed(2) : '0.00';
             inputInt.className = 'w-14 h-5.5 bg-white/5 border border-white/10 rounded text-center text-[10px] font-mono text-white focus:border-osttra-rubine hover:border-white/20 outline-none transition-all shadow-inner';
-            inputInt.value = (!isOoo) ? (log ? intVal.toFixed(2) : '0.00') : '';
+            inputInt.value = (!isOooFull) ? (log ? intVal.toFixed(2) : '0.00') : '';
             inputInt.setAttribute('data-key', key);
             inputInt.setAttribute('data-date', date);
             inputInt.setAttribute('data-bucket', 'INT');
@@ -2338,12 +2236,12 @@
             const inputUatGo = document.createElement('input');
             inputUatGo.type = 'number';
             inputUatGo.id = `split-uatgo-${key}-${date}`;
-            inputUatGo.step = '0.25';
+            inputUatGo.step = '0.5';
             inputUatGo.min = '0';
             inputUatGo.max = '24';
             inputUatGo.placeholder = (!log && predictedUatGo > 0) ? predictedUatGo.toFixed(2) : '0.00';
             inputUatGo.className = 'w-14 h-5.5 bg-white/5 border border-white/10 rounded text-center text-[10px] font-mono text-white focus:border-osttra-rubine hover:border-white/20 outline-none transition-all shadow-inner';
-            inputUatGo.value = (!isOoo) ? (log ? uatgoVal.toFixed(2) : '0.00') : '';
+            inputUatGo.value = (!isOooFull) ? (log ? uatgoVal.toFixed(2) : '0.00') : '';
             inputUatGo.setAttribute('data-key', key);
             inputUatGo.setAttribute('data-date', date);
             inputUatGo.setAttribute('data-bucket', 'UAT_GO');
@@ -2355,12 +2253,12 @@
             const inputOther = document.createElement('input');
             inputOther.type = 'number';
             inputOther.id = `split-other-${key}-${date}`;
-            inputOther.step = '0.25';
+            inputOther.step = '0.5';
             inputOther.min = '0';
             inputOther.max = '24';
             inputOther.placeholder = '0.00';
             inputOther.className = 'w-14 h-5.5 bg-white/5 border border-white/10 rounded text-center text-[10px] font-mono text-white focus:border-osttra-rubine hover:border-white/20 outline-none transition-all shadow-inner';
-            inputOther.value = (!isOoo) ? (log ? otherVal.toFixed(2) : '0.00') : '';
+            inputOther.value = (!isOooFull) ? (log ? otherVal.toFixed(2) : '0.00') : '';
             inputOther.setAttribute('data-key', key);
             inputOther.setAttribute('data-date', date);
             inputOther.setAttribute('data-bucket', 'OTHER');
@@ -2382,7 +2280,6 @@
                 const otherSum = parseFloat(inputOther.value) || 0;
                 const sum = v + uatGoSum + otherSum;
                 inputMain.value = sum > 0 ? sum.toFixed(2) : '0.00';
-                saveLocalDraft();
                 updateDailyTotals();
               });
               inputInt.addEventListener('blur', function() {
@@ -2401,7 +2298,6 @@
                 const otherSum = parseFloat(inputOther.value) || 0;
                 const sum = v + intSum + otherSum;
                 inputMain.value = sum > 0 ? sum.toFixed(2) : '0.00';
-                saveLocalDraft();
                 updateDailyTotals();
               });
               inputUatGo.addEventListener('blur', function() {
@@ -2420,7 +2316,6 @@
                 const uatGoSum = parseFloat(inputUatGo.value) || 0;
                 const sum = v + intSum + uatGoSum;
                 inputMain.value = sum > 0 ? sum.toFixed(2) : '0.00';
-                saveLocalDraft();
                 updateDailyTotals();
               });
               inputOther.addEventListener('blur', function() {
@@ -2464,8 +2359,8 @@
     const syncBtn = document.getElementById('btn-sync-jira');
     const addContainer = document.getElementById('unified-add-container');
     if (saveBtn) {
-      if (isTimesheetLockedGlobal) saveBtn.classList.add('hidden');
-      else saveBtn.classList.remove('hidden');
+      // Always show save button to support Out of Office (OOO) past corrections
+      saveBtn.classList.remove('hidden');
     }
     if (syncBtn) {
       if (isTimesheetLockedGlobal) syncBtn.classList.add('hidden');
@@ -2480,39 +2375,12 @@
     isChangingWeekGlobal = false;
   }
 
-  function saveLocalDraft() {
-    const userEmail = window.currentUser.email.toLowerCase().trim();
-    const draftKey = `tpm_draft_${userEmail}_${currentSunday}`;
-    const oooDraftKey = `tpm_ooo_draft_${userEmail}_${currentSunday}`;
-
-    const logs = getFormData();
-
-    if (logs.length > 0) {
-      localStorage.setItem(draftKey, JSON.stringify(logs));
-    } else {
-      localStorage.removeItem(draftKey);
-    }
-
-    if (oooDates.length > 0) {
-      localStorage.setItem(oooDraftKey, JSON.stringify(oooDates));
-    } else {
-      localStorage.removeItem(oooDraftKey);
-    }
-  }
-
-  function clearLocalDraft() {
-    const userEmail = window.currentUser.email.toLowerCase().trim();
-    localStorage.removeItem(`tpm_draft_${userEmail}_${currentSunday}`);
-    localStorage.removeItem(`tpm_ooo_draft_${userEmail}_${currentSunday}`);
-  }
-
   function resetWeekData() {
     if (!confirm('Are you sure you want to discard your unsaved changes for this week? This will revert the grid back to your last saved state.')) {
       return;
     }
-    clearLocalDraft();
     manuallyUnlockedTickets = [];
-    showNotification('info', 'Drafts Cleared', 'Reverting to your last saved timesheet data...');
+    showNotification('info', 'Grid Reset', 'Reverting to your last saved timesheet data...');
     loadTimesheetData();
   }
 
@@ -2528,8 +2396,8 @@
     const logs = getFormData();
 
     // Prevent accidental wipeout from network desync/lag
-    if (logs.length === 0 && oooDates.length === 0) {
-      showNotification('error', 'Empty Timesheet Blocked', 'Cannot submit a completely empty timesheet. If your data failed to load, please click "Reset Drafts" or "Refresh" first to restore your entries.');
+    if (logs.length === 0 && Object.keys(oooStates).length === 0) {
+      showNotification('error', 'Empty Timesheet Blocked', 'Cannot submit a completely empty timesheet. If your data failed to load, please click "Reset Grid" or "Refresh" first to restore your entries.');
       return;
     }
 
@@ -2581,19 +2449,19 @@
     let oooConflictDays = [];
     logs.forEach(log => {
       const date = log.date;
-      if (log.jiraKey !== 'ooo' && oooDates.includes(date) && log.hours > 0) {
+      if (log.jiraKey !== 'ooo' && oooStates[date] === 'full' && log.hours > 0) {
         oooConflictDays.push(formatDateFriendly(date));
       }
     });
 
     if (oooConflictDays.length > 0) {
       const uniqueConflicts = [...new Set(oooConflictDays)];
-      showNotification('error', 'OOO Conflict', `Cannot log hours on days marked as Out of Office (OOO). Conflicts found on: ${uniqueConflicts.join(', ')}.`);
+      showNotification('error', 'OOO Conflict', `Cannot log hours on days marked as Full Out of Office (OOO). Conflicts found on: ${uniqueConflicts.join(', ')}.`);
       return;
     }
 
-    // Automatically append OOO logs (8 hours per OOO day, strictly excluding weekends)
-    oooDates.forEach(date => {
+    // Automatically append OOO logs (8 hours per full OOO day, 4 hours per half OOO day, strictly excluding weekends)
+    Object.keys(oooStates).forEach(date => {
       const parts = date.split('-');
       const dObj = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
       const day = dObj.getDay();
@@ -2603,7 +2471,7 @@
       logs.push({
         jiraKey: 'ooo',
         date: date,
-        hours: 8,
+        hours: oooStates[date] === 'half' ? 4 : 8,
         uatHours: 0,
         intHours: 0,
         goLiveHours: 0
@@ -2614,9 +2482,14 @@
     google.script.run
       .withSuccessHandler(() => {
         hideLoading();
-        clearLocalDraft(); // committed, safe to wipe draft
-        clearAutosaveDraft(); // committed, clear autosave draft as well!
         showNotification('success', 'Timesheet Saved', 'Your timesheet hours have been logged successfully.');
+        
+        // If this week was unlocked by a manager exception, consume it immediately
+        if (activeUnlockExceptions.includes(currentSunday)) {
+          const userEmail = window.currentUser ? window.currentUser.email.toLowerCase().trim() : '';
+          google.script.run.consumeTpmUnlockException(userEmail, currentSunday);
+        }
+
         loadTimesheetData(true);
       })
       .withFailureHandler(err => {

@@ -750,24 +750,52 @@ function logDailyHeadcountTrend(ss, previousData, newRows) {
     const auditSheetName = "App Headcount Audit (Read / Write)";
 
     let trendSheet = ss.getSheetByName(trendSheetName);
+    const trendHeaders = [
+      "Timestamp", "Total Headcount", "Active (Dayforce)", "Inactive (Dayforce)", 
+      "Inactive (Manual Override)", "Total Managers", "Total TPM", "Total OPEX", 
+      "Joiners (Delta)", "Leavers (Delta)", "Reactivations (Delta)"
+    ];
     if (!trendSheet) {
       trendSheet = ss.insertSheet(trendSheetName);
-      trendSheet.appendRow([
-        "Timestamp", "Total Headcount", "Active (Dayforce)", "Inactive (Dayforce)", 
-        "Inactive (Manual Override)", "Total Managers", "Total TPM", "Total OPEX", 
-        "Joiners (Delta)", "Leavers (Delta)", "Reactivations (Delta)"
-      ]);
+      trendSheet.appendRow(trendHeaders);
       applyFormatting(trendSheet);
+    } else {
+      // Guardrail: Check if headers were accidentally deleted but data exists
+      const lastRow = trendSheet.getLastRow();
+      if (lastRow === 0) {
+        trendSheet.appendRow(trendHeaders);
+      } else {
+        const firstRow = trendSheet.getRange(1, 1, 1, trendSheet.getLastColumn()).getValues()[0];
+        if (String(firstRow[0] || "").toLowerCase().trim() !== "timestamp") {
+          trendSheet.insertRowBefore(1);
+          trendSheet.getRange(1, 1, 1, trendHeaders.length).setValues([trendHeaders]);
+          applyFormatting(trendSheet);
+        }
+      }
     }
 
     let auditSheet = ss.getSheetByName(auditSheetName);
+    const auditHeaders = [
+      "Timestamp", "Event Type", "Email Address", "Name", 
+      "Previous Status", "New Status", "Notes"
+    ];
     if (!auditSheet) {
       auditSheet = ss.insertSheet(auditSheetName);
-      auditSheet.appendRow([
-        "Timestamp", "Event Type", "Email Address", "Name", 
-        "Previous Status", "New Status", "Notes"
-      ]);
+      auditSheet.appendRow(auditHeaders);
       applyFormatting(auditSheet);
+    } else {
+      // Guardrail: Check if headers were accidentally deleted but data exists
+      const lastRow = auditSheet.getLastRow();
+      if (lastRow === 0) {
+        auditSheet.appendRow(auditHeaders);
+      } else {
+        const firstRow = auditSheet.getRange(1, 1, 1, auditSheet.getLastColumn()).getValues()[0];
+        if (String(firstRow[0] || "").toLowerCase().trim() !== "timestamp") {
+          auditSheet.insertRowBefore(1);
+          auditSheet.getRange(1, 1, 1, auditHeaders.length).setValues([auditHeaders]);
+          applyFormatting(auditSheet);
+        }
+      }
     }
 
     // 1. Process New Data Metrics & Map

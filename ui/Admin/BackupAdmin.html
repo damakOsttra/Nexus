@@ -55,7 +55,7 @@
   </div>
 
   <!-- Summary Stats -->
-  <div class="grid grid-cols-1 sm:grid-cols-3 gap-6">
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
     <div class="p-6 bg-[#222222]/20 border border-white/5 rounded-2xl flex flex-col justify-between group hover:border-white/10 transition-all duration-300">
       <div class="flex justify-between items-start">
         <p class="text-[10px] font-black uppercase text-white/40 tracking-widest">Total Snapshots</p>
@@ -69,6 +69,13 @@
         <i class="fas fa-history text-white/10 text-base"></i>
       </div>
       <p id="stat-last-backup" class="text-base font-bold text-white mt-4">No backups recorded</p>
+    </div>
+    <div class="p-6 bg-[#222222]/20 border border-white/5 rounded-2xl flex flex-col justify-between group hover:border-white/10 transition-all duration-300">
+      <div class="flex justify-between items-start">
+        <p class="text-[10px] font-black uppercase text-white/40 tracking-widest">Last Rolling Backup</p>
+        <i class="fas fa-sync text-white/10 text-base"></i>
+      </div>
+      <p id="stat-last-rolling" class="text-base font-bold text-white mt-4">Checking...</p>
     </div>
     <div class="p-6 bg-[#222222]/20 border border-white/5 rounded-2xl flex flex-col justify-between group hover:border-white/10 transition-all duration-300">
       <div class="flex justify-between items-start">
@@ -138,7 +145,33 @@
    */
   (function init() {
     loadSnapshotLogs();
+    loadRollingBackupStatus();
   })();
+
+  /**
+   * Server Request: Load 30-minute rolling backup timestamp
+   */
+  function loadRollingBackupStatus() {
+    const el = document.getElementById('stat-last-rolling');
+    if (el) el.innerText = "Checking...";
+    google.script.run
+      .withSuccessHandler(res => {
+        if (el) {
+          if (res && res.url) {
+            el.innerHTML = `<a href="${res.url}" target="_blank" class="text-osttra-rubine hover:underline font-bold flex items-center gap-1 inline-flex">
+              ${res.status} <i class="fas fa-external-link-alt text-[8px]"></i>
+            </a>`;
+          } else {
+            el.innerText = res ? res.status : "No backups recorded";
+          }
+        }
+      })
+      .withFailureHandler(err => {
+        if (el) el.innerText = "Error";
+        console.error("Failed to load rolling backup time:", err.message);
+      })
+      .getLastRollingBackupTime();
+  }
 
   /**
    * Server Request: Load snapshot logs

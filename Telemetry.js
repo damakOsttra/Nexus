@@ -24,7 +24,8 @@ const ALLOWED_TELEMETRY_EVENTS = [
   'BULK_EMAILS_SENT',         // Compliance Reminders Dispatched
   'TPM_TIMESHEET_SUBMITTED',  // TPM User submitted timesheet
   'TPM_JIRA_SYNCED',          // Jira fetch initiated
-  'TPM_COMPLIANCE_NUDGE_SENT' // Sent compliance reminder
+  'TPM_COMPLIANCE_NUDGE_SENT',// Sent compliance reminder
+  'OPEX_JIRA_SYNCED'          // OPEX Jira sync completed
 ];
 
 /**

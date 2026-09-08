@@ -155,6 +155,19 @@
               </button>
             </div>
 
+            <!-- BUSINESS MANAGEMENT (BMA) CATEGORY -->
+            <div id="section-bma" class="space-y-1 hidden">
+              <p class="px-2 text-[9px] font-black text-white/30 uppercase tracking-[0.2em] mb-2 sidebar-text">Business Management</p>
+              <button id="nav-BmaMasterData" onclick="loadPage('BmaMasterData')" title="BMA Master Data" class="nav-link group">
+                <i class="fas fa-database text-sm w-5 group-hover:scale-110 transition-transform duration-200 shrink-0"></i>
+                <span class="text-xs font-bold uppercase tracking-widest sidebar-text">Master Data (BMA)</span>
+              </button>
+              <button id="nav-MonitoringAdmin" onclick="loadPage('MonitoringAdmin')" title="System Monitoring" class="nav-link group">
+                <i class="fas fa-heartbeat text-sm w-5 group-hover:scale-110 transition-transform duration-200 shrink-0"></i>
+                <span class="text-xs font-bold uppercase tracking-widest sidebar-text">System Monitoring</span>
+              </button>
+            </div>
+
             <!-- SYSTEM ADMIN CATEGORY -->
             <div class="space-y-1 tier-req" data-tier="3">
               <p class="px-2 text-[9px] font-black text-white/30 uppercase tracking-[0.2em] mb-2 sidebar-text">System Admin</p>
@@ -169,10 +182,6 @@
               <button id="nav-NexusAdoption" onclick="loadPage('NexusAdoption')" title="Nexus Adoption" class="nav-link group">
                 <i class="fas fa-chart-pie text-sm w-5 group-hover:scale-110 transition-transform duration-200 shrink-0"></i>
                 <span class="text-xs font-bold uppercase tracking-widest sidebar-text">Nexus Adoption</span>
-              </button>
-              <button id="nav-MonitoringAdmin" onclick="loadPage('MonitoringAdmin')" title="Monitoring" class="nav-link group">
-                <i class="fas fa-users-cog text-sm w-5 group-hover:scale-110 transition-transform duration-200 shrink-0"></i>
-                <span class="text-xs font-bold uppercase tracking-widest sidebar-text">Monitoring</span>
               </button>
               <button id="nav-BackupAdmin" onclick="loadPage('BackupAdmin')" title="Database Backups" class="nav-link group">
                 <i class="fas fa-hdd text-sm w-5 group-hover:scale-110 transition-transform duration-200 shrink-0"></i>
@@ -438,6 +447,16 @@
             opexSection.classList.remove('hidden');
           } else {
             opexSection.classList.add('hidden');
+          }
+        }
+
+        // Hide/Show BMA Navigation Section strictly based on isBmaUser
+        const bmaSection = document.getElementById('section-bma');
+        if (bmaSection) {
+          if (user.isBmaUser) {
+            bmaSection.classList.remove('hidden');
+          } else {
+            bmaSection.classList.add('hidden');
           }
         }
 

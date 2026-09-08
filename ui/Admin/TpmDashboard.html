@@ -39,6 +39,11 @@
         </button>
       </div>
 
+      <!-- Unlock Timesheet Button (Manager Tool) -->
+      <button id="btn-open-unlock-modal" onclick="openUnlockModal()" class="px-3.5 py-2 rounded-xl bg-white/5 hover:bg-osttra-ochre/20 text-osttra-ochre border border-osttra-ochre/20 text-[10px] font-black uppercase tracking-widest active:scale-95 transition-all flex items-center gap-1.5 focus:outline-none" title="Unlock past timesheet weeks for a team member">
+        <i class="fas fa-lock-open"></i> Unlock Past Week
+      </button>
+
       <!-- Refresh Button -->
       <button onclick="handleRefresh()" class="px-3.5 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 text-white text-[10px] font-black uppercase tracking-widest active:scale-95 transition-all flex items-center gap-1.5 focus:outline-none">
         <i class="fas fa-sync-alt"></i> Refresh
@@ -67,10 +72,21 @@
               <i class="fas fa-user-check text-osttra-rubine"></i> 1. Compliance Scoring System
             </h4>
             <ul class="list-disc pl-4 space-y-2 pr-2">
-              <li><strong class="text-white font-bold">Compliant (Green):</strong> Time logged (>0h) or marked OOO for every past weekday in selected range.</li>
-              <li><strong class="text-white font-bold">Incomplete (Red):</strong> Missing entries on one or more past weekdays. Hover badge for list of missed dates.</li>
-              <li><strong class="text-white font-bold">In Progress (Ochre):</strong> Completed all past weekdays; range extends into today/future.</li>
-              <li><strong class="text-white font-bold">Exemptions:</strong> Saturday/Sunday, future dates, and OOO days are automatically excluded from penalties.</li>
+              <li><strong class="text-white font-bold">Past Weeks Audit:</strong>
+                <ul class="list-none pl-3.5 space-y-1 mt-1">
+                  <li>&bull; <strong class="text-emerald-400">Compliant (Green):</strong> Logged hours (>0h) or marked OOO for every past weekday (no daily gaps).</li>
+                  <li>&bull; <strong class="text-osttra-rubine">Incomplete (Red):</strong> Missing entries on one or more past weekdays.</li>
+                </ul>
+              </li>
+              <li><strong class="text-white font-bold">Active Week (Intelligent Pace Engine):</strong>
+                <ul class="list-none pl-3.5 space-y-1 mt-1">
+                  <li>&bull; <strong class="text-emerald-400">Complete (Green):</strong> Total hours meet or exceed the weekly target capacity.</li>
+                  <li>&bull; <strong class="text-emerald-400">On Track (Green):</strong> Current hours meet or exceed 80% of the pace target for past weekdays.</li>
+                  <li>&bull; <strong class="text-osttra-rubine">Lagging (Red):</strong> Logged hours are below 80% of the pace target.</li>
+                  <li>&bull; <strong class="text-osttra-rubine">Unstarted (Red):</strong> Zero hours logged for the active week.</li>
+                </ul>
+              </li>
+              <li><strong class="text-white font-bold">Exemptions:</strong> Saturdays, Sundays, future dates (supporting a 1-day APAC timezone grace period), and OOO days are automatically excluded from compliance audits. Weekend dates are strictly excluded from OOO logging.</li>
             </ul>
           </div>
           
@@ -261,7 +277,12 @@
 
       <!-- 4. Export CSV Button -->
       <button onclick="exportComplianceMatrixToCsv()" class="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 text-white text-[9px] font-black uppercase tracking-widest active:scale-95 transition-all flex items-center gap-2 shadow-md shadow-white/5">
-        <i class="fas fa-file-csv"></i> Export Matrix
+        <i class="fas fa-file-csv"></i> Export Compliance Matrix
+      </button>
+
+      <!-- 5. Export Time Logs Button -->
+      <button onclick="exportTimesheetLogsToCsv()" class="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 text-white text-[9px] font-black uppercase tracking-widest active:scale-95 transition-all flex items-center gap-2 shadow-md shadow-white/5">
+        <i class="fas fa-file-export"></i> Export Time Logs
       </button>
     </div>
 
@@ -306,17 +327,17 @@
       <h3 class="text-[10px] font-black text-white/40 uppercase tracking-widest">Compliance Roster Detail</h3>
       
       <div class="bg-[#222222] border border-white/5 rounded-3xl overflow-hidden shadow-2xl">
-        <div class="overflow-x-auto">
+        <div class="overflow-x-auto max-h-[65vh] overflow-y-auto">
           <table class="w-full text-left border-collapse">
             <thead>
-              <tr class="border-b border-white/5 bg-white/[0.02]">
-                <th class="p-4 text-[10px] font-black uppercase tracking-widest text-white/40 pl-6 w-12 text-center">
+              <tr class="border-b border-white/5">
+                <th class="sticky top-0 z-10 bg-[#222222] p-4 text-[10px] font-black uppercase tracking-widest text-white/40 pl-6 w-12 text-center">
                   <input type="checkbox" id="select-all" onchange="toggleSelectAll(this)" class="accent-osttra-rubine rounded cursor-pointer">
                 </th>
-                <th class="p-4 text-[10px] font-black uppercase tracking-widest text-white/40 pl-6 w-[320px]">TPM Team Member</th>
-                <th class="p-4 text-[10px] font-black uppercase tracking-widest text-white/40 text-center w-40">Total Hours Logged</th>
-                <th class="p-4 text-[10px] font-black uppercase tracking-widest text-white/40 text-center w-56">Compliance Status</th>
-                <th class="p-4 text-[10px] font-black uppercase tracking-widest text-white/40 text-center w-36 pr-6">Workload Balance</th>
+                <th class="sticky top-0 z-10 bg-[#222222] p-4 text-[10px] font-black uppercase tracking-widest text-white/40 pl-6 w-[320px]">TPM Team Member</th>
+                <th class="sticky top-0 z-10 bg-[#222222] p-4 text-[10px] font-black uppercase tracking-widest text-white/40 text-center w-40">Total Hours Logged</th>
+                <th class="sticky top-0 z-10 bg-[#222222] p-4 text-[10px] font-black uppercase tracking-widest text-white/40 text-center w-56">Compliance Status</th>
+                <th class="sticky top-0 z-10 bg-[#222222] p-4 text-[10px] font-black uppercase tracking-widest text-white/40 text-center w-36 pr-6">Workload Balance</th>
               </tr>
             </thead>
             <tbody id="compliance-matrix-body">
@@ -329,6 +350,112 @@
   </div>
 
 </div>
+
+  <!-- Floating Level 3 Time Logs Modal -->
+  <div id="daily-logs-modal" class="hidden fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+    <div class="bg-[#222222] border border-white/10 w-full max-w-4xl p-6 rounded-2xl space-y-6 shadow-2xl animate-in fade-in duration-200">
+      <div class="flex justify-between items-center border-b border-white/5 pb-4">
+        <div class="space-y-1">
+          <h4 class="font-black uppercase text-sm text-white" id="daily-logs-modal-title">Jira Time Logs</h4>
+          <p id="daily-logs-modal-subtitle" class="text-[10px] text-osttra-rubine font-bold uppercase tracking-wider"></p>
+        </div>
+        <button onclick="closeDailyLogsModal()" class="text-white/50 hover:text-white transition-colors focus:outline-none"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="overflow-auto max-h-[400px] custom-scrollbar">
+        <table class="w-full text-left border-collapse text-xs">
+          <thead>
+            <tr class="text-white/40 border-b border-white/5 uppercase tracking-wider text-[10px] bg-white/5 sticky top-0 bg-[#222222] z-10 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.3)]">
+              <th class="py-3 px-4">Date Logged</th>
+              <th class="py-3 px-4">Integration Effort</th>
+              <th class="py-3 px-4">UAT/GO-Live Effort</th>
+              <th class="py-3 px-4">Other Effort</th>
+              <th class="py-3 px-4 text-center">Daily Total</th>
+            </tr>
+          </thead>
+          <tbody id="daily-logs-table-body" class="text-white/70">
+            <!-- Populated via JS -->
+          </tbody>
+        </table>
+      </div>
+      <div class="flex justify-between items-center pt-4 border-t border-white/5">
+        <span id="daily-logs-total" class="text-[10px] text-white/40 font-bold uppercase"></span>
+        <button onclick="closeDailyLogsModal()" class="px-5 py-2.5 bg-white/5 border border-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest text-white hover:bg-white/10 transition-all">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Timesheet Unlock Exception Modal (Location C - TPM Dashboard Redesign) -->
+  <div id="unlock-timesheet-modal" class="hidden fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+    <div class="glass border border-white/10 w-full max-w-2xl rounded-[2rem] overflow-hidden flex flex-col shadow-2xl animate-in zoom-in duration-300 bg-[#161616]">
+      
+      <!-- Header -->
+      <div class="px-8 py-5 border-b border-white/5 bg-[#1a1a1a]/80 flex justify-between items-center">
+        <div class="space-y-0.5">
+          <h3 class="text-lg font-black uppercase text-white tracking-tight italic flex items-center gap-2">
+            <i class="fas fa-lock-open text-osttra-ochre animate-pulse"></i> Unlock <span class="text-osttra-ochre">Timesheets</span>
+          </h3>
+          <p class="text-[9px] text-white/40 uppercase tracking-widest font-semibold">Manage active logging overrides for your direct reports</p>
+        </div>
+        <button onclick="closeUnlockModal()" class="w-8 h-8 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center text-white/50 hover:text-white transition-all cursor-pointer focus:outline-none">
+          <i class="fas fa-times text-xs"></i>
+        </button>
+      </div>
+
+      <!-- Body -->
+      <div class="p-8 space-y-6 flex flex-col">
+        
+        <!-- SECTION 1: ADD NEW OVERRIDE (Form Row) -->
+        <div class="bg-white/[0.02] border border-white/5 rounded-2xl p-5 space-y-4">
+          <h4 class="text-[10px] font-black text-white/50 uppercase tracking-widest flex items-center gap-1.5"><i class="fas fa-plus text-osttra-ochre"></i> Authorize New Exception</h4>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <!-- Dropdown: Select Report -->
+            <div class="space-y-1">
+              <label class="text-[8px] font-black text-white/30 uppercase tracking-widest">Team Member</label>
+              <select id="unlock-employee-select" class="w-full bg-black/40 border border-white/5 rounded-lg px-3 py-2.5 text-xs text-white focus:outline-none focus:border-osttra-ochre/50 cursor-pointer">
+                <!-- Populated dynamically -->
+              </select>
+            </div>
+
+            <!-- Dropdown: Select Week -->
+            <div class="space-y-1">
+              <label class="text-[8px] font-black text-white/30 uppercase tracking-widest">Locked Week (Sunday)</label>
+              <select id="unlock-week-select" class="w-full bg-black/40 border border-white/5 rounded-lg px-3 py-2.5 text-xs text-white focus:outline-none focus:border-osttra-ochre/50 cursor-pointer">
+                <!-- Populated dynamically (Past 5 Sundays) -->
+              </select>
+            </div>
+          </div>
+          <button onclick="submitTimesheetUnlock()" class="w-full py-2.5 bg-osttra-ochre/10 hover:bg-osttra-ochre text-osttra-ochre hover:text-white border border-osttra-ochre/20 hover:border-transparent text-[9px] font-black uppercase tracking-widest rounded-xl transition-all shadow active:scale-95 flex items-center justify-center gap-2 cursor-pointer focus:outline-none">
+            <i class="fas fa-key"></i> Create Unlock Exception
+          </button>
+        </div>
+
+        <!-- SECTION 2: ACTIVE EXCEPTIONS LIST (Table) -->
+        <div class="space-y-3">
+          <h4 class="text-[10px] font-black text-white/50 uppercase tracking-widest flex items-center gap-1.5"><i class="fas fa-list text-osttra-ochre"></i> Active Overrides</h4>
+          
+          <div class="border border-white/5 rounded-2xl overflow-hidden max-h-56 overflow-y-auto bg-black/25">
+            <table class="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr class="bg-white/[0.02] border-b border-white/5 text-[8px] font-black uppercase text-white/40 tracking-widest">
+                  <th class="p-3">Team Member</th>
+                  <th class="p-3">Unlocked Week</th>
+                  <th class="p-3">Authorized At</th>
+                  <th class="p-3 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody id="unlock-exceptions-tbody">
+                <!-- Populated dynamically -->
+                <tr>
+                  <td colspan="4" class="p-8 text-center text-white/30 italic text-xs">Loading active overrides...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
 
 <script>
   var complianceChart = null;
@@ -1134,7 +1261,9 @@
           uat: epic.uat || 0,
           other: epic.other || 0,
           total: epic.total,
-          isEpic: true
+          isEpic: true,
+          dailyBreakdown: epic.dailyBreakdown || {},
+          dailyPhaseBreakdown: epic.dailyPhaseBreakdown || {}
         });
       });
 
@@ -1152,7 +1281,9 @@
           uat: 0,
           other: log.total,
           total: log.total,
-          isEpic: false
+          isEpic: false,
+          dailyBreakdown: log.dailyBreakdown || {},
+          dailyPhaseBreakdown: log.dailyPhaseBreakdown || {}
         });
       });
 
@@ -1176,7 +1307,8 @@
               '<th class="p-3">Title / Description</th>' +
               '<th class="p-3 text-center w-24">Status</th>' +
               '<th class="p-3 text-center w-44">Phase Splits (INT | UAT/GO | Other)</th>' +
-              '<th class="p-3 text-center w-20 pr-4">Total</th>' +
+              '<th class="p-3 text-center w-20">Total</th>' +
+              '<th class="p-3 text-center w-16 pr-4">Actions</th>' +
             '</tr>' +
           '</thead>' +
           '<tbody>';
@@ -1217,7 +1349,12 @@
                   '<span class="text-white/20 px-1.5">|</span>' +
                   '<span class="text-purple-400 font-bold" title="Other hours">' + formatHours2D(log.other) + 'h</span>' +
                 '</td>' +
-                '<td class="p-3 text-center font-mono font-black text-white pr-4">' + formatHours2D(log.total) + 'h</td>' +
+                '<td class="p-3 text-center font-mono font-black text-white">' + formatHours2D(log.total) + 'h</td>' +
+                '<td class="p-3 text-center pr-4">' +
+                  '<button onclick="openDailyLogsModal(\'' + row.email + '\', \'' + log.key + '\')" class="w-6 h-6 rounded-md bg-white/5 border border-white/10 hover:bg-white/10 active:scale-95 transition-all text-white/70 hover:text-white flex items-center justify-center cursor-pointer focus:outline-none" title="View Daily Logs Detail">' +
+                    '<i class="fas fa-search text-[8px]"></i>' +
+                  '</button>' +
+                '</td>' +
               '</tr>';
           } else {
             // Non-BAU (ADMIN, MGMT, ooo, TRAINING) row rendering
@@ -1238,13 +1375,18 @@
                   '<span class="px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider border text-white/40 border-white/5 bg-white/5">' + log.status + '</span>' +
                 '</td>' +
                 '<td class="p-3 text-center text-white/20 font-mono">-</td>' +
-                '<td class="p-3 text-center font-mono font-black text-white pr-4">' + formatHours2D(log.total) + 'h</td>' +
+                '<td class="p-3 text-center font-mono font-black text-white">' + formatHours2D(log.total) + 'h</td>' +
+                '<td class="p-3 text-center pr-4">' +
+                  '<button onclick="openDailyLogsModal(\'' + row.email + '\', \'' + log.key + '\')" class="w-6 h-6 rounded-md bg-white/5 border border-white/10 hover:bg-white/10 active:scale-95 transition-all text-white/70 hover:text-white flex items-center justify-center cursor-pointer focus:outline-none" title="View Daily Logs Detail">' +
+                    '<i class="fas fa-search text-[8px]"></i>' +
+                  '</button>' +
+                '</td>' +
               '</tr>';
           }
         });
       } else {
         logTableHtml += '<tr>' +
-            '<td colspan="5" class="p-6 text-center text-white/30 uppercase tracking-widest font-black text-[9px]">' +
+            '<td colspan="6" class="p-6 text-center text-white/30 uppercase tracking-widest font-black text-[9px]">' +
               'No timesheet hours logged this week.' +
             '</td>' +
           '</tr>';
@@ -1395,6 +1537,79 @@
       .sendTpmComplianceNudge(emailsToNudge, pickerVal, subject, bodyTemplate, missedDatesMap);
   }
 
+  function openDailyLogsModal(email, ticketKey) {
+    if (!globalData || !globalData.matrix) return;
+    
+    const member = globalData.matrix.find(m => String(m.email).toLowerCase() === String(email).toLowerCase());
+    if (!member) {
+      showNotification('error', 'Error', 'Employee record not found in active data.');
+      return;
+    }
+    
+    const ticketLog = (member.ticketLogs || []).find(l => String(l.key).toUpperCase().trim() === String(ticketKey).toUpperCase().trim());
+    if (!ticketLog) {
+      showNotification('error', 'Error', 'Ticket log not found for ' + ticketKey);
+      return;
+    }
+    
+    // Set titles
+    document.getElementById('daily-logs-modal-title').innerText = ticketKey + ": " + (ticketLog.summary || "BAU Project");
+    document.getElementById('daily-logs-modal-subtitle').innerText = "Daily Effort Breakdown for " + member.name + " (" + member.email + ")";
+    
+    const tbody = document.getElementById('daily-logs-table-body');
+    tbody.innerHTML = '';
+    
+    let totalHrs = 0;
+    
+    // Fetch and sort daily logs
+    // We use dailyPhaseBreakdown, but fall back to dailyBreakdown if needed.
+    const phaseData = ticketLog.dailyPhaseBreakdown || {};
+    const simpleData = ticketLog.dailyBreakdown || {};
+    const uniqueDates = [...new Set([...Object.keys(phaseData), ...Object.keys(simpleData)])].sort();
+    
+    if (uniqueDates.length > 0) {
+      uniqueDates.forEach(dateStr => {
+        let intH = 0, uatH = 0, othH = 0, dayTotal = 0;
+        
+        if (phaseData[dateStr]) {
+          intH = parseFloat(phaseData[dateStr].int) || 0;
+          uatH = parseFloat(phaseData[dateStr].uat) || 0;
+          othH = parseFloat(phaseData[dateStr].other) || 0;
+          dayTotal = parseFloat(phaseData[dateStr].total) || 0;
+        } else if (simpleData[dateStr]) {
+          dayTotal = parseFloat(simpleData[dateStr]) || 0;
+          othH = dayTotal; // Fallback
+        }
+        
+        if (dayTotal > 0) {
+          totalHrs += dayTotal;
+          
+          const tr = document.createElement('tr');
+          tr.className = 'border-b border-white/5 hover:bg-white/[0.02]';
+          tr.innerHTML = `
+            <td class="py-2.5 px-4 font-mono font-bold text-white">${formatDateFriendly(dateStr)}</td>
+            <td class="py-2.5 px-4 font-mono text-blue-400 font-bold">${intH > 0 ? intH.toFixed(2) + 'h' : '-'}</td>
+            <td class="py-2.5 px-4 font-mono text-osttra-ochre font-bold">${uatH > 0 ? uatH.toFixed(2) + 'h' : '-'}</td>
+            <td class="py-2.5 px-4 font-mono text-purple-400 font-bold">${othH > 0 ? othH.toFixed(2) + 'h' : '-'}</td>
+            <td class="py-2.5 px-4 font-mono font-black text-center text-white bg-white/[0.02]">${dayTotal.toFixed(2)}h</td>
+          `;
+          tbody.appendChild(tr);
+        }
+      });
+    }
+    
+    if (tbody.children.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="5" class="py-8 text-center text-white/30 uppercase tracking-widest font-black text-[9px]">No time entries found.</td></tr>`;
+    }
+    
+    document.getElementById('daily-logs-total').innerText = "Total Hours on Ticket: " + totalHrs.toFixed(2) + "h";
+    document.getElementById('daily-logs-modal').classList.remove('hidden');
+  }
+
+  function closeDailyLogsModal() {
+    document.getElementById('daily-logs-modal').classList.add('hidden');
+  }
+
   function exportComplianceMatrixToCsv() {
     if (!globalData || !globalData.matrix || globalData.matrix.length === 0) {
       showNotification('warning', 'Export Empty', 'No compliance matrix data available to export.');
@@ -1404,22 +1619,12 @@
     const weekdaysInRange = countWeekdays(globalData.weekDates);
     const csvRows = [];
     
-    csvRows.push(["Team Member", "Email Address", "Logged Hours", "Target Capacity", "Compliance Status", "Workload Balance", "FTE Percentage", "OOO Days In Range"]);
+    csvRows.push(["Team Member", "Email Address", "Logged Hours", "Target Capacity", "Workload Balance", "OOO Days In Range"]);
 
     globalData.matrix.forEach(row => {
       const oooDaysInRange = row.oooDates.filter(d => globalData.weekDates.includes(d)).length;
       const targetHours = (row.allocatedFte / 100) * weekdaysInRange * 8;
       
-      const missedDays = row.missedDaysList || [];
-      let complianceText = 'Compliant';
-      if (missedDays.length > 0) {
-        complianceText = 'Incomplete (Missed: ' + missedDays.join('; ') + ')';
-      } else {
-        const todayStr = formatDateString(new Date());
-        const hasFutureOrToday = globalData.weekDates.some(d => d >= todayStr);
-        if (hasFutureOrToday) complianceText = 'In Progress';
-      }
-
       const ratio = targetHours > 0 ? (row.total / targetHours) * 100 : 0;
       let workloadText = 'Balanced';
       if (ratio >= 115) workloadText = 'Overburdened (' + Math.round(ratio) + '%)';
@@ -1430,9 +1635,7 @@
         row.email,
         row.total.toFixed(2),
         targetHours.toFixed(2),
-        complianceText,
         workloadText,
-        row.allocatedFte + "%",
         oooDaysInRange
       ]);
     });
@@ -1451,6 +1654,211 @@
     document.body.removeChild(link);
     
     showNotification('success', 'Export Successful', 'Downloaded Compliance Matrix Report as CSV.');
+  }
+
+  function exportTimesheetLogsToCsv() {
+    const startDateStr = currentStartStr;
+    const endDateStr = currentEndStr;
+    
+    if (!startDateStr || !endDateStr) {
+      showNotification('warning', 'Export Failed', 'No date range selected.');
+      return;
+    }
+
+    showLoading('Fetching raw timesheet logs...');
+    
+    google.script.run
+      .withSuccessHandler(rows => {
+        hideLoading();
+        if (!rows || rows.length === 0) {
+          showNotification('warning', 'Export Empty', 'No timesheet logs found for the selected date range.');
+          return;
+        }
+        
+        const headers = ["User_Email", "Jira_Key", "Date_Logged", "Hours_Logged", "Created_Timestamp", "UAT_Hours", "Int_Hours", "Other_Hours", "Jira_Status", "Week_Of"];
+        const csvRows = [];
+        csvRows.push(headers);
+        
+        rows.forEach(row => {
+          const csvRow = headers.map(header => {
+            let val = row[header];
+            if (val === undefined || val === null) val = "";
+            return val;
+          });
+          csvRows.push(csvRow);
+        });
+
+        const csvContent = "data:text/csv;charset=utf-8," 
+          + csvRows.map(e => e.map(val => `"${String(val).replace(/"/g, '""')}"`).join(",")).join("\n");
+
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", `TPM_Timesheet_Logs_${startDateStr}_to_${endDateStr}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        showNotification('success', 'Export Successful', 'Downloaded Timesheet Logs Report as CSV.');
+      })
+      .withFailureHandler(err => {
+        hideLoading();
+        showNotification('error', 'Export Failed', err.message);
+      })
+      .exportTpmTimesheetLogsForRange(startDateStr, endDateStr);
+  }
+
+  // ==========================================
+  // TIMESHEET UNLOCK MODAL HANDLERS
+  // ==========================================
+
+  window.openUnlockModal = function() {
+    const selectEmp = document.getElementById('unlock-employee-select');
+    const selectWeek = document.getElementById('unlock-week-select');
+    if (!selectEmp || !selectWeek) return;
+
+    // 1. Populate employees from active dashboard matrix data
+    if (globalData && globalData.matrix) {
+      const teamList = globalData.matrix || [];
+      const managerEmail = (window.currentUser && window.currentUser.email) ? window.currentUser.email.toLowerCase().trim() : '';
+      
+      // Filter out themselves (they can't unlock their own week)
+      const reports = teamList.filter(e => e.email.toLowerCase().trim() !== managerEmail);
+      
+      selectEmp.innerHTML = reports.map(e => `<option value="${e.email}" class="bg-black text-white">${e.name}</option>`).join('');
+    } else {
+      selectEmp.innerHTML = `<option value="">No reportees loaded</option>`;
+    }
+
+    // 2. Populate past Sundays
+    const pastSundays = getPastSundays();
+    selectWeek.innerHTML = pastSundays.map(m => {
+      const parts = m.split('-');
+      const d = new Date(parts[0], parts[1] - 1, parts[2]);
+      const optText = `Week starting Sun, ${d.toLocaleDateString('en-US', {month: 'short', day: 'numeric', year: 'numeric'})} (${m})`;
+      return `<option value="${m}" class="bg-black text-white">${optText}</option>`;
+    }).join('');
+
+    // 3. Load active exceptions table
+    loadActiveUnlockExceptionsTable();
+
+    document.getElementById('unlock-timesheet-modal').classList.remove('hidden');
+  };
+
+  window.closeUnlockModal = function() {
+    document.getElementById('unlock-timesheet-modal').classList.add('hidden');
+  };
+
+  function getPastSundays() {
+    const sundays = [];
+    const today = new Date();
+    const dayOfWeek = today.getDay();
+    const diff = today.getDate() - dayOfWeek;
+    const currentSunday = new Date(today);
+    currentSunday.setDate(diff);
+    currentSunday.setHours(0,0,0,0);
+    for (let i = 1; i <= 5; i++) {
+      const pastSun = new Date(currentSunday);
+      pastSun.setDate(currentSunday.getDate() - (i * 7));
+      const yyyy = pastSun.getFullYear();
+      const mm = String(pastSun.getMonth() + 1).padStart(2, '0');
+      const dd = String(pastSun.getDate()).padStart(2, '0');
+      sundays.push(`${yyyy}-${mm}-${dd}`);
+    }
+    return sundays;
+  }
+
+  function loadActiveUnlockExceptionsTable() {
+    const tbody = document.getElementById('unlock-exceptions-tbody');
+    if (!tbody) return;
+
+    tbody.innerHTML = `<tr><td colspan="4" class="p-8 text-center text-white/30 italic text-xs">Loading active overrides...</td></tr>`;
+
+    google.script.run
+      .withSuccessHandler(exceptions => {
+        if (!exceptions || exceptions.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="4" class="p-8 text-center text-white/20 italic text-xs">No active unlock exceptions currently found.</td></tr>`;
+          return;
+        }
+
+        tbody.innerHTML = exceptions.map(row => {
+          const parts = row.weekStartDate.split('-');
+          const d = new Date(parts[0], parts[1] - 1, parts[2]);
+          const weekFormatted = `Sun, ${d.toLocaleDateString('en-US', {month: 'short', day: 'numeric'})}`;
+          const authorizedAtFormatted = row.unlockedAt.split(' ')[0] || row.unlockedAt;
+
+          return `
+            <tr class="border-b border-white/5 hover:bg-white/[0.01]">
+              <td class="p-3 font-semibold text-white">${row.employeeName}<br><span class="text-[9px] text-white/30">${row.employeeEmail}</span></td>
+              <td class="p-3 text-white/80 font-mono">${weekFormatted}</td>
+              <td class="p-3 text-white/50 font-mono">${authorizedAtFormatted}</td>
+              <td class="p-3 text-right">
+                <button onclick="revokeTimesheetUnlock(${row.rowId}, '${row.employeeName}')" class="px-2.5 py-1.5 bg-red-500/10 hover:bg-red-500 text-red-400 hover:text-white border border-red-500/20 hover:border-transparent text-[8px] font-black uppercase tracking-widest rounded-lg transition-all focus:outline-none cursor-pointer">
+                  <i class="fas fa-trash-alt"></i> Revoke
+                </button>
+              </td>
+            </tr>
+          `;
+        }).join('');
+      })
+      .withFailureHandler(err => {
+        tbody.innerHTML = `<tr><td colspan="4" class="p-8 text-center text-red-500/50 italic text-xs">Failed to load exceptions: ${err.message}</td></tr>`;
+      })
+      .getActiveTpmUnlockExceptionsForManager();
+  }
+
+  window.submitTimesheetUnlock = function() {
+    const email = document.getElementById('unlock-employee-select').value;
+    const week = document.getElementById('unlock-week-select').value;
+    
+    if (!email || !week) {
+      showNotification('warning', 'Validation Error', 'Please select both a team member and a target week.');
+      return;
+    }
+
+    showLoading(`Authorizing exception for ${email}...`);
+
+    google.script.run
+      .withSuccessHandler(res => {
+        hideLoading();
+        if (res && res.success) {
+          showNotification('success', 'Timesheet Unlocked', res.message || `Successfully authorized past-week logging override for ${email}.`);
+          // Reload the table!
+          loadActiveUnlockExceptionsTable();
+        } else {
+          showNotification('error', 'Unlock Failed', 'Server returned an invalid response.');
+        }
+      })
+      .withFailureHandler(err => {
+        hideLoading();
+        showNotification('error', 'Authorization Failed', err.message);
+      })
+      .createTpmUnlockException(email, week);
+  };
+
+  window.revokeTimesheetUnlock = function(rowId, empName) {
+    if (!confirm(`Are you sure you want to revoke the unlock exception for ${empName}?\n\nTheir timesheet for that week will instantly re-lock.`)) {
+      return;
+    }
+
+    showLoading(`Revoking exception...`);
+
+    google.script.run
+      .withSuccessHandler(res => {
+        hideLoading();
+        if (res && res.success) {
+          showNotification('success', 'Exception Revoked', res.message || `Successfully revoked timesheet unlock for ${empName}.`);
+          // Reload the table!
+          loadActiveUnlockExceptionsTable();
+        } else {
+          showNotification('error', 'Revocation Failed', 'Server returned an invalid response.');
+        }
+      })
+      .withFailureHandler(err => {
+        hideLoading();
+        showNotification('error', 'Revocation Failed', err.message);
+      })
+      .revokeTpmUnlockException(rowId);
   }
 
 </script>

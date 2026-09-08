@@ -1,0 +1,9 @@
+# Secrets and Credentials
+jira-credentials.json
+.gemini_jira_payload.json
+
+# Local IDE and Tooling settings
+.gemini/
+.idea/
+.vscode/
+*.log

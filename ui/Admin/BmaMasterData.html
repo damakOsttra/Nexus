@@ -1,0 +1,1448 @@
+<div class="p-8 space-y-8 animate-in fade-in duration-300">
+  <!-- Header Block -->
+  <div class="flex max-md:flex-col justify-between items-start md:items-center gap-4 bg-white/5 border border-white/5 p-6 rounded-2xl">
+    <div class="space-y-1">
+      <h2 class="text-2xl font-black uppercase tracking-tight text-white">BMA Control Panel</h2>
+      <p class="text-xs font-bold uppercase tracking-widest text-white/50">Manage core operational catalogues and financial accounting mappings</p>
+    </div>
+    <div class="flex items-center gap-3">
+      <button onclick="forceMigrateDb()" class="px-5 py-2.5 bg-[#FF0061]/10 border border-[#FF0061]/20 rounded-xl text-[10px] font-black uppercase tracking-widest text-[#FF0061] hover:bg-[#FF0061]/20 transition-all flex items-center gap-2 cursor-pointer">
+        <i class="fas fa-database"></i> Invalidate Cache & Sync Schema
+      </button>
+    </div>
+  </div>
+
+  <!-- Global Tab Navigation -->
+  <div class="flex border-b border-white/5 gap-2">
+    <button id="tab-btn-operational" onclick="switchBmaTab('operational')" class="px-6 py-3 text-xs font-black uppercase tracking-widest border-b-2 border-transparent text-white/40 hover:text-white transition-all cursor-pointer">
+      <i class="fas fa-tools mr-2"></i> Operational Reference Data
+    </button>
+    <button id="tab-btn-financial" onclick="switchBmaTab('financial')" class="px-6 py-3 text-xs font-black uppercase tracking-widest border-b-2 border-transparent text-white/40 hover:text-white transition-all cursor-pointer">
+      <i class="fas fa-coins mr-2"></i> Financial Governance
+    </button>
+  </div>
+
+  <!-- Workspace 1: Operational Reference Data -->
+  <div id="workspace-operational" class="bma-workspace hidden space-y-8">
+    <div class="grid grid-cols-1 xl:grid-cols-2 gap-8">
+      <!-- Section A: CS Products Catalog -->
+      <div class="bg-[#222222]/50 border border-white/5 p-6 rounded-2xl space-y-6">
+        <div class="flex justify-between items-center border-b border-white/5 pb-4 gap-4 flex-wrap">
+          <div class="space-y-1">
+            <h3 class="text-sm font-black uppercase tracking-wider text-white">Client Services Products</h3>
+            <p class="text-[10px] text-white/40">Active service portfolio definitions</p>
+          </div>
+          <div class="flex items-center gap-3">
+            <div class="relative">
+              <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-white/30 text-[10px]"></i>
+              <input type="text" id="search-cs" oninput="filterCsProducts()" placeholder="Search products..." class="bg-black/50 border border-white/10 rounded-lg pl-9 pr-3 py-1.5 text-xs text-white focus:outline-none focus:border-[#FF0061] transition-all w-32 focus:w-48 placeholder:text-white/30">
+            </div>
+            <button onclick="openCsProductModal()" class="px-4 py-2 bg-[#FF0061] text-black text-[10px] font-black uppercase tracking-widest rounded-xl hover:scale-105 active:scale-95 transition-all cursor-pointer whitespace-nowrap">
+              <i class="fas fa-plus mr-1"></i> Add Product
+            </button>
+          </div>
+        </div>
+        <div class="overflow-auto max-h-[500px]">
+          <table class="w-full text-left border-collapse text-xs">
+            <thead class="sticky top-0 bg-[#222222] z-10 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.3)]">
+              <tr class="text-white/40 border-b border-white/5 uppercase tracking-wider text-[10px]">
+                <th class="py-3 px-4">ID</th>
+                <th class="py-3 px-4">Product</th>
+                <th class="py-3 px-4">Sub-Product</th>
+                <th class="py-3 px-4">Status</th>
+                <th class="py-3 px-4 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="cs-product-table-body">
+              <tr>
+                <td colspan="5" class="py-8 text-center text-white/30"><i class="fas fa-spinner animate-spin mr-2"></i> Loading catalogue...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Section B: Skills Directory -->
+      <div class="bg-[#222222]/50 border border-white/5 p-6 rounded-2xl space-y-6">
+        <div class="flex justify-between items-center border-b border-white/5 pb-4 gap-4 flex-wrap">
+          <div class="space-y-1">
+            <h3 class="text-sm font-black uppercase tracking-wider text-white">Skills Directory</h3>
+            <p class="text-[10px] text-white/40">Core skills mapped in matrices</p>
+          </div>
+          <div class="flex items-center gap-3">
+            <div class="relative">
+              <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-white/30 text-[10px]"></i>
+              <input type="text" id="search-skill" oninput="filterSkills()" placeholder="Search skills..." class="bg-black/50 border border-white/10 rounded-lg pl-9 pr-3 py-1.5 text-xs text-white focus:outline-none focus:border-[#FE952D] transition-all w-32 focus:w-48 placeholder:text-white/30">
+            </div>
+            <button onclick="openSkillModal()" class="px-4 py-2 bg-[#FE952D] text-black text-[10px] font-black uppercase tracking-widest rounded-xl hover:scale-105 active:scale-95 transition-all cursor-pointer whitespace-nowrap">
+              <i class="fas fa-plus mr-1"></i> Add Skill
+            </button>
+          </div>
+        </div>
+        <div class="overflow-auto max-h-[500px]">
+          <table class="w-full text-left border-collapse text-xs">
+            <thead class="sticky top-0 bg-[#222222] z-10 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.3)]">
+              <tr class="text-white/40 border-b border-white/5 uppercase tracking-wider text-[10px]">
+                <th class="py-3 px-4">ID</th>
+                <th class="py-3 px-4">Points</th>
+                <th class="py-3 px-4">Skill Description</th>
+                <th class="py-3 px-4">Skill Level</th>
+                <th class="py-3 px-4 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="skills-table-body">
+              <tr>
+                <td colspan="5" class="py-8 text-center text-white/30"><i class="fas fa-spinner animate-spin mr-2"></i> Loading skills...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Workspace 2: Financial Governance -->
+  <div id="workspace-financial" class="bma-workspace hidden space-y-8">
+    <!-- Export Financial Extract Widget -->
+    <div class="bg-gradient-to-r from-emerald-500/10 to-sky-500/10 border border-emerald-500/20 p-6 rounded-2xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
+      <div class="space-y-1">
+        <h3 class="text-md font-black uppercase tracking-wider text-emerald-400 flex items-center gap-2">
+          <i class="fas fa-file-invoice-dollar"></i> Finance Report Export
+        </h3>
+        <p class="text-xs text-white/60">Generate and download point-in-time timesheet allocations fully resolved against active mappings.</p>
+      </div>
+      <div class="flex items-center gap-3">
+        <!-- Available periods dropdown populated dynamically -->
+        <div id="export-period-loader" class="flex items-center gap-2 py-2 px-4 bg-white/5 border border-white/5 rounded-xl text-[10px] text-white/50 animate-pulse">
+          <i class="fas fa-circle-notch animate-spin text-emerald-500"></i> Periods...
+        </div>
+        <select id="export-period-select" class="hidden bg-[#151515] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500 cursor-pointer min-w-[150px]">
+          <!-- Populated in JS -->
+        </select>
+        <button id="btn-preview-export" onclick="previewFinanceExport()" class="px-5 py-2.5 bg-sky-500 text-black text-[10px] font-black uppercase tracking-widest rounded-xl hover:scale-105 active:scale-95 transition-all cursor-pointer whitespace-nowrap">
+          <i class="fas fa-eye mr-1"></i> Preview Extract
+        </button>
+        <button id="btn-run-export" onclick="runFinanceExport()" class="px-5 py-2.5 bg-emerald-500 text-black text-[10px] font-black uppercase tracking-widest rounded-xl hover:scale-105 active:scale-95 transition-all cursor-pointer whitespace-nowrap">
+          <i class="fas fa-download mr-1"></i> Download CSV
+        </button>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 xl:grid-cols-3 gap-8">
+      <!-- Section A: Finance Product Catalog -->
+      <div class="xl:col-span-1 bg-[#222222]/50 border border-white/5 p-6 rounded-2xl space-y-6 h-fit">
+        <div class="flex justify-between items-center border-b border-white/5 pb-4 gap-4 flex-wrap">
+          <div class="space-y-1">
+            <h3 class="text-sm font-black uppercase tracking-wider text-white">Finance Portfolio</h3>
+            <p class="text-[10px] text-white/40">Corporate ledger accounting lines</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <div class="relative hidden sm:block">
+              <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-white/30 text-[10px]"></i>
+              <input type="text" id="search-fin" oninput="filterFinanceProducts()" placeholder="Search ledger..." class="bg-black/50 border border-white/10 rounded-lg pl-9 pr-3 py-1.5 text-xs text-white focus:outline-none focus:border-[#9125BF] transition-all w-24 focus:w-32 placeholder:text-white/30">
+            </div>
+            <button onclick="openFinanceProductModal()" class="px-3 py-1.5 bg-[#9125BF] text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:scale-105 active:scale-95 transition-all cursor-pointer whitespace-nowrap">
+              <i class="fas fa-plus mr-1"></i> New Item
+            </button>
+          </div>
+        </div>
+        <div class="overflow-auto max-h-[500px]">
+          <table class="w-full text-left border-collapse text-xs">
+            <thead class="sticky top-0 bg-[#222222] z-10 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.3)]">
+              <tr class="text-white/40 border-b border-white/5 uppercase tracking-wider text-[10px]">
+                <th class="py-3 px-2">ID</th>
+                <th class="py-3 px-2">Product</th>
+                <th class="py-3 px-2">Sub-Product</th>
+                <th class="py-3 px-2">Status</th>
+                <th class="py-3 px-2 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="finance-product-table-body">
+              <tr>
+                <td colspan="5" class="py-8 text-center text-white/30"><i class="fas fa-spinner animate-spin mr-2"></i> Loading ledger...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Section B: Financial Mapping Engine -->
+      <div class="xl:col-span-2 bg-[#222222]/50 border border-white/5 p-6 rounded-2xl space-y-6">
+        <div class="flex justify-between items-center border-b border-white/5 pb-4 gap-4 flex-wrap">
+          <div class="space-y-1">
+            <h3 class="text-sm font-black uppercase tracking-wider text-white">Accounting Mapping Engine</h3>
+            <p class="text-[10px] text-white/40">Link operational products directly to ledger codes with simplified active state toggles</p>
+          </div>
+          <div class="flex items-center gap-3">
+            <div class="relative">
+              <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-white/30 text-[10px]"></i>
+              <input type="text" id="search-map" oninput="filterMappings()" placeholder="Search mappings..." class="bg-black/50 border border-white/10 rounded-lg pl-9 pr-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500 transition-all w-32 focus:w-48 placeholder:text-white/30">
+            </div>
+            <button onclick="openMappingModal()" class="px-4 py-2 bg-emerald-500 text-black text-[10px] font-black uppercase tracking-widest rounded-xl hover:scale-105 active:scale-95 transition-all cursor-pointer whitespace-nowrap">
+              <i class="fas fa-plus mr-1"></i> New Mapping
+            </button>
+          </div>
+        </div>
+        <div class="overflow-auto max-h-[500px]">
+          <table class="w-full text-left border-collapse text-xs">
+            <thead class="sticky top-0 bg-[#222222] z-10 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.3)]">
+              <tr class="text-white/40 border-b border-white/5 uppercase tracking-wider text-[10px]">
+                <th class="py-3 px-4">Mapping ID</th>
+                <th class="py-3 px-4">CS Product</th>
+                <th class="py-3 px-4">Finance Product</th>
+                <th class="py-3 px-4">Cap Tag</th>
+                <th class="py-3 px-4">Status</th>
+                <th class="py-3 px-4 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="mapping-table-body">
+              <tr>
+                <td colspan="6" class="py-8 text-center text-white/30"><i class="fas fa-spinner animate-spin mr-2"></i> Loading mapping logic...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CS Product Dialog -->
+  <div id="cs-product-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+    <div class="bg-[#222222] border border-white/10 w-full max-w-md p-6 rounded-2xl space-y-6 shadow-2xl">
+      <div class="flex justify-between items-center border-b border-white/5 pb-4">
+        <h4 id="cs-modal-title" class="font-black uppercase text-sm text-white">Add Client Services Product</h4>
+        <button onclick="closeCsProductModal()" class="text-white/50 hover:text-white"><i class="fas fa-times"></i></button>
+      </div>
+      <form id="cs-product-form" onsubmit="handleSaveCsProduct(event)" class="space-y-4">
+        <input type="hidden" id="cs-prod-id">
+        <div class="space-y-1">
+          <label class="text-[10px] font-black uppercase tracking-wider text-white/50">Product Line</label>
+          <input type="text" id="cs-prod-name" placeholder="e.g. Custom Processing" class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:border-[#FF0061] focus:outline-none" required>
+        </div>
+        <div class="space-y-1">
+          <label class="text-[10px] font-black uppercase tracking-wider text-white/50">Sub-Product / Capability</label>
+          <input type="text" id="cs-sub-name" placeholder="e.g. Solo Compression" class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:border-[#FF0061] focus:outline-none" required>
+        </div>
+        <div class="flex items-center gap-3 py-2">
+          <input type="checkbox" id="cs-active" class="w-4 h-4 accent-[#FF0061] rounded" checked>
+          <label for="cs-active" class="text-xs font-bold uppercase tracking-wider text-white/70">Product is Active</label>
+        </div>
+        <div class="flex justify-end gap-3 pt-4 border-t border-white/5">
+          <button type="button" onclick="closeCsProductModal()" class="px-4 py-2 border border-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest text-white/60 hover:bg-white/5">Cancel</button>
+          <button type="submit" class="px-5 py-2 bg-[#FF0061] text-black rounded-xl text-[10px] font-black uppercase tracking-widest hover:brightness-110">Save Record</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Skill Dialog -->
+  <div id="skill-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+    <div class="bg-[#222222] border border-white/10 w-full max-w-md p-6 rounded-2xl space-y-6 shadow-2xl">
+      <div class="flex justify-between items-center border-b border-white/5 pb-4">
+        <h4 id="skill-modal-title" class="font-black uppercase text-sm text-white">Add Skill Specification</h4>
+        <button onclick="closeSkillModal()" class="text-white/50 hover:text-white"><i class="fas fa-times"></i></button>
+      </div>
+      <form id="skill-form" onsubmit="handleSaveSkill(event)" class="space-y-4">
+        <input type="hidden" id="skill-id">
+        <div class="grid grid-cols-3 gap-4">
+          <div class="space-y-1 col-span-1">
+            <label class="text-[10px] font-black uppercase tracking-wider text-white/50">Legend Points</label>
+            <input type="number" id="skill-points" min="0" max="5" value="0" class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:border-[#FE952D] focus:outline-none" required>
+          </div>
+          <div class="space-y-1 col-span-2">
+            <label class="text-[10px] font-black uppercase tracking-wider text-white/50">Skill Level Title</label>
+            <input type="text" id="skill-level" placeholder="e.g. Beginner, SME" class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:border-[#FE952D] focus:outline-none" required>
+          </div>
+        </div>
+        <div class="space-y-1">
+          <label class="text-[10px] font-black uppercase tracking-wider text-white/50">Skill Description</label>
+          <textarea id="skill-desc" rows="3" placeholder="Describe the practical scope of this skill level..." class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:border-[#FE952D] focus:outline-none resize-none" required></textarea>
+        </div>
+        <div class="flex justify-end gap-3 pt-4 border-t border-white/5">
+          <button type="button" onclick="closeSkillModal()" class="px-4 py-2 border border-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest text-white/60 hover:bg-white/5">Cancel</button>
+          <button type="submit" class="px-5 py-2 bg-[#FE952D] text-black rounded-xl text-[10px] font-black uppercase tracking-widest hover:brightness-110">Save Record</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Finance Product Dialog -->
+  <div id="finance-product-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+    <div class="bg-[#222222] border border-white/10 w-full max-w-md p-6 rounded-2xl space-y-6 shadow-2xl">
+      <div class="flex justify-between items-center border-b border-white/5 pb-4">
+        <h4 id="fin-modal-title" class="font-black uppercase text-sm text-white">Add Corporate Ledger Item</h4>
+        <button onclick="closeFinanceProductModal()" class="text-white/50 hover:text-white"><i class="fas fa-times"></i></button>
+      </div>
+      <form id="finance-product-form" onsubmit="handleSaveFinanceProduct(event)" class="space-y-4">
+        <input type="hidden" id="fin-prod-id">
+        <div class="space-y-1">
+          <label class="text-[10px] font-black uppercase tracking-wider text-white/50">Finance Product</label>
+          <input type="text" id="fin-prod-name" placeholder="e.g. Rates & Credit" class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:border-[#9125BF] focus:outline-none" required>
+        </div>
+        <div class="space-y-1">
+          <label class="text-[10px] font-black uppercase tracking-wider text-white/50">Finance Sub-Product</label>
+          <input type="text" id="fin-sub-name" placeholder="e.g. Post-Trade Ops" class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:border-[#9125BF] focus:outline-none" required>
+        </div>
+        <div class="flex items-center gap-3 py-2">
+          <input type="checkbox" id="fin-active" class="w-4 h-4 accent-[#9125BF] rounded" checked>
+          <label for="fin-active" class="text-xs font-bold uppercase tracking-wider text-white/70">Ledger Entry is Active</label>
+        </div>
+        <div class="flex justify-end gap-3 pt-4 border-t border-white/5">
+          <button type="button" onclick="closeFinanceProductModal()" class="px-4 py-2 border border-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest text-white/60 hover:bg-white/5">Cancel</button>
+          <button type="submit" class="px-5 py-2 bg-[#9125BF] text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:brightness-110">Save Record</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Financial Mapping Engine Dialog -->
+  <div id="mapping-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+    <div class="bg-[#222222] border border-white/10 w-full max-w-lg p-6 rounded-2xl space-y-6 shadow-2xl">
+      <div class="flex justify-between items-center border-b border-white/5 pb-4">
+        <h4 id="mapping-modal-title" class="font-black uppercase text-sm text-white">Configure Financial Mapping</h4>
+        <button onclick="closeMappingModal()" class="text-white/50 hover:text-white"><i class="fas fa-times"></i></button>
+      </div>
+      <form id="mapping-form" onsubmit="handleSaveMapping(event)" class="space-y-4">
+        <input type="hidden" id="mapping-id">
+        <div class="grid grid-cols-2 gap-4">
+          <div class="space-y-1">
+            <label class="text-[10px] font-black uppercase tracking-wider text-white/50">Client Services Product (Source)</label>
+            <select id="map-cs-id" class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:border-emerald-500 focus:outline-none" required>
+              <option value="" class="bg-[#222222]">Select CS Product...</option>
+            </select>
+          </div>
+          <div class="space-y-1">
+            <label class="text-[10px] font-black uppercase tracking-wider text-white/50">Finance Product (Destination)</label>
+            <select id="map-fin-id" class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:border-emerald-500 focus:outline-none" required>
+              <option value="" class="bg-[#222222]">Select Finance Product...</option>
+            </select>
+          </div>
+        </div>
+        <div class="space-y-1">
+          <label class="text-[10px] font-black uppercase tracking-wider text-white/50">Capitalization Classification (Cap Tag)</label>
+          <select id="map-cap" class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:border-emerald-500 focus:outline-none" required>
+            <option value="" class="bg-[#222222]">Select Cap Tag...</option>
+            <option value="RUN" class="bg-[#222222]">RUN (Operational Expense)</option>
+            <option value="CHANGE" class="bg-[#222222]">CHANGE (Software Capitalization)</option>
+            <option value="REGULATORY" class="bg-[#222222]">REGULATORY (Compliance Mandates)</option>
+          </select>
+        </div>
+        <div class="flex items-center gap-3 py-2">
+          <input type="checkbox" id="map-active" class="w-4 h-4 accent-emerald-500 rounded" checked>
+          <label for="map-active" class="text-xs font-bold uppercase tracking-wider text-white/70">Mapping is Active</label>
+        </div>
+        <div class="flex justify-end gap-3 pt-4 border-t border-white/5">
+          <button type="button" onclick="closeMappingModal()" class="px-4 py-2 border border-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest text-white/60 hover:bg-white/5">Cancel</button>
+          <button type="submit" class="px-5 py-2 bg-emerald-500 text-black rounded-xl text-[10px] font-black uppercase tracking-widest hover:brightness-110">Apply Mapping</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Timeline Audit History Dialog -->
+  <div id="history-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+    <div class="bg-[#222222] border border-white/10 w-full max-w-2xl p-6 rounded-2xl space-y-6 shadow-2xl">
+      <div class="flex justify-between items-center border-b border-white/5 pb-4">
+        <div class="space-y-1">
+          <h4 class="font-black uppercase text-sm text-white">Financial Mapping Audit Trail</h4>
+          <p id="history-cs-title" class="text-[10px] text-white/40 font-bold uppercase"></p>
+        </div>
+        <button onclick="closeHistoryModal()" class="text-white/50 hover:text-white"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="overflow-x-auto max-h-[350px] no-scrollbar">
+        <table class="w-full text-left border-collapse text-xs">
+          <thead>
+            <tr class="text-white/40 border-b border-white/5 uppercase tracking-wider text-[10px]">
+              <th class="py-3 px-2">Mapping ID</th>
+              <th class="py-3 px-2">Mapped Ledger Line</th>
+              <th class="py-3 px-2">Cap Tag</th>
+              <th class="py-3 px-2">Status</th>
+              <th class="py-3 px-2">Modified By</th>
+              <th class="py-3 px-2 text-right">Timestamp</th>
+            </tr>
+          </thead>
+          <tbody id="history-table-body">
+            <!-- Populated via async handler -->
+          </tbody>
+        </table>
+      </div>
+      <div class="flex justify-end pt-4 border-t border-white/5">
+        <button onclick="closeHistoryModal()" class="px-5 py-2 bg-white/5 border border-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest text-white hover:bg-white/10">Close Window</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Export Preview Dialog -->
+  <div id="export-preview-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-300">
+    <div class="bg-[#222222] border border-white/10 w-full max-w-6xl p-6 rounded-2xl space-y-6 shadow-2xl flex flex-col max-h-[90vh]">
+      <!-- Header -->
+      <div class="flex justify-between items-center border-b border-white/5 pb-4 shrink-0">
+        <div class="space-y-1">
+          <h4 class="font-black uppercase text-sm text-white">Finance Export Preview</h4>
+          <p id="preview-period-title" class="text-[10px] text-emerald-400 font-bold uppercase"></p>
+        </div>
+        <button onclick="closePreviewModal()" class="text-white/50 hover:text-white p-2 hover:bg-white/5 rounded-lg transition-all"><i class="fas fa-times"></i></button>
+      </div>
+
+      <!-- Statistics Grid -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 shrink-0" id="preview-stats-grid">
+        <!-- Card 1: Total People -->
+        <div class="bg-[#1a1a1a] border border-white/5 p-4 rounded-xl space-y-1">
+          <div class="text-[10px] font-bold text-white/40 uppercase tracking-wider">Total Headcount</div>
+          <div class="text-xl font-black text-white" id="stat-total-people">0</div>
+          <div class="text-[9px] text-white/30" id="stat-total-people-desc">Active in period</div>
+        </div>
+        <!-- Card 2: Total FTE Mapped -->
+        <div class="bg-[#1a1a1a] border border-white/5 p-4 rounded-xl space-y-1 border-l-2 border-l-emerald-500">
+          <div class="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">Mapped Capacity</div>
+          <div class="text-xl font-black text-emerald-400" id="stat-mapped-fte">0.00 FTE</div>
+          <div class="text-[9px] text-emerald-400/50" id="stat-mapped-desc">0 records</div>
+        </div>
+        <!-- Card 3: Total FTE Unmapped -->
+        <div class="bg-[#1a1a1a] border border-white/5 p-4 rounded-xl space-y-1 border-l-2 border-l-[#FF0061]">
+          <div class="text-[10px] font-bold text-[#FF0061] uppercase tracking-wider">Unmapped Capacity</div>
+          <div class="text-xl font-black text-[#FF0061]" id="stat-unmapped-fte">0.00 FTE</div>
+          <div class="text-[9px] text-[#FF0061]/50" id="stat-unmapped-desc">0 records</div>
+        </div>
+        <!-- Card 4: Total Allocation -->
+        <div class="bg-[#1a1a1a] border border-white/5 p-4 rounded-xl space-y-1 border-l-2 border-l-sky-500">
+          <div class="text-[10px] font-bold text-sky-400 uppercase tracking-wider">Total Allocated Effort</div>
+          <div class="text-xl font-black text-sky-400" id="stat-total-fte">0.00 FTE</div>
+          <div class="text-[9px] text-sky-400/50" id="stat-total-fte-desc">100% = 1.0 FTE</div>
+        </div>
+      </div>
+
+      <!-- Warning Banner (Dynamic) -->
+      <div id="preview-warning-banner" class="hidden bg-[#FF0061]/10 border border-[#FF0061]/20 p-4 rounded-xl flex items-center gap-3 shrink-0">
+        <i class="fas fa-exclamation-triangle text-[#FF0061] text-lg"></i>
+        <div class="space-y-0.5">
+          <div class="text-xs font-black uppercase text-white">Action Required: Unmapped Entries Detected</div>
+          <div class="text-[10px] text-white/60">One or more client services products in this period are missing corresponding financial governance mappings. Use the controls below to filter and identify unmapped rows, and update their mappings in the Financial Governance workspace.</div>
+        </div>
+      </div>
+
+      <!-- Search, Filtering, and Sorting Controls -->
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-[#1a1a1a]/50 p-4 rounded-xl border border-white/5 shrink-0">
+        <div class="flex flex-1 items-center gap-3">
+          <!-- Search input -->
+          <div class="relative flex-1 max-w-md">
+            <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-white/30 text-xs"></i>
+            <input type="text" id="preview-search" oninput="applyPreviewFilters()" placeholder="Search by name, email, region, product, sub-product..." class="w-full bg-[#1a1a1a] border border-white/10 rounded-lg pl-10 pr-4 py-2 text-xs text-white focus:outline-none focus:border-sky-500 placeholder:text-white/30">
+          </div>
+        </div>
+        <div class="flex flex-wrap items-center gap-4">
+          <!-- Filter Dropdown -->
+          <div class="flex items-center gap-2">
+            <span class="text-[10px] text-white/40 font-bold uppercase whitespace-nowrap">Filter Status:</span>
+            <select id="preview-filter-status" onchange="applyPreviewFilters()" class="bg-[#1a1a1a] border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-sky-500 cursor-pointer">
+              <option value="all">All Records</option>
+              <option value="mapped">Only Mapped</option>
+              <option value="unmapped">Only Unmapped</option>
+            </select>
+          </div>
+          <!-- Sorting Selection -->
+          <div class="flex items-center gap-2">
+            <span class="text-[10px] text-white/40 font-bold uppercase whitespace-nowrap">Sort By:</span>
+            <select id="preview-sort-by" onchange="applyPreviewFilters()" class="bg-[#1a1a1a] border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-sky-500 cursor-pointer">
+              <option value="name-asc">Employee Name (A-Z)</option>
+              <option value="name-desc">Employee Name (Z-A)</option>
+              <option value="alloc-desc">Allocation % (High-Low)</option>
+              <option value="alloc-asc">Allocation % (Low-High)</option>
+              <option value="region">Region/Cost Center</option>
+              <option value="status-unmapped-first">Unmapped First</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Table Container (Scrollable) -->
+      <div class="overflow-auto flex-1 min-h-[250px] border border-white/5 rounded-xl bg-black/20">
+        <table class="w-full text-left border-collapse text-xs">
+          <thead class="sticky top-0 bg-[#222222] z-10 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.3)]" id="preview-table-head">
+            <!-- Populated via JS -->
+          </thead>
+          <tbody id="preview-table-body" class="text-white/70">
+            <!-- Populated via JS -->
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Footer / Actions -->
+      <div class="flex justify-between items-center pt-4 border-t border-white/5 shrink-0">
+        <span id="preview-count" class="text-[10px] text-white/40 font-bold uppercase"></span>
+        <div class="flex gap-3">
+          <button onclick="closePreviewModal()" class="px-5 py-2.5 bg-white/5 border border-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest text-white hover:bg-white/10">Close</button>
+          <button onclick="downloadFromPreview()" class="px-5 py-2.5 bg-emerald-500 text-black text-[10px] font-black uppercase tracking-widest rounded-xl hover:scale-105 active:scale-95 transition-all cursor-pointer whitespace-nowrap">
+            <i class="fas fa-download mr-1"></i> Download CSV
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Global State Stores
+  var bmaMasterData = {
+    csProducts: [],
+    skills: [],
+    financeProducts: [],
+    mappings: []
+  };
+  var currentPreviewData = null;
+  var currentPreviewPeriod = '';
+
+  /**
+   * Switches the active tab/workspace workspace.
+   */
+  function switchBmaTab(tabName) {
+    document.querySelectorAll('.bma-workspace').forEach(el => el.classList.add('hidden'));
+    
+    const operationalBtn = document.getElementById('tab-btn-operational');
+    const financialBtn = document.getElementById('tab-btn-financial');
+    
+    operationalBtn.className = "px-6 py-3 text-xs font-black uppercase tracking-widest border-b-2 border-transparent text-white/40 hover:text-white transition-all cursor-pointer";
+    financialBtn.className = "px-6 py-3 text-xs font-black uppercase tracking-widest border-b-2 border-transparent text-white/40 hover:text-white transition-all cursor-pointer";
+
+    if (tabName === 'operational') {
+      document.getElementById('workspace-operational').classList.remove('hidden');
+      operationalBtn.className = "px-6 py-3 text-xs font-black uppercase tracking-widest border-b-2 border-[#FF0061] text-[#FF0061] transition-all cursor-pointer";
+    } else {
+      document.getElementById('workspace-financial').classList.remove('hidden');
+      financialBtn.className = "px-6 py-3 text-xs font-black uppercase tracking-widest border-b-2 border-emerald-500 text-emerald-500 transition-all cursor-pointer";
+    }
+  }
+
+  /**
+   * Filter Functions for Real-Time Search
+   */
+  function filterCsProducts() {
+    const term = document.getElementById('search-cs').value.toLowerCase();
+    const filtered = bmaMasterData.csProducts.filter(p => 
+      (p["Product ID"] || p["Product_ID"] || '').toLowerCase().includes(term) ||
+      (p["Product"] || '').toLowerCase().includes(term) ||
+      (p["Sub-Product"] || p["Sub_Product"] || '').toLowerCase().includes(term)
+    );
+    renderCsProducts(filtered);
+  }
+
+  window.filterCsProducts = filterCsProducts;
+
+  function filterSkills() {
+    const term = document.getElementById('search-skill').value.toLowerCase();
+    const filtered = bmaMasterData.skills.filter(s => 
+      (s["Skill Id"] || s["Skill_Id"] || '').toLowerCase().includes(term) ||
+      (s["Skill Description"] || s["Skill_Description"] || '').toLowerCase().includes(term) ||
+      (s["Skill Level"] || s["Skill_Level"] || '').toLowerCase().includes(term)
+    );
+    renderSkills(filtered);
+  }
+
+  window.filterSkills = filterSkills;
+
+  function filterFinanceProducts() {
+    const term = document.getElementById('search-fin').value.toLowerCase();
+    const filtered = bmaMasterData.financeProducts.filter(f => 
+      (f["Finance Product ID"] || f["Finance_Product_ID"] || '').toLowerCase().includes(term) ||
+      (f["Finance Product"] || f["Finance_Product"] || '').toLowerCase().includes(term) ||
+      (f["Finance Sub-Product"] || f["Finance_Sub_Product"] || '').toLowerCase().includes(term)
+    );
+    renderFinanceProducts(filtered);
+  }
+
+  window.filterFinanceProducts = filterFinanceProducts;
+
+  function filterMappings() {
+    const term = document.getElementById('search-map').value.toLowerCase();
+    const filtered = bmaMasterData.mappings.filter(m => 
+      (m["Mapping ID"] || m["Mapping_ID"] || '').toLowerCase().includes(term) ||
+      (m["CS Product Name"] || m["CS_Product_Name"] || '').toLowerCase().includes(term) ||
+      (m["CS Sub-Product"] || m["CS_Sub_Product"] || '').toLowerCase().includes(term) ||
+      (m["Finance Product Name"] || m["Finance_Product_Name"] || '').toLowerCase().includes(term) ||
+      (m["Finance Sub-Product"] || m["Finance_Sub_Product"] || '').toLowerCase().includes(term) ||
+      (m["Cap Tag"] || m["Cap_Tag"] || '').toLowerCase().includes(term)
+    );
+    renderMappings(filtered);
+  }
+
+  window.filterMappings = filterMappings;
+
+  /**
+   * Load periods list available for export
+   */
+  function loadExportPeriods() {
+    const loader = document.getElementById('export-period-loader');
+    const select = document.getElementById('export-period-select');
+    
+    if (loader) loader.classList.remove('hidden');
+    if (select) select.classList.add('hidden');
+    
+    google.script.run
+      .withSuccessHandler(periods => {
+        if (loader) loader.classList.add('hidden');
+        if (!periods || periods.length === 0) {
+          return;
+        }
+        if (select) {
+          select.innerHTML = periods.map(p => `<option value="${p}">${p}</option>`).join('');
+          select.classList.remove('hidden');
+        }
+      })
+      .withFailureHandler(err => {
+        if (loader) loader.classList.add('hidden');
+        showNotification('danger', 'Periods Load Failed: ' + err.message);
+      })
+      .getAvailableFinancePeriods();
+  }
+
+  /**
+   * Run and download CSV mapped export
+   */
+  function runFinanceExport() {
+    const select = document.getElementById('export-period-select');
+    const periodVal = select ? select.value : '';
+    if (!periodVal) {
+      showNotification('danger', 'Please select a valid period first.');
+      return;
+    }
+    
+    showLoading(`Generating Finance Export for ${periodVal}...`);
+    
+    google.script.run
+      .withSuccessHandler(data => {
+        hideLoading();
+        if (!data || data.length === 0) {
+          showNotification('danger', `No allocation data found for the selected period (${periodVal}).`);
+          return;
+        }
+
+        const csvContent = data.map(row => 
+          row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(",")
+        ).join("\n");
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement("a");
+        const url = URL.createObjectURL(blob);
+        
+        link.setAttribute("href", url);
+        link.setAttribute("download", `OSTTRA_Nexus_Finance_Export_${periodVal.replace(/ /g, '_')}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        showNotification('success', `Finance export for ${periodVal} generated successfully.`);
+      })
+      .withFailureHandler(err => {
+        hideLoading();
+        showNotification('danger', 'Export Failed: ' + err.message);
+      })
+      .executeBmaFinanceExport(periodVal);
+  }
+
+  /**
+   * Refresh all dashboard master datasets and re-apply filters.
+   */
+  function loadBmaDashboard() {
+    google.script.run
+      .withSuccessHandler(data => {
+        bmaMasterData = data;
+        // Re-apply any existing search filters immediately after reload
+        filterCsProducts();
+        filterSkills();
+        filterFinanceProducts();
+        filterMappings();
+        populateDropdowns();
+        loadExportPeriods(); // Load periods dropdown after getting BMA datasets
+      })
+      .withFailureHandler(err => {
+        showNotification('danger', 'Load Failure: ' + err.message);
+      })
+      .getBmaMasterData();
+  }
+
+  function forceMigrateDb() {
+    showLoading('Establishing & Syncing Relational Schemas...');
+    google.script.run
+      .withSuccessHandler(res => {
+        hideLoading();
+        showNotification('success', 'Sheet Schema Synchronized!');
+        loadBmaDashboard();
+      })
+      .withFailureHandler(err => {
+        hideLoading();
+        showNotification('danger', 'Migration Error: ' + err.message);
+      })
+      .forceDbMigration();
+  }
+
+  // -------------------------------------------------------------
+  // RENDERING ENGINE
+  // -------------------------------------------------------------
+
+  function renderCsProducts(products) {
+    const tbody = document.getElementById('cs-product-table-body');
+    if (!tbody) return;
+    if (!products || products.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="5" class="py-8 text-center text-white/30"><i class="fas fa-search text-xl mb-1 block"></i>No products match filter.</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = products.map(p => {
+      const pid = p["Product ID"] || p["Product_ID"] || '';
+      const prod = p["Product"] || '';
+      const sub = p["Sub-Product"] || p["Sub_Product"] || '';
+      const isActive = String(p["Is Active"] || p["Is_Active"] || '').trim().toUpperCase() !== "FALSE";
+      
+      const statusBadge = isActive 
+        ? `<span class="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[9px] font-bold rounded uppercase">Active</span>`
+        : `<span class="px-2 py-0.5 bg-white/5 text-white/30 border border-white/5 text-[9px] font-bold rounded uppercase">Inactive</span>`;
+      
+      const archiveIcon = isActive 
+        ? `<i class="fas fa-file-archive text-xs"></i>`
+        : `<i class="fas fa-check-circle text-xs"></i>`;
+        
+      const archiveTitle = isActive ? "Archive/Disable Product" : "Activate Product";
+      const archiveBtnClass = isActive
+        ? "p-1.5 bg-white/5 border border-white/10 text-white/40 hover:text-red-500 hover:bg-red-500/10"
+        : "p-1.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 hover:text-black hover:bg-emerald-500";
+
+      return `<tr class="border-b border-white/5 hover:bg-white/[0.02]">
+        <td class="py-3 px-4 font-mono font-bold text-[#FF0061]">${pid}</td>
+        <td class="py-3 px-4 text-white font-medium">${prod}</td>
+        <td class="py-3 px-4 text-white/70">${sub}</td>
+        <td class="py-3 px-4">${statusBadge}</td>
+        <td class="py-3 px-4 text-right">
+          <div class="flex justify-end gap-2">
+            <button onclick="openCsProductModal('${pid}', '${escapeHtml(prod)}', '${escapeHtml(sub)}', ${isActive})" class="p-1.5 bg-white/5 border border-white/10 text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition-all" title="Edit Product"><i class="fas fa-edit text-xs"></i></button>
+            <button onclick="handleToggleCsProductStatus('${pid}', ${!isActive})" class="${archiveBtnClass} rounded-lg transition-all" title="${archiveTitle}">${archiveIcon}</button>
+          </div>
+        </td>
+      </tr>`;
+    }).join('');
+  }
+
+  function renderSkills(skills) {
+    const tbody = document.getElementById('skills-table-body');
+    if (!tbody) return;
+    if (!skills || skills.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="5" class="py-8 text-center text-white/30"><i class="fas fa-search text-xl mb-1 block"></i>No skills match filter.</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = skills.map(s => {
+      const sid = s["Skill Id"] || s["Skill_Id"] || '';
+      const pts = s["Skill Legend points"] || s["Skill_Legend_points"] || 0;
+      const desc = s["Skill Description"] || s["Skill_Description"] || '';
+      const lvl = s["Skill Level"] || s["Skill_Level"] || '';
+      return `<tr class="border-b border-white/5 hover:bg-white/[0.02]">
+        <td class="py-3 px-4 font-mono font-bold text-[#FE952D]">${sid}</td>
+        <td class="py-3 px-4 text-center font-bold text-white">${pts}</td>
+        <td class="py-3 px-4 text-white/70 max-w-xs truncate" title="${escapeHtml(desc)}">${desc}</td>
+        <td class="py-3 px-4 text-white font-medium">${lvl}</td>
+        <td class="py-3 px-4 text-right">
+          <div class="flex justify-end gap-2">
+            <button onclick="openSkillModal('${sid}', ${pts}, '${escapeHtml(desc)}', '${escapeHtml(lvl)}')" class="p-1.5 bg-white/5 border border-white/10 text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition-all" title="Edit Skill"><i class="fas fa-edit text-xs"></i></button>
+            <button onclick="handleDeleteSkill('${sid}')" class="p-1.5 bg-red-500/10 border border-red-500/20 text-red-500 hover:text-white hover:bg-red-500 rounded-lg transition-all" title="Delete Skill"><i class="fas fa-trash text-xs"></i></button>
+          </div>
+        </td>
+      </tr>`;
+    }).join('');
+  }
+
+  function renderFinanceProducts(finProducts) {
+    const tbody = document.getElementById('finance-product-table-body');
+    if (!tbody) return;
+    if (!finProducts || finProducts.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="5" class="py-8 text-center text-white/30"><i class="fas fa-search text-xl mb-1 block"></i>No ledger entries match filter.</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = finProducts.map(f => {
+      const fid = f["Finance Product ID"] || f["Finance_Product_ID"] || '';
+      const prod = f["Finance Product"] || f["Finance_Product"] || '';
+      const sub = f["Finance Sub-Product"] || f["Finance_Sub_Product"] || '';
+      const isActive = String(f["Is Active"] || f["Is_Active"] || '').trim().toUpperCase() === "TRUE";
+      
+      const statusBadge = isActive 
+        ? `<span class="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[9px] font-bold rounded uppercase">Active</span>`
+        : `<span class="px-2 py-0.5 bg-white/5 text-white/30 border border-white/5 text-[9px] font-bold rounded uppercase">Inactive</span>`;
+        
+      const archiveIcon = isActive 
+        ? `<i class="fas fa-file-archive text-xs"></i>`
+        : `<i class="fas fa-check-circle text-xs"></i>`;
+        
+      const archiveTitle = isActive ? "Archive/Disable Category" : "Activate Category";
+      const archiveBtnClass = isActive
+        ? "p-1 bg-white/5 border border-white/10 text-white/40 hover:text-red-500 hover:bg-red-500/10"
+        : "p-1 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 hover:text-black hover:bg-emerald-500";
+
+      return `<tr class="border-b border-white/5 hover:bg-white/[0.02]">
+        <td class="py-3 px-2 font-mono font-bold text-[#9125BF]">${fid}</td>
+        <td class="py-3 px-2 text-white font-medium">${prod}</td>
+        <td class="py-3 px-2 text-white/70">${sub}</td>
+        <td class="py-3 px-2">${statusBadge}</td>
+        <td class="py-3 px-2 text-right">
+          <div class="flex justify-end gap-1.5">
+            <button onclick="openFinanceProductModal('${fid}', '${escapeHtml(prod)}', '${escapeHtml(sub)}', ${isActive})" class="p-1 bg-white/5 border border-white/10 text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition-all" title="Edit Item"><i class="fas fa-edit text-xs"></i></button>
+            <button onclick="handleToggleFinanceProductStatus('${fid}', ${!isActive})" class="${archiveBtnClass} rounded-lg transition-all" title="${archiveTitle}">${archiveIcon}</button>
+          </div>
+        </td>
+      </tr>`;
+    }).join('');
+  }
+
+  function renderMappings(mappings) {
+    const tbody = document.getElementById('mapping-table-body');
+    if (!tbody) return;
+    if (!mappings || mappings.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="6" class="py-8 text-center text-white/30"><i class="fas fa-search text-xl mb-1 block"></i>No financial mappings match filter.</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = mappings.map(m => {
+      const mid = m["Mapping ID"] || m["Mapping_ID"] || '';
+      const csId = m["CS Product ID"] || m["CS_Product_ID"] || '';
+      const csName = m["CS Product Name"] || m["CS_Product_Name"] || '';
+      const csSub = m["CS Sub-Product"] || m["CS_Sub_Product"] || '';
+      
+      const finId = m["Finance Product ID"] || m["Finance_Product_ID"] || '';
+      const finName = m["Finance Product Name"] || m["Finance_Product_Name"] || '';
+      const finSub = m["Finance Sub-Product"] || m["Finance_Sub_Product"] || '';
+      
+      const tag = m["Cap Tag"] || m["Cap_Tag"] || '';
+      const isActive = String(m["Is Active"] || m["Is_Active"] || '').trim().toUpperCase() === "TRUE";
+      
+      let tagColor = "bg-white/10 text-white/80 border-white/20";
+      if (tag === "RUN") tagColor = "bg-sky-500/10 text-sky-400 border-sky-500/20";
+      else if (tag === "CHANGE") tagColor = "bg-emerald-500/10 text-emerald-400 border-emerald-500/20";
+      else if (tag === "REGULATORY") tagColor = "bg-amber-500/10 text-amber-400 border-amber-500/20";
+      
+      const statusBadge = isActive 
+        ? `<span class="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[9px] font-bold rounded uppercase">Active</span>`
+        : `<span class="px-2 py-0.5 bg-white/5 text-white/30 border border-white/5 text-[9px] font-bold rounded uppercase">Inactive</span>`;
+        
+      const archiveIcon = isActive 
+        ? `<i class="fas fa-file-archive text-xs"></i>`
+        : `<i class="fas fa-check-circle text-xs"></i>`;
+        
+      const archiveTitle = isActive ? "Archive/Disable Mapping" : "Activate Mapping";
+      const archiveBtnClass = isActive
+        ? "p-1.5 bg-white/5 border border-white/10 text-white/40 hover:text-red-500 hover:bg-red-500/10"
+        : "p-1.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 hover:text-black hover:bg-emerald-500";
+
+      return `<tr class="border-b border-white/5 hover:bg-white/[0.02]">
+        <td class="py-3 px-4 font-mono font-bold text-emerald-400">${mid}</td>
+        <td class="py-3 px-4 text-white">
+          <div class="font-bold">${csName}</div>
+          <div class="text-[10px] text-white/50">${csSub}</div>
+        </td>
+        <td class="py-3 px-4 text-white">
+          <div class="font-bold">${finName}</div>
+          <div class="text-[10px] text-white/50">${finSub}</div>
+        </td>
+        <td class="py-3 px-4">
+          <span class="px-2.5 py-1 text-[9px] font-black tracking-widest rounded border ${tagColor} uppercase">${tag}</span>
+        </td>
+        <td class="py-3 px-4 font-mono">${statusBadge}</td>
+        <td class="py-3 px-4 text-right">
+          <div class="flex justify-end gap-2">
+            <button onclick="openMappingModal('${mid}', '${csId}', '${finId}', '${tag}', ${isActive})" class="p-1.5 bg-white/5 border border-white/10 text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition-all" title="Edit Mapping"><i class="fas fa-edit text-xs"></i></button>
+            <button onclick="handleToggleFinanceMappingStatus('${mid}', ${!isActive})" class="${archiveBtnClass} rounded-lg transition-all" title="${archiveTitle}">${archiveIcon}</button>
+            <button onclick="handleViewHistory('${csId}', '${escapeHtml(csName)}', '${escapeHtml(csSub)}')" class="p-1.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 hover:text-black hover:bg-emerald-500 rounded-lg transition-all" title="View Audit History"><i class="fas fa-history text-xs"></i></button>
+          </div>
+        </td>
+      </tr>`;
+    }).join('');
+  }
+
+  function populateDropdowns() {
+    const csSelect = document.getElementById('map-cs-id');
+    const finSelect = document.getElementById('map-fin-id');
+    if (!csSelect || !finSelect) return;
+    
+    // Clear keeping the placeholder
+    csSelect.innerHTML = `<option value="" class="bg-[#222222]">Select CS Product...</option>`;
+    finSelect.innerHTML = `<option value="" class="bg-[#222222]">Select Finance Product...</option>`;
+    
+    bmaMasterData.csProducts.forEach(p => {
+      // Only permit active products to be newly mapped
+      const active = String(p["Is Active"] || p["Is_Active"] || '').trim().toUpperCase() !== "FALSE";
+      if (active) {
+        const id = p["Product ID"] || p["Product_ID"];
+        const name = p["Product"];
+        const sub = p["Sub-Product"] || p["Sub_Product"];
+        csSelect.innerHTML += `<option value="${id}" class="bg-[#222222]">${name} &rarr; ${sub} (${id})</option>`;
+      }
+    });
+    
+    bmaMasterData.financeProducts.forEach(f => {
+      const id = f["Finance Product ID"] || f["Finance_Product_ID"];
+      const name = f["Finance Product"] || f["Finance_Product"];
+      const sub = f["Finance Sub-Product"] || f["Finance_Sub_Product"];
+      const active = String(f["Is Active"] || f["Is_Active"] || '').trim().toUpperCase() === "TRUE";
+      if (active) {
+        finSelect.innerHTML += `<option value="${id}" class="bg-[#222222]">${name} &rarr; ${sub} (${id})</option>`;
+      }
+    });
+  }
+
+  // -------------------------------------------------------------
+  // MODAL OPERATORS
+  // -------------------------------------------------------------
+
+  function openCsProductModal(id = '', product = '', subProduct = '', isActive = true) {
+    document.getElementById('cs-prod-id').value = id;
+    document.getElementById('cs-prod-name').value = product;
+    document.getElementById('cs-sub-name').value = subProduct;
+    document.getElementById('cs-active').checked = isActive;
+    document.getElementById('cs-modal-title').innerText = id ? 'Edit Client Services Product' : 'Add Client Services Product';
+    document.getElementById('cs-product-modal').classList.remove('hidden');
+  }
+  function closeCsProductModal() {
+    document.getElementById('cs-product-modal').classList.add('hidden');
+  }
+
+  function openSkillModal(id = '', points = 0, description = '', level = '') {
+    document.getElementById('skill-id').value = id;
+    document.getElementById('skill-points').value = points;
+    document.getElementById('skill-desc').value = description;
+    document.getElementById('skill-level').value = level;
+    document.getElementById('skill-modal-title').innerText = id ? 'Edit Skill Specification' : 'Add Skill Specification';
+    document.getElementById('skill-modal').classList.remove('hidden');
+  }
+  function closeSkillModal() {
+    document.getElementById('skill-modal').classList.add('hidden');
+  }
+
+  function openFinanceProductModal(id = '', product = '', subProduct = '', isActive = true) {
+    document.getElementById('fin-prod-id').value = id;
+    document.getElementById('fin-prod-name').value = product;
+    document.getElementById('fin-sub-name').value = subProduct;
+    document.getElementById('fin-active').checked = isActive;
+    document.getElementById('fin-modal-title').innerText = id ? 'Edit Corporate Ledger Item' : 'Add Corporate Ledger Item';
+    document.getElementById('finance-product-modal').classList.remove('hidden');
+  }
+  function closeFinanceProductModal() {
+    document.getElementById('finance-product-modal').classList.add('hidden');
+  }
+
+  function openMappingModal(id = '', csId = '', finId = '', tag = '', isActive = true) {
+    document.getElementById('mapping-id').value = id;
+    document.getElementById('map-cs-id').value = csId;
+    document.getElementById('map-fin-id').value = finId;
+    document.getElementById('map-cap').value = tag;
+    document.getElementById('map-active').checked = isActive;
+    
+    document.getElementById('mapping-modal-title').innerText = id ? 'Configure Financial Mapping' : 'Configure Financial Mapping';
+    document.getElementById('mapping-modal').classList.remove('hidden');
+  }
+  function closeMappingModal() {
+    document.getElementById('mapping-modal').classList.add('hidden');
+  }
+
+  function closeHistoryModal() {
+    document.getElementById('history-modal').classList.add('hidden');
+  }
+
+  // -------------------------------------------------------------
+  // CONTROLLER LOGIC (CRUD HANDLERS)
+  // -------------------------------------------------------------
+
+  function handleSaveCsProduct(e) {
+    e.preventDefault();
+    const id = document.getElementById('cs-prod-id').value;
+    const prod = document.getElementById('cs-prod-name').value.trim();
+    const sub = document.getElementById('cs-sub-name').value.trim();
+    const active = document.getElementById('cs-active').checked;
+    
+    showLoading('Saving CS Product catalog row...');
+    google.script.run
+      .withSuccessHandler(res => {
+        hideLoading();
+        closeCsProductModal();
+        showNotification('success', 'CS Product Catalog Updated!');
+        loadBmaDashboard();
+      })
+      .withFailureHandler(err => {
+        hideLoading();
+        showNotification('danger', 'Save Error: ' + err.message);
+      })
+      .saveCsProduct(id, prod, sub, active);
+  }
+
+  function handleToggleCsProductStatus(id, isActive) {
+    const operationText = isActive ? "re-activate" : "archive/disable";
+    if (!confirm(`Are you sure you want to ${operationText} CS Product ${id}?`)) return;
+    
+    showLoading('Updating CS product active state...');
+    google.script.run
+      .withSuccessHandler(res => {
+        hideLoading();
+        showNotification('success', `Product successfully ${isActive ? 'activated' : 'archived'}.`);
+        loadBmaDashboard();
+      })
+      .withFailureHandler(err => {
+        hideLoading();
+        showNotification('danger', 'Status Update Failed: ' + err.message);
+      })
+      .toggleCsProductStatus(id, isActive);
+  }
+
+  function handleSaveSkill(e) {
+    e.preventDefault();
+    const id = document.getElementById('skill-id').value;
+    const pts = parseInt(document.getElementById('skill-points').value, 10);
+    const desc = document.getElementById('skill-desc').value.trim();
+    const lvl = document.getElementById('skill-level').value.trim();
+    
+    showLoading('Saving skill metrics spec...');
+    google.script.run
+      .withSuccessHandler(res => {
+        hideLoading();
+        closeSkillModal();
+        showNotification('success', 'Skills Specification Saved!');
+        loadBmaDashboard();
+      })
+      .withFailureHandler(err => {
+        hideLoading();
+        showNotification('danger', 'Save Error: ' + err.message);
+      })
+      .saveSkill(id, pts, desc, lvl);
+  }
+
+  function handleDeleteSkill(id) {
+    if (!confirm(`Are you sure you want to delete Skill Definition ${id}?`)) return;
+    
+    showLoading('Deleting skill...');
+    google.script.run
+      .withSuccessHandler(res => {
+        hideLoading();
+        showNotification('success', 'Skill matrix record removed.');
+        loadBmaDashboard();
+      })
+      .withFailureHandler(err => {
+        hideLoading();
+        showNotification('danger', 'Deletion Failed: ' + err.message);
+      })
+      .deleteSkill(id);
+  }
+
+  function handleSaveFinanceProduct(e) {
+    e.preventDefault();
+    const id = document.getElementById('fin-prod-id').value;
+    const prod = document.getElementById('fin-prod-name').value.trim();
+    const sub = document.getElementById('fin-sub-name').value.trim();
+    const active = document.getElementById('fin-active').checked;
+    
+    showLoading('Saving corporate ledger line...');
+    google.script.run
+      .withSuccessHandler(res => {
+        hideLoading();
+        closeFinanceProductModal();
+        showNotification('success', 'Ledger Catalog Updated!');
+        loadBmaDashboard();
+      })
+      .withFailureHandler(err => {
+        hideLoading();
+        showNotification('danger', 'Ledger Save Error: ' + err.message);
+      })
+      .saveFinanceProduct(id, prod, sub, active);
+  }
+
+  function handleToggleFinanceProductStatus(id, isActive) {
+    const operationText = isActive ? "re-activate" : "archive/disable";
+    if (!confirm(`Are you sure you want to ${operationText} Finance category ${id}?`)) return;
+    
+    showLoading('Updating ledger category state...');
+    google.script.run
+      .withSuccessHandler(res => {
+        hideLoading();
+        showNotification('success', `Finance category successfully ${isActive ? 'activated' : 'archived'}.`);
+        loadBmaDashboard();
+      })
+      .withFailureHandler(err => {
+        hideLoading();
+        showNotification('danger', 'Status Update Failed: ' + err.message);
+      })
+      .toggleFinanceProductStatus(id, isActive);
+  }
+
+  function handleSaveMapping(e) {
+    e.preventDefault();
+    const id = document.getElementById('mapping-id').value;
+    const csId = document.getElementById('map-cs-id').value;
+    const finId = document.getElementById('map-fin-id').value;
+    const cap = document.getElementById('map-cap').value;
+    const active = document.getElementById('map-active').checked;
+    
+    showLoading('Configuring accounting route & validating active locks...');
+    google.script.run
+      .withSuccessHandler(res => {
+        hideLoading();
+        closeMappingModal();
+        showNotification('success', 'Accounting Mapping successfully established!');
+        loadBmaDashboard();
+      })
+      .withFailureHandler(err => {
+        hideLoading();
+        showNotification('danger', 'Configuration Conflict: ' + err.message);
+      })
+      .saveFinanceMapping(id, csId, finId, cap, active);
+  }
+
+  function handleToggleFinanceMappingStatus(id, isActive) {
+    const operationText = isActive ? "re-activate" : "archive/disable";
+    if (!confirm(`Are you sure you want to ${operationText} this accounting mapping?`)) return;
+    
+    showLoading('Updating mapping status...');
+    google.script.run
+      .withSuccessHandler(res => {
+        hideLoading();
+        showNotification('success', `Mapping successfully ${isActive ? 'activated' : 'archived'}.`);
+        loadBmaDashboard();
+      })
+      .withFailureHandler(err => {
+        hideLoading();
+        showNotification('danger', 'Activation Conflict: ' + err.message);
+      })
+      .toggleFinanceMappingStatus(id, isActive);
+  }
+
+  function handleViewHistory(csId, csName, csSub) {
+    document.getElementById('history-cs-title').innerText = `${csName} / ${csSub} (${csId})`;
+    
+    const tbody = document.getElementById('history-table-body');
+    tbody.innerHTML = `<tr><td colspan="6" class="py-6 text-center text-white/30"><i class="fas fa-spinner animate-spin mr-2"></i> Querying audit trail...</td></tr>`;
+    document.getElementById('history-modal').classList.remove('hidden');
+    
+    google.script.run
+      .withSuccessHandler(history => {
+        if (!history || history.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="6" class="py-6 text-center text-white/30">No prior mappings detected. Fully clean record.</td></tr>`;
+          return;
+        }
+        tbody.innerHTML = history.map(h => {
+          const mid = h["Mapping ID"] || h["Mapping_ID"] || '';
+          const finName = h["Finance Product Name"] || h["Finance_Product_Name"] || '';
+          const finSub = h["Finance Sub-Product"] || h["Finance_Sub_Product"] || '';
+          const tag = h["Cap Tag"] || h["Cap_Tag"] || '';
+          const isActive = String(h["Is Active"] || h["Is_Active"] || '').trim().toUpperCase() === "TRUE";
+          const by = h["Updated By"] || h["Updated_By"] || '';
+          const at = h["Updated At"] || h["Updated_At"] || '';
+          
+          const statusBadge = isActive 
+            ? `<span class="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[9px] font-bold rounded uppercase">Active</span>`
+            : `<span class="px-2 py-0.5 bg-white/5 text-white/30 border border-white/5 text-[9px] font-bold rounded uppercase">Inactive</span>`;
+
+          return `<tr class="border-b border-white/5 hover:bg-white/[0.01]">
+            <td class="py-2.5 px-2 font-mono text-emerald-400 font-bold">${mid}</td>
+            <td class="py-2.5 px-2 text-white font-medium">${finName} / ${finSub}</td>
+            <td class="py-2.5 px-2 uppercase text-[10px] font-bold text-white/60">${tag}</td>
+            <td class="py-2.5 px-2 font-mono text-white/50">${statusBadge}</td>
+            <td class="py-2.5 px-2 truncate max-w-[120px]" title="${escapeHtml(by)}">${by.split('@')[0]}</td>
+            <td class="py-2.5 px-2 text-right text-[10px] text-white/30 font-mono">${formatDate(at)}</td>
+          </tr>`;
+        }).join('');
+      })
+      .withFailureHandler(err => {
+        tbody.innerHTML = `<tr><td colspan="6" class="py-6 text-center text-red-400">Failed to query audit: ${err.message}</td></tr>`;
+      })
+      .getMappingHistory(csId);
+  }
+
+  // Live cache for preview operations
+  var previewHeaders = [];
+  var previewRecords = [];
+
+  function previewFinanceExport() {
+    const select = document.getElementById('export-period-select');
+    const periodVal = select ? select.value : '';
+    if (!periodVal) {
+      showNotification('danger', 'Please select a valid period first.');
+      return;
+    }
+    
+    // Reset control fields to default clean state
+    const searchField = document.getElementById('preview-search');
+    if (searchField) searchField.value = '';
+    
+    const filterField = document.getElementById('preview-filter-status');
+    if (filterField) filterField.value = 'all';
+    
+    const sortField = document.getElementById('preview-sort-by');
+    if (sortField) sortField.value = 'name-asc';
+
+    showLoading(`Fetching Finance Export preview for ${periodVal}...`);
+    
+    google.script.run
+      .withSuccessHandler(data => {
+        hideLoading();
+        if (!data || data.length === 0) {
+          showNotification('danger', `No allocation data found for the selected period (${periodVal}).`);
+          return;
+        }
+        
+        currentPreviewData = data;
+        currentPreviewPeriod = periodVal;
+        
+        renderExportPreview(data, periodVal);
+      })
+      .withFailureHandler(err => {
+        hideLoading();
+        showNotification('danger', 'Preview Failed: ' + err.message);
+      })
+      .executeBmaFinanceExport(periodVal);
+  }
+
+  function renderExportPreview(data, period) {
+    const head = document.getElementById('preview-table-head');
+    const title = document.getElementById('preview-period-title');
+    
+    if (!head || !title) return;
+    
+    title.innerText = period;
+    
+    // 1. Process headers and parse records
+    previewHeaders = data[0];
+    previewRecords = data.slice(1).map(row => {
+      // Determine unmapped state (if product or sub-product contains UNMAPPED keyword)
+      const isUnmapped = String(row[3]).toUpperCase() === 'UNMAPPED' || 
+                         String(row[4]).toUpperCase().startsWith('UNMAPPED') || 
+                         String(row[5]).toUpperCase() === 'UNMAPPED';
+      return {
+        name: row[0] || 'Unknown Employee',
+        email: row[1] || '',
+        region: row[2] || 'Global',
+        finProduct: row[3] || 'UNMAPPED',
+        finSubProduct: row[4] || 'UNMAPPED',
+        capTag: row[5] || 'UNMAPPED',
+        totalAlloc: parseFloat(row[6]) || 0,
+        isUnmapped: isUnmapped,
+        rawRow: row
+      };
+    });
+    
+    // 2. Generate and Render Real-Time Statistics
+    const uniqueEmails = new Set(previewRecords.map(r => r.email.toLowerCase().trim()).filter(Boolean));
+    const totalHeadcount = uniqueEmails.size;
+    
+    const mappedRecords = previewRecords.filter(r => !r.isUnmapped);
+    const mappedFte = mappedRecords.reduce((sum, r) => sum + r.totalAlloc, 0) / 100;
+    
+    const unmappedRecords = previewRecords.filter(r => r.isUnmapped);
+    const unmappedFte = unmappedRecords.reduce((sum, r) => sum + r.totalAlloc, 0) / 100;
+    
+    const totalFte = previewRecords.reduce((sum, r) => sum + r.totalAlloc, 0) / 100;
+    
+    document.getElementById('stat-total-people').innerText = totalHeadcount;
+    document.getElementById('stat-total-people-desc').innerText = `Across ${previewRecords.length} allocation rows`;
+    
+    document.getElementById('stat-mapped-fte').innerText = `${mappedFte.toFixed(2)} FTE`;
+    document.getElementById('stat-mapped-desc').innerText = `${mappedRecords.length} mapped records`;
+    
+    document.getElementById('stat-unmapped-fte').innerText = `${unmappedFte.toFixed(2)} FTE`;
+    document.getElementById('stat-unmapped-desc').innerText = `${unmappedRecords.length} unmapped records`;
+    
+    document.getElementById('stat-total-fte').innerText = `${totalFte.toFixed(2)} FTE`;
+    document.getElementById('stat-total-fte-desc').innerText = `Mapped + Unmapped capacity`;
+    
+    // 3. Set Warning Banner Visibility
+    const warningBanner = document.getElementById('preview-warning-banner');
+    if (warningBanner) {
+      if (unmappedRecords.length > 0) {
+        warningBanner.classList.remove('hidden');
+      } else {
+        warningBanner.classList.add('hidden');
+      }
+    }
+    
+    // 4. Render Table Headers
+    head.innerHTML = `<tr class="text-white/40 border-b border-white/5 uppercase tracking-wider text-[10px]">
+      ${previewHeaders.map(h => `<th class="py-3 px-4">${h}</th>`).join('')}
+    </tr>`;
+    
+    // 5. Apply Default Filter and Sorting Render
+    applyPreviewFilters();
+    
+    // Show Modal
+    document.getElementById('export-preview-modal').classList.remove('hidden');
+  }
+
+  function getFilteredAndSortedRecords() {
+    const searchVal = (document.getElementById('preview-search')?.value || '').toLowerCase().trim();
+    const filterVal = document.getElementById('preview-filter-status')?.value || 'all';
+    const sortVal = document.getElementById('preview-sort-by')?.value || 'name-asc';
+    
+    // 1. Filter Records
+    let result = previewRecords.filter(r => {
+      const matchesSearch = !searchVal || 
+        r.name.toLowerCase().includes(searchVal) ||
+        r.email.toLowerCase().includes(searchVal) ||
+        r.region.toLowerCase().includes(searchVal) ||
+        r.finProduct.toLowerCase().includes(searchVal) ||
+        r.finSubProduct.toLowerCase().includes(searchVal) ||
+        r.capTag.toLowerCase().includes(searchVal);
+        
+      let matchesStatus = true;
+      if (filterVal === 'mapped') {
+        matchesStatus = !r.isUnmapped;
+      } else if (filterVal === 'unmapped') {
+        matchesStatus = r.isUnmapped;
+      }
+      
+      return matchesSearch && matchesStatus;
+    });
+    
+    // 2. Sort Records
+    result.sort((a, b) => {
+      switch (sortVal) {
+        case 'name-asc':
+          return a.name.localeCompare(b.name);
+        case 'name-desc':
+          return b.name.localeCompare(a.name);
+        case 'alloc-desc':
+          return b.totalAlloc - a.totalAlloc;
+        case 'alloc-asc':
+          return a.totalAlloc - b.totalAlloc;
+        case 'region':
+          return a.region.localeCompare(b.region);
+        case 'status-unmapped-first':
+          return (b.isUnmapped ? 1 : 0) - (a.isUnmapped ? 1 : 0);
+        default:
+          return 0;
+      }
+    });
+    
+    return result;
+  }
+
+  function applyPreviewFilters() {
+    const body = document.getElementById('preview-table-body');
+    const countLabel = document.getElementById('preview-count');
+    if (!body) return;
+    
+    const filtered = getFilteredAndSortedRecords();
+    const totalFilteredFte = filtered.reduce((sum, r) => sum + r.totalAlloc, 0) / 100;
+    
+    if (countLabel) {
+      countLabel.innerText = `Showing ${filtered.length} of ${previewRecords.length} records (${totalFilteredFte.toFixed(2)} FTE shown)`;
+    }
+    
+    if (filtered.length === 0) {
+      body.innerHTML = `
+        <tr>
+          <td colspan="${previewHeaders.length}" class="py-8 text-center text-white/30">
+            <i class="fas fa-search mr-2"></i> No records match your criteria.
+          </td>
+        </tr>
+      `;
+      return;
+    }
+    
+    body.innerHTML = filtered.map(r => {
+      const rowClass = r.isUnmapped 
+        ? 'border-b border-[#FF0061]/20 bg-[#FF0061]/5 hover:bg-[#FF0061]/10 text-white/90' 
+        : 'border-b border-white/5 hover:bg-white/[0.02] text-white/70';
+        
+      const statusBadge = r.isUnmapped 
+        ? `<span class="px-2 py-0.5 text-[9px] font-black uppercase tracking-widest bg-[#FF0061]/10 border border-[#FF0061]/20 text-[#FF0061] rounded"><i class="fas fa-exclamation-triangle mr-1"></i> Unmapped</span>`
+        : `<span class="px-2 py-0.5 text-[9px] font-black uppercase tracking-widest bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded"><i class="fas fa-check mr-1"></i> Mapped</span>`;
+        
+      return `
+        <tr class="${rowClass}">
+          <td class="py-2.5 px-4 font-bold text-white">${escapeHtml(r.name)}</td>
+          <td class="py-2.5 px-4 text-white/50 font-mono">${escapeHtml(r.email)}</td>
+          <td class="py-2.5 px-4">${escapeHtml(r.region)}</td>
+          <td class="py-2.5 px-4">
+            ${r.isUnmapped 
+              ? `<span class="text-[#FF0061] font-bold"><i class="fas fa-ban mr-1"></i> ${escapeHtml(r.finProduct)}</span>`
+              : escapeHtml(r.finProduct)
+            }
+          </td>
+          <td class="py-2.5 px-4">
+            ${r.isUnmapped 
+              ? `<span class="text-white/40 italic">${escapeHtml(r.finSubProduct)}</span>`
+              : escapeHtml(r.finSubProduct)
+            }
+          </td>
+          <td class="py-2.5 px-4">
+            ${r.isUnmapped
+              ? statusBadge
+              : `<span class="px-2 py-0.5 text-[9px] font-black uppercase tracking-widest bg-sky-500/10 border border-sky-500/20 text-sky-400 rounded">${escapeHtml(r.capTag)}</span>`
+            }
+          </td>
+          <td class="py-2.5 px-4 text-right font-black ${r.isUnmapped ? 'text-white' : 'text-emerald-400'}">${r.totalAlloc}%</td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  function downloadFromPreview() {
+    const filtered = getFilteredAndSortedRecords();
+    if (filtered.length === 0) {
+      showNotification('danger', 'No records match your filters to download.');
+      return;
+    }
+    
+    // Construct the downloadable array: header + filtered rows
+    const exportRows = [previewHeaders];
+    filtered.forEach(r => {
+      exportRows.push(r.rawRow);
+    });
+
+    const csvContent = exportRows.map(row => 
+      row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(",")
+    ).join("\n");
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    
+    link.setAttribute("href", url);
+    link.setAttribute("download", `OSTTRA_Nexus_Finance_Export_${currentPreviewPeriod.replace(/ /g, '_')}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    showNotification('success', `Finance export with ${filtered.length} records generated successfully.`);
+    closePreviewModal();
+  }
+
+  function closePreviewModal() {
+    document.getElementById('export-preview-modal').classList.add('hidden');
+  }
+
+  // -------------------------------------------------------------
+  // HELPERS
+  // -------------------------------------------------------------
+
+  function formatDate(dStr) {
+    if (!dStr) return '';
+    try {
+      const d = new Date(dStr);
+      return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    } catch (e) {
+      return dStr;
+    }
+  }
+
+  function escapeHtml(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
+
+  // -------------------------------------------------------------
+  // ROUTER HOOK (WEB-APP ENGINE)
+  // -------------------------------------------------------------
+  
+  /**
+   * Called by the core MPA routing engine when this view is rendered.
+   */
+  (function initView() {
+    switchBmaTab('operational');
+    loadBmaDashboard();
+  })();
+</script>

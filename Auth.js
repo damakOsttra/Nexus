@@ -204,7 +204,14 @@ function getCurrentUserSession() {
     }
   }
 
-  console.log(`User: ${activeEmail} | Identity Tier: ${identityTier} | Effective Tier: ${tier} | Executive View: ${isExecutiveView} | TPM User: ${isTpmUser} | TPM Mgr: ${isTpmManager} | OPEX User: ${isOpexUser} | OPEX Mgr: ${isOpexManager}`);
+  // BMA Role Check
+  let isBmaUser = false;
+  const bmaList = ['jane.hill@osttra.com', 'ambuj.wahi@osttra.com', 'gautmi.singh@osttra.com'];
+  if (getAdminEmails().includes(activeEmail) || bmaList.includes(activeEmail)) {
+    isBmaUser = true;
+  }
+
+  console.log(`User: ${activeEmail} | Identity Tier: ${identityTier} | Effective Tier: ${tier} | Executive View: ${isExecutiveView} | TPM User: ${isTpmUser} | TPM Mgr: ${isTpmManager} | OPEX User: ${isOpexUser} | OPEX Mgr: ${isOpexManager} | BMA User: ${isBmaUser}`);
   
   const currentPeriod = getActivePeriod();
   
@@ -227,7 +234,8 @@ function getCurrentUserSession() {
     isTpmUser: isTpmUser,
     isTpmManager: isTpmManager,
     isOpexUser: isOpexUser,
-    isOpexManager: isOpexManager
+    isOpexManager: isOpexManager,
+    isBmaUser: isBmaUser
   };
   
   return _cachedUserSession;

@@ -321,19 +321,20 @@ function syncOpexJiraData() {
  * Configured to run every 4 hours.
  */
 function createOpexJiraSyncTrigger() {
+  const functionsToRegister = ['syncOpexJiraData_UAT', 'syncOpexJiraData_PROD'];
   const triggers = ScriptApp.getProjectTriggers();
-  let found = false;
+  
   triggers.forEach(t => {
-    if (t.getHandlerFunction() === 'syncOpexJiraData') {
-      found = true;
+    if (functionsToRegister.indexOf(t.getHandlerFunction()) !== -1 || t.getHandlerFunction() === 'syncOpexJiraData') {
+      ScriptApp.deleteTrigger(t);
     }
   });
 
-  if (!found) {
-    ScriptApp.newTrigger('syncOpexJiraData')
+  functionsToRegister.forEach(fn => {
+    ScriptApp.newTrigger(fn)
       .timeBased()
       .everyHours(4)
       .create();
-    console.log("[TRIGGER] Created background time trigger for syncOpexJiraData.");
-  }
+  });
+  console.log("[TRIGGER] Created background time triggers for syncOpexJiraData (UAT & PROD).");
 }

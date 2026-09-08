@@ -309,6 +309,7 @@ function getTpmTimesheetData(weekStartDateStr, showAllEpics = false, forceRefres
   
   // Calculate Monday-Sunday date strings robustly to prevent timezone shifting
   const weekDates = [];
+  let lastWeekStartDateStr = "";
   const parts = String(weekStartDateStr).split('-');
   if (parts.length === 3) {
     const year = parseInt(parts[0], 10);
@@ -322,6 +323,13 @@ function getTpmTimesheetData(weekStartDateStr, showAllEpics = false, forceRefres
       const dd = String(d.getUTCDate()).padStart(2, '0');
       weekDates.push(`${yyyy}-${mm}-${dd}`);
     }
+
+    // Calculate last week start date (7 days before the current week start date)
+    const lastWeekStart = new Date(Date.UTC(year, month, day - 7));
+    const yyyyLast = lastWeekStart.getUTCFullYear();
+    const mmLast = String(lastWeekStart.getUTCMonth() + 1).padStart(2, '0');
+    const ddLast = String(lastWeekStart.getUTCDate()).padStart(2, '0');
+    lastWeekStartDateStr = `${yyyyLast}-${mmLast}-${ddLast}`;
   }
 
   // Support 7-day status transition rule for Completed/Canceled
@@ -389,6 +397,15 @@ function getTpmTimesheetData(weekStartDateStr, showAllEpics = false, forceRefres
       if (!whitelist.includes(status) && !allUserLoggedKeys.has(key)) {
         return false;
       }
+
+      // L1 Escalation and PSS Ticket completed filter logic:
+      // "For anything in a completed state, we want if it moved to the completed state last week or this week, we want it to show..."
+      if (status === 'completed') {
+        const updatedDateStr = String(row["Updated"] || "").substring(0, 10);
+        if (updatedDateStr && lastWeekStartDateStr && updatedDateStr < lastWeekStartDateStr) {
+          return false;
+        }
+      }
     }
 
     return true;
@@ -411,7 +428,7 @@ function getTpmTimesheetData(weekStartDateStr, showAllEpics = false, forceRefres
   const loggedKeys = [...new Set([
     ...formattedLogs.map(l => String(l["Jira_Key"] || "").toUpperCase().trim()),
     ...Array.from(allUserLoggedKeys)
-  ].filter(k => k && k !== 'ooo' && k !== 'ADMIN' && k !== 'MGMT'))];
+  ].filter(k => k && k !== 'OOO' && k !== 'ADMIN' && k !== 'MGMT' && k !== 'SOLUTION-DESIGN'))];
   
   const existingEpicKeys = new Set(userEpics.map(e => String(e["Key"] || e["key"] || "").toUpperCase().trim()));
   const existingChildKeys = new Set(childTickets.map(c => String(c["Key"] || c["key"] || "").toUpperCase().trim()));
@@ -423,6 +440,19 @@ function getTpmTimesheetData(weekStartDateStr, showAllEpics = false, forceRefres
     const foundRow = cacheData.find(row => String(row["Key"] || "").toUpperCase().trim() === key);
     if (foundRow) {
       const isEpic = String(foundRow["Issue_Type"] || "Epic").toLowerCase() === "epic";
+      const status = String(foundRow["Status"] || "").toLowerCase().trim();
+      
+      // Restrict completed tickets from being added back via allUserLoggedKeys unless logged THIS week
+      if (status === 'completed') {
+        const updatedDateStr = String(foundRow["Updated"] || "").substring(0, 10);
+        if (updatedDateStr && lastWeekStartDateStr && updatedDateStr < lastWeekStartDateStr) {
+          const hasLogsThisWeek = formattedLogs.some(l => String(l["Jira_Key"] || "").toUpperCase().trim() === key);
+          if (!hasLogsThisWeek) {
+            return; // Skip adding back older completed tickets with 0 hours this week
+          }
+        }
+      }
+
       if (isEpic) {
         userEpics.push(foundRow);
         existingEpicKeys.add(key);
@@ -567,6 +597,28 @@ function getTpmTimesheetData(weekStartDateStr, showAllEpics = false, forceRefres
     }
   }
 
+  // Generate an exhaustive searchable list from all cached items (bypassing strict exclusions)
+  const allSearchable = [];
+  cacheData.forEach(row => {
+    const key = String(row["Key"] || "").toUpperCase().trim();
+    if (!key) return;
+    
+    const issueType = String(row["Issue_Type"] || "").trim() || "Task";
+    let mappedType = "Task";
+    if (issueType.toLowerCase() === "epic") mappedType = "Epic";
+    else if (issueType.toLowerCase() === "pss" || key.startsWith("PSS-")) mappedType = "PSS";
+    else if (issueType.toLowerCase() === "bsm" || key.startsWith("BSM-")) mappedType = "BSM";
+
+    allSearchable.push({
+      key: key,
+      summary: row["Summary"] || "Jira Ticket",
+      status: row["Status"] || "Active",
+      type: mappedType,
+      plannedStart: row["Planned start"] || "N/A",
+      plannedEnd: row["Planned end"] || "N/A"
+    });
+  });
+
   return {
     epics: userEpics,
     childTickets: childTickets,
@@ -576,7 +628,9 @@ function getTpmTimesheetData(weekStartDateStr, showAllEpics = false, forceRefres
     allEpics: activeEpicsList,
     allBsmTickets: activeBsmTickets,
     historicalLoggedKeys: Array.from(allUserLoggedKeys),
-    isSolutionDesignEligible: isSolutionDesignEligible
+    isSolutionDesignEligible: isSolutionDesignEligible,
+    allSearchable: allSearchable,
+    unlockedWeeks: getTpmUnlockExceptions(userEmail)
   };
 }
 
@@ -618,7 +672,8 @@ function saveTpmTimesheetData(payload) {
 
       const isOlderWeek = loadedSundayObj < prevWeekSundayObj;
       if (isOlderWeek) {
-        throw new Error("Validation Error: This timesheet is locked because editing is restricted for older weeks.");
+        // We now allow saving older weeks strictly to support OOO (Out of Office) corrections for past days.
+        console.log("Saving timesheet for an older, locked week (" + payload.weekStartDate + ") to permit OOO/Timesheet updates.");
       }
     }
   } catch (e) {
@@ -659,7 +714,7 @@ function saveTpmTimesheetData(payload) {
 
     // Block any attempt to log hours for future dates (exempting weekends) and enforce strict 24-hour daily limits
     const dailyTotals = {};
-    const oooSet = new Set(payload.logs.filter(l => l.jiraKey.toLowerCase() === "ooo").map(l => l.date));
+    const oooSet = new Set(payload.logs.filter(l => l.jiraKey.toLowerCase() === "ooo" && (parseFloat(l.hours) || 0) >= 8).map(l => l.date));
 
     payload.logs.forEach(log => {
       const parts = log.date.split('-');
@@ -677,7 +732,7 @@ function saveTpmTimesheetData(payload) {
 
       // Strict OOO conflict check: cannot log hours against a ticket if that day is marked OOO
       if (log.jiraKey.toLowerCase() !== "ooo" && oooSet.has(log.date) && hours > 0) {
-        throw new Error("Validation Error: Cannot log hours against " + log.jiraKey + " on " + log.date + " because it is marked as Out of Office (OOO).");
+        throw new Error("Validation Error: Cannot log hours against " + log.jiraKey + " on " + log.date + " because it is marked as Full Out of Office (OOO).");
       }
       
       if (log.jiraKey !== "ooo") {
@@ -750,7 +805,20 @@ function saveTpmTimesheetData(payload) {
       const rowDate = normalizeDateToYMD(data[i][dateIdx]);
       const isTarget = (rowEmail === userEmail && weekDates.includes(rowDate));
       if (!isTarget) {
-        filteredRows.push(data[i]);
+        // UNIFIED FIX: Guarantee perfect row length and safe Date serialization
+        const sanitizedRow = headers.map((h, colIndex) => {
+          let cellValue = data[i][colIndex];
+          if (cellValue === undefined || cellValue === null) return "";
+          
+          if (cellValue instanceof Date) {
+            if (h === "Date_Logged" || h === "Week_Of") {
+              return normalizeDateToYMD(cellValue);
+            }
+            return Utilities.formatDate(cellValue, Session.getScriptTimeZone(), "yyyy-MM-dd HH:mm:ss");
+          }
+          return cellValue;
+        });
+        filteredRows.push(sanitizedRow);
       }
     }
 
@@ -786,6 +854,13 @@ function saveTpmTimesheetData(payload) {
       filteredRows.push(row);
     });
 
+    // FIX: Forcefully remove any active UI filters on the sheet before clearing and pasting.
+    // Pasting data into a filtered sheet causes Google Sheets to shift and destroy hidden row data.
+    const filter = sheet.getFilter();
+    if (filter) {
+      filter.remove();
+    }
+
     sheet.clearContents();
     sheet.getRange(1, 1, filteredRows.length, filteredRows[0].length).setValues(filteredRows);
     clearSheetCache(CONFIG.SHEETS.TPM_TIMESHEET_LOGS);
@@ -803,6 +878,155 @@ function saveTpmTimesheetData(payload) {
 
     return true;
   });
+}
+
+/**
+ * Fetch raw timesheet logs for exporting from the TPM Compliance Dashboard.
+ * @param {string} startDateStr "YYYY-MM-DD" representing range start.
+ * @param {string} endDateStr "YYYY-MM-DD" representing range end.
+ */
+function exportTpmTimesheetLogsForRange(startDateStr, endDateStr) {
+  const session = getCurrentUserSession();
+  if (!session.isTpmManager && !session.isAdmin && session.identityTier !== 3) {
+    throw new Error("Unauthorized: Export is restricted to TPM managers.");
+  }
+
+  // Handle backward compatibility or omitted end dates
+  if (!endDateStr) {
+    const parts = String(startDateStr).split('-');
+    if (parts.length === 3) {
+      const year = parseInt(parts[0], 10);
+      const month = parseInt(parts[1], 10) - 1;
+      const day = parseInt(parts[2], 10);
+      const d = new Date(year, month, day + 6);
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      endDateStr = `${yyyy}-${mm}-${dd}`;
+    }
+  }
+
+  // 1. Resolve team roster under the manager's hierarchy (or see all if Admin/Head)
+  const managerEmail = session.email.toLowerCase().trim();
+  const viewAll = session.identityTier === 3 || managerEmail === 'jack.jeffreys@osttra.com';
+
+  const allEmployees = getSheetData(CONFIG.SHEETS.EMPLOYEES);
+  const empMap = {};
+  allEmployees.forEach(e => {
+    const email = String(e["Email Address"] || "").toLowerCase().trim();
+    if (email) empMap[email] = e;
+  });
+
+  const teamEmails = new Set();
+  allEmployees.forEach(e => {
+    const email = String(e["Email Address"] || "").toLowerCase().trim();
+    if (!email) return;
+
+    // Filter strictly for tagged TPM users, always allowing the logged-in manager themselves
+    const isTpmVal = String(e["is_tpm"] || e["Is_TPM"] || e["IS_TPM"] || "").trim().toLowerCase();
+    const isTpm = ["yes", "true", "y", "1"].includes(isTpmVal);
+    const isSelf = (email === managerEmail);
+    if (!isTpm && !isSelf) return;
+
+    // Check hierarchy rollup (skip for Admins who should view the entire TPM list)
+    let isMember = viewAll;
+    if (!isMember) {
+      let current = email;
+      const visited = new Set();
+      while (current) {
+        visited.add(current);
+        if (current === managerEmail) {
+          isMember = true;
+          break;
+        }
+        const rec = empMap[current];
+        const nextMgr = rec ? String(rec["Direct Manager Email"] || "").trim().toLowerCase() : "";
+        if (!nextMgr || nextMgr === current || visited.has(nextMgr)) {
+          break;
+        }
+        current = nextMgr;
+      }
+    }
+
+    if (isMember) {
+      teamEmails.add(email);
+    }
+  });
+
+  // 2. Fetch logged hours dynamically between start and end date bounds (Capped at 365 days)
+  const targetDates = new Set();
+  const startParts = String(startDateStr).split('-');
+  const endParts = String(endDateStr).split('-');
+  if (startParts.length === 3 && endParts.length === 3) {
+    const sDate = new Date(parseInt(startParts[0], 10), parseInt(startParts[1], 10) - 1, parseInt(startParts[2], 10));
+    const eDate = new Date(parseInt(endParts[0], 10), parseInt(endParts[1], 10) - 1, parseInt(endParts[2], 10));
+    
+    // Limit to maximum 365 days to prevent script execution timeouts or browser freeze
+    const diffTime = Math.abs(eDate - sDate);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+    const limitDays = Math.min(diffDays, 365);
+    
+    for (let i = 0; i < limitDays; i++) {
+      const d = new Date(Date.UTC(sDate.getFullYear(), sDate.getMonth(), sDate.getDate() + i));
+      const yyyy = d.getUTCFullYear();
+      const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+      const dd = String(d.getUTCDate()).padStart(2, '0');
+      targetDates.add(`${yyyy}-${mm}-${dd}`);
+    }
+  }
+
+  const logData = getSheetData(CONFIG.SHEETS.TPM_TIMESHEET_LOGS);
+
+  // Perform self-healing roster enhancement for logs
+  logData.forEach(row => {
+    const email = String(row["User_Email"] || "").toLowerCase().trim();
+    const date = normalizeDateToYMD(row["Date_Logged"]);
+    if (email && targetDates.has(date) && !teamEmails.has(email)) {
+      let isMember = viewAll;
+      if (!isMember) {
+        let current = email;
+        const visited = new Set();
+        while (current) {
+          visited.add(current);
+          if (current === managerEmail) {
+            isMember = true;
+            break;
+          }
+          const rec = empMap[current];
+          const nextMgr = rec ? String(rec["Direct Manager Email"] || "").trim().toLowerCase() : "";
+          if (!nextMgr || nextMgr === current || visited.has(nextMgr)) {
+            break;
+          }
+          current = nextMgr;
+        }
+      }
+      if (isMember) {
+        teamEmails.add(email);
+      }
+    }
+  });
+
+  const exportedRows = [];
+  logData.forEach(row => {
+    const email = String(row["User_Email"] || "").toLowerCase().trim();
+    const date = normalizeDateToYMD(row["Date_Logged"]);
+    if (targetDates.has(date) && teamEmails.has(email)) {
+      exportedRows.push({
+        "User_Email": row["User_Email"],
+        "Jira_Key": row["Jira_Key"],
+        "Date_Logged": date,
+        "Hours_Logged": row["Hours_Logged"],
+        "Created_Timestamp": row["Created_Timestamp"],
+        "UAT_Hours": row["UAT_Hours"],
+        "Int_Hours": row["Int_Hours"],
+        "Other_Hours": row["Other_Hours"],
+        "Jira_Status": row["Jira_Status"],
+        "Week_Of": row["Week_Of"]
+      });
+    }
+  });
+
+  return exportedRows;
 }
 
 /**
@@ -1096,7 +1320,9 @@ function getTpmDashboardData(startDateStr, endDateStr, forceRefresh = false) {
           int: 0,
           uat: 0,
           other: 0,
-          total: 0
+          total: 0,
+          dailyBreakdown: {},
+          dailyPhaseBreakdown: {}
         };
       }
       
@@ -1105,6 +1331,22 @@ function getTpmDashboardData(startDateStr, endDateStr, forceRefresh = false) {
       ticketLogsMap[email][key].uat += uatHrs;
       ticketLogsMap[email][key].other += otherHrs;
       ticketLogsMap[email][key].total += hours;
+
+      if (!ticketLogsMap[email][key].dailyBreakdown) {
+        ticketLogsMap[email][key].dailyBreakdown = {};
+      }
+      ticketLogsMap[email][key].dailyBreakdown[date] = (ticketLogsMap[email][key].dailyBreakdown[date] || 0) + hours;
+
+      if (!ticketLogsMap[email][key].dailyPhaseBreakdown) {
+        ticketLogsMap[email][key].dailyPhaseBreakdown = {};
+      }
+      if (!ticketLogsMap[email][key].dailyPhaseBreakdown[date]) {
+        ticketLogsMap[email][key].dailyPhaseBreakdown[date] = { total: 0, int: 0, uat: 0, other: 0 };
+      }
+      ticketLogsMap[email][key].dailyPhaseBreakdown[date].total += hours;
+      ticketLogsMap[email][key].dailyPhaseBreakdown[date].int += intHrs;
+      ticketLogsMap[email][key].dailyPhaseBreakdown[date].uat += uatHrs;
+      ticketLogsMap[email][key].dailyPhaseBreakdown[date].other += otherHrs;
     }
   });
 
@@ -1336,6 +1578,7 @@ function getMonthYearFromDateStr(dateStr) {
  * HELPER: Syncs the raw logged hours for a TPM user to their monthly core allocation card generically.
  */
 function syncTpmAllocationHours(ss, userEmail, targetMonthYear, product, subProduct, hours) {
+  const tz = ss.getSpreadsheetTimeZone();
   const allocSheet = ss.getSheetByName(CONFIG.SHEETS.ALLOCATION_HISTORICAL);
   if (!allocSheet) {
     console.error("Allocation Historical sheet not found.");
@@ -1390,7 +1633,7 @@ function syncTpmAllocationHours(ss, userEmail, targetMonthYear, product, subProd
   for (let i = 1; i < data.length; i++) {
     const rowEmail = String(data[i][emailIdx]).toLowerCase().trim();
     const rawP = data[i][periodIdx];
-    const rowPeriod = (rawP instanceof Date) ? Utilities.formatDate(rawP, "GMT", "MMMM yyyy") : String(rawP).trim();
+    const rowPeriod = (rawP instanceof Date) ? Utilities.formatDate(rawP, tz, "MMMM yyyy") : String(rawP).trim();
     const rowProduct = String(data[i][productIdx]).trim().toLowerCase();
     const rowSubProduct = String(data[i][subProductIdx]).trim().toLowerCase();
 
@@ -1537,12 +1780,16 @@ function sendTpmComplianceNudge(emails, weekStartDateStr, customSubject = "", cu
     );
 
     try {
-      MailApp.sendEmail({
-        to: email,
-        subject: subject,
-        body: body, // Plain text fallback
-        htmlBody: wrappedHtmlBody
-      });
+      if (CONFIG.ENVIRONMENT === 'PROD') {
+        MailApp.sendEmail({
+          to: email,
+          subject: subject,
+          body: body, // Plain text fallback
+          htmlBody: wrappedHtmlBody
+        });
+      } else {
+        console.log(`[UAT GUARD] Suppressed TPM email to ${email} (Subject: ${subject})`);
+      }
     } catch (e) {
       console.error("Failed to send nudge email to " + email + ": " + e.message);
     }
@@ -1559,8 +1806,13 @@ function sendTpmComplianceNudge(emails, weekStartDateStr, customSubject = "", cu
 
       // Format markdown nicely for Google Chat
       const chatMessage = `*${subject}*\n\n${body}\n\n*Portal Link:* ${portalUrl}`;
-      Chat.Spaces.Messages.create({ text: chatMessage }, space.name);
-      console.log("Successfully sent Google Chat nudge to " + email);
+      
+      if (CONFIG.ENVIRONMENT === 'PROD') {
+        Chat.Spaces.Messages.create({ text: chatMessage }, space.name);
+        console.log("Successfully sent Google Chat nudge to " + email);
+      } else {
+        console.log(`[UAT GUARD] Suppressed TPM Google Chat DM to ${email}`);
+      }
     } catch (chatErr) {
       console.error("Failed to send Google Chat nudge to " + email + ": " + chatErr.message);
     }
@@ -1771,21 +2023,381 @@ function executeAutomatedTpmNudge() {
  * Execute this once from the Apps Script editor.
  */
 function setupAutomatedTpmNudgeTrigger() {
-  const functionName = "executeAutomatedTpmNudge";
+  const functionsToRegister = ["executeAutomatedTpmNudge_UAT", "executeAutomatedTpmNudge_PROD"];
 
   const triggers = ScriptApp.getProjectTriggers();
   triggers.forEach(t => {
-    if (t.getHandlerFunction() === functionName) {
+    if (functionsToRegister.indexOf(t.getHandlerFunction()) !== -1 || t.getHandlerFunction() === "executeAutomatedTpmNudge") {
       ScriptApp.deleteTrigger(t);
     }
   });
 
-  ScriptApp.newTrigger(functionName)
-    .timeBased()
-    .everyWeeks(1)
-    .onWeekDay(ScriptApp.WeekDay.FRIDAY)
-    .atHour(8)
-    .create();
+  functionsToRegister.forEach(fn => {
+    ScriptApp.newTrigger(fn)
+      .timeBased()
+      .everyWeeks(1)
+      .onWeekDay(ScriptApp.WeekDay.FRIDAY)
+      .atHour(8)
+      .create();
+  });
 
-  console.log(`Weekly trigger successfully established for ${functionName}() (Runs Fridays between 8:00 AM - 9:00 AM).`);
+  console.log(`Weekly triggers successfully established for ${functionsToRegister.join(", ")}() (Runs Fridays between 8:00 AM - 9:00 AM).`);
+}
+
+/**
+ * =========================================================================
+ * TPM TIMESHEET UNLOCK EXCEPTION HANDLERS
+ * =========================================================================
+ */
+
+/**
+ * Security helper to verify if the active user is a manager of the target employee.
+ * @param {string} employeeEmail Target employee's email
+ * @returns {boolean} True if active user is manager (at any level) or Admin.
+ */
+function isTpmManagerOf(employeeEmail) {
+  const session = getCurrentUserSession();
+  const activeEmail = String(session.email).toLowerCase().trim();
+  employeeEmail = String(employeeEmail).toLowerCase().trim();
+  
+  // Admins always have view/edit rights
+  const adminList = getAdminEmails().map(e => String(e).toLowerCase().trim());
+  if (adminList.includes(activeEmail) || session.identityTier === 3) {
+    return true;
+  }
+  
+  if (activeEmail === employeeEmail) {
+    return false; // A manager cannot unlock their own timesheet (requires their manager or admin)
+  }
+
+  const allEmployees = getSheetData(CONFIG.SHEETS.EMPLOYEES);
+  const empMap = {};
+  allEmployees.forEach(e => {
+    const email = String(e["Email Address"] || "").toLowerCase().trim();
+    if (email) empMap[email] = e;
+  });
+
+  // Traverse hierarchy up from the employee
+  let current = employeeEmail;
+  const visited = new Set();
+  while (current) {
+    visited.add(current);
+    const rec = empMap[current];
+    const nextMgr = rec ? String(rec["Direct Manager Email"] || "").trim().toLowerCase() : "";
+    
+    if (nextMgr === activeEmail) {
+      return true;
+    }
+    
+    if (!nextMgr || nextMgr === current || visited.has(nextMgr)) {
+      break;
+    }
+    current = nextMgr;
+  }
+  
+  return false;
+}
+
+/**
+ * Queries active timesheet unlock exceptions for a specific employee.
+ * @param {string} email Employee's email address
+ * @returns {Array<string>} List of unlocked week start dates in YYYY-MM-DD format
+ */
+function getTpmUnlockExceptions(email) {
+  if (!email) return [];
+  email = String(email).toLowerCase().trim();
+  
+  const ss = getSpreadsheet();
+  const sheetName = CONFIG.SHEETS.TPM_UNLOCK_LOG;
+  const sheet = ss.getSheetByName(sheetName);
+  if (!sheet) {
+    console.warn(`[UNLOCK] Exception logging sheet "${sheetName}" not found. Bypassing check.`);
+    return [];
+  }
+  
+  const data = sheet.getDataRange().getValues();
+  if (data.length <= 1) return [];
+  
+  const headers = data[0].map(h => String(h).toLowerCase().trim());
+  const emailIdx = headers.indexOf("employee email");
+  const weekIdx = headers.indexOf("week start date");
+  const statusIdx = headers.indexOf("status");
+  
+  if (emailIdx === -1 || weekIdx === -1 || statusIdx === -1) {
+    console.error("[UNLOCK] Incompatible column headers in TPM_Unlock_Log sheet.");
+    return [];
+  }
+  
+  const unlockedWeeks = [];
+  for (let i = 1; i < data.length; i++) {
+    const rowEmail = String(data[i][emailIdx]).toLowerCase().trim();
+    const rowWeek = String(data[i][weekIdx]).trim();
+    const rowStatus = String(data[i][statusIdx]).toLowerCase().trim();
+    
+    if (rowEmail === email && rowStatus === "active") {
+      // Clean date formatting if it's a date object
+      let weekStr = rowWeek;
+      if (data[i][weekIdx] instanceof Date) {
+        weekStr = Utilities.formatDate(data[i][weekIdx], ss.getSpreadsheetTimeZone(), "yyyy-MM-dd");
+      }
+      unlockedWeeks.push(weekStr);
+    }
+  }
+  
+  return unlockedWeeks;
+}
+
+/**
+ * Creates a new active timesheet unlock exception for an employee.
+ * Strictly checks that the caller is the employee's direct/indirect manager or Admin.
+ * @param {string} employeeEmail Email of the report to unlock
+ * @param {string} weekStartDate The start date of the week to unlock (YYYY-MM-DD)
+ */
+function createTpmUnlockException(employeeEmail, weekStartDate) {
+  const session = getCurrentUserSession(); // Verify user session
+  if (!session) throw new Error("Unauthorized: Active session required.");
+  
+  const managerEmail = String(session.email).toLowerCase().trim();
+  employeeEmail = String(employeeEmail).toLowerCase().trim();
+  weekStartDate = String(weekStartDate).trim();
+  
+  // 1. Authorization: Verify caller is Manager (indirect or direct) or Admin
+  const isAuthorized = isTpmManagerOf(employeeEmail);
+  if (!isAuthorized) {
+    throw new Error("Unauthorized: You must be this employee's direct or indirect manager to unlock past weeks.");
+  }
+  
+  const ss = getSpreadsheet();
+  const sheetName = CONFIG.SHEETS.TPM_UNLOCK_LOG;
+  const sheet = ss.getSheetByName(sheetName);
+  if (!sheet) {
+    throw new Error(`Critical: Setup error. The logging sheet "${sheetName}" was not found.`);
+  }
+  
+  // Check if an active override already exists for this employee and week
+  const unlocked = getTpmUnlockExceptions(employeeEmail);
+  if (unlocked.indexOf(weekStartDate) !== -1) {
+    return { success: true, message: `An active unlock already exists for ${employeeEmail} for week of ${weekStartDate}.` };
+  }
+  
+  // Append new Active exception row
+  sheet.appendRow([
+    employeeEmail,
+    weekStartDate,
+    managerEmail,
+    new Date(),
+    "Active"
+  ]);
+  
+  console.log(`[UNLOCK] Manager ${managerEmail} unlocked week of ${weekStartDate} for employee ${employeeEmail}.`);
+  
+  // Log telemetry / audit log
+  logSystemEvent(
+    managerEmail,
+    "SYSTEM",
+    `Unlocked TPM Timesheet Week: ${weekStartDate} for ${employeeEmail}`,
+    "N/A",
+    "Locked",
+    "Unlocked"
+  );
+  
+  return { success: true, message: `Successfully unlocked week of ${weekStartDate} for ${employeeEmail}.` };
+}
+
+/**
+ * Marks an active timesheet exception as consumed.
+ * Called immediately upon successful timesheet submission for the unlocked week.
+ * @param {string} email Employee's email
+ * @param {string} weekStartDate The start date of the week (YYYY-MM-DD)
+ */
+function consumeTpmUnlockException(email, weekStartDate) {
+  if (!email || !weekStartDate) return;
+  email = String(email).toLowerCase().trim();
+  weekStartDate = String(weekStartDate).trim();
+  
+  const ss = getSpreadsheet();
+  const sheetName = CONFIG.SHEETS.TPM_UNLOCK_LOG;
+  const sheet = ss.getSheetByName(sheetName);
+  if (!sheet) return;
+  
+  const range = sheet.getDataRange();
+  const data = range.getValues();
+  if (data.length <= 1) return;
+  
+  const headers = data[0].map(h => String(h).toLowerCase().trim());
+  const emailIdx = headers.indexOf("employee email");
+  const weekIdx = headers.indexOf("week start date");
+  const statusIdx = headers.indexOf("status");
+  
+  if (emailIdx === -1 || weekIdx === -1 || statusIdx === -1) return;
+  
+  for (let i = 1; i < data.length; i++) {
+    const rowEmail = String(data[i][emailIdx]).toLowerCase().trim();
+    const rowStatus = String(data[i][statusIdx]).toLowerCase().trim();
+    
+    let rowWeek = String(data[i][weekIdx]).trim();
+    if (data[i][weekIdx] instanceof Date) {
+      rowWeek = Utilities.formatDate(data[i][weekIdx], ss.getSpreadsheetTimeZone(), "yyyy-MM-dd");
+    }
+    
+    if (rowEmail === email && rowWeek === weekStartDate && rowStatus === "active") {
+      sheet.getRange(i + 1, statusIdx + 1).setValue("Consumed");
+      console.log(`[UNLOCK] Exception successfully consumed and timesheet locked for ${email} on week of ${weekStartDate}.`);
+      
+      logSystemEvent(
+        email,
+        "SYSTEM",
+        `Consumed TPM Timesheet Exception: ${weekStartDate}`,
+        "N/A",
+        "Unlocked",
+        "Locked (Consumed)"
+      );
+      break;
+    }
+  }
+}
+
+/**
+ * Retrieves all active timesheet unlock exceptions for reports of the logged-in manager.
+ * @returns {Array<object>} List of active unlock exception objects
+ */
+function getActiveTpmUnlockExceptionsForManager() {
+  const session = getCurrentUserSession();
+  if (!session) return [];
+  const managerEmail = String(session.email).toLowerCase().trim();
+  
+  const ss = getSpreadsheet();
+  const sheetName = CONFIG.SHEETS.TPM_UNLOCK_LOG;
+  const sheet = ss.getSheetByName(sheetName);
+  if (!sheet) return [];
+  
+  const range = sheet.getDataRange();
+  const data = range.getValues();
+  if (data.length <= 1) return [];
+  
+  const headers = data[0].map(h => String(h).toLowerCase().trim());
+  const emailIdx = headers.indexOf("employee email");
+  const weekIdx = headers.indexOf("week start date");
+  const unlockedByIdx = headers.indexOf("unlocked by");
+  const unlockedAtIdx = headers.indexOf("unlocked at");
+  const statusIdx = headers.indexOf("status");
+  
+  if (emailIdx === -1 || weekIdx === -1 || statusIdx === -1) return [];
+  
+  const activeExceptions = [];
+  const allEmployees = getSheetData(CONFIG.SHEETS.EMPLOYEES);
+  const empMap = {};
+  allEmployees.forEach(e => {
+    const email = String(e["Email Address"] || "").toLowerCase().trim();
+    if (email) empMap[email] = e;
+  });
+
+  const isViewAll = session.identityTier === 3 || managerEmail === 'jack.jeffreys@osttra.com';
+
+  for (let i = 1; i < data.length; i++) {
+    const rowEmail = String(data[i][emailIdx]).toLowerCase().trim();
+    const rowStatus = String(data[i][statusIdx]).toLowerCase().trim();
+    
+    if (rowStatus !== "active") continue;
+    
+    // Authorization: is this employee a report of the logged-in manager?
+    let isAuthorized = isViewAll;
+    if (!isAuthorized) {
+      let current = rowEmail;
+      const visited = new Set();
+      while (current) {
+        visited.add(current);
+        if (current === managerEmail) {
+          isAuthorized = true;
+          break;
+        }
+        const rec = empMap[current];
+        const nextMgr = rec ? String(rec["Direct Manager Email"] || "").trim().toLowerCase() : "";
+        if (!nextMgr || nextMgr === current || visited.has(nextMgr)) {
+          break;
+        }
+        current = nextMgr;
+      }
+    }
+    
+    if (isAuthorized) {
+      let weekStr = String(data[i][weekIdx]).trim();
+      if (data[i][weekIdx] instanceof Date) {
+        weekStr = Utilities.formatDate(data[i][weekIdx], ss.getSpreadsheetTimeZone(), "yyyy-MM-dd");
+      }
+      
+      let unlockedAtStr = "";
+      if (data[i][unlockedAtIdx] instanceof Date) {
+        unlockedAtStr = Utilities.formatDate(data[i][unlockedAtIdx], ss.getSpreadsheetTimeZone(), "yyyy-MM-dd HH:mm:ss");
+      } else {
+        unlockedAtStr = String(data[i][unlockedAtIdx]).trim();
+      }
+
+      const empRec = empMap[rowEmail];
+      const empName = empRec ? (empRec["Google Chat Full Name"] || empRec["HR Name"] || rowEmail.split('@')[0]) : rowEmail.split('@')[0];
+
+      activeExceptions.push({
+        rowId: i + 1, // 1-based spreadsheet row index
+        employeeEmail: rowEmail,
+        employeeName: empName,
+        weekStartDate: weekStr,
+        unlockedBy: String(data[i][unlockedByIdx]).trim(),
+        unlockedAt: unlockedAtStr,
+        status: data[i][statusIdx]
+      });
+    }
+  }
+  
+  return activeExceptions;
+}
+
+/**
+ * Revokes an active timesheet exception on the sheet.
+ * @param {number} rowId Spreadsheet row index
+ */
+function revokeTpmUnlockException(rowId) {
+  const session = getCurrentUserSession();
+  if (!session) throw new Error("Unauthorized: Active session required.");
+  const managerEmail = String(session.email).toLowerCase().trim();
+  
+  const ss = getSpreadsheet();
+  const sheetName = CONFIG.SHEETS.TPM_UNLOCK_LOG;
+  const sheet = ss.getSheetByName(sheetName);
+  if (!sheet) throw new Error("TPM Unlock Log sheet not found.");
+  
+  const range = sheet.getRange(rowId, 1, 1, sheet.getLastColumn());
+  const rowData = range.getValues()[0];
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0].map(h => String(h).toLowerCase().trim());
+  
+  const emailIdx = headers.indexOf("employee email");
+  const weekIdx = headers.indexOf("week start date");
+  const statusIdx = headers.indexOf("status");
+  
+  if (emailIdx === -1 || weekIdx === -1 || statusIdx === -1) {
+    throw new Error("Critical: Setup error in sheet headers.");
+  }
+  
+  const employeeEmail = String(rowData[emailIdx]).toLowerCase().trim();
+  const weekStartDate = String(rowData[weekIdx]).trim();
+  
+  // Authorization: Verify caller is manager of this employee
+  const isAuthorized = isTpmManagerOf(employeeEmail);
+  if (!isAuthorized) {
+    throw new Error("Unauthorized: You must be this employee's direct/indirect manager or Admin to revoke unlocks.");
+  }
+  
+  // Set value of status to Revoked
+  sheet.getRange(rowId, statusIdx + 1).setValue("Revoked");
+  console.log(`[REVOKE] Manager ${managerEmail} revoked timesheet unlock exception for ${employeeEmail} on week of ${weekStartDate}.`);
+  
+  logSystemEvent(
+    managerEmail,
+    "SYSTEM",
+    `Revoked TPM Timesheet Exception for ${employeeEmail} (Week: ${weekStartDate})`,
+    "N/A",
+    "Unlocked",
+    "Locked (Revoked)"
+  );
+  
+  return { success: true, message: `Successfully revoked unlock exception for ${employeeEmail}.` };
 }

@@ -31,19 +31,7 @@
       </div>
     </div>
 
-    <!-- Finance Export Card (Functional Setting) -->
-    <div onclick="openFinanceExportModal()" class="bg-[#1a1a1a]/30 border border-white/5 p-6 rounded-2xl hover:border-emerald-500/50 hover:bg-[#1a1a1a]/40 transition-all cursor-pointer group border-l-4 border-emerald-500 flex flex-col justify-between">
-      <div>
-        <div class="w-12 h-12 bg-emerald-500/10 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-          <i class="fas fa-file-csv text-emerald-500 text-2xl"></i>
-        </div>
-        <h3 class="text-lg font-bold text-white mb-2 uppercase tracking-widest">Finance Export</h3>
-        <p id="finance-export-desc" class="text-xs text-gray-500 leading-relaxed">Download active cycle allocation data mapped to Finance classification (Run/Change).</p>
-      </div>
-      <div class="mt-4 pt-4 border-t border-white/5 text-[9px] font-black uppercase text-white/40 tracking-widest">
-        Format: Granular CSV
-      </div>
-    </div>
+
 
     <!-- Run Data Audit Card (Technical Setting) -->
     <div onclick="openAuditModal()" class="bg-[#1a1a1a]/30 border border-white/5 p-6 rounded-2xl hover:border-osttra-violet/50 hover:bg-[#1a1a1a]/40 transition-all cursor-pointer group border-l-4 border-osttra-violet flex flex-col justify-between">
@@ -109,6 +97,184 @@
         <span>Bypass 6-Hour Cache</span>
         <span class="text-osttra-ochre group-hover:underline">Flush Caches &rarr;</span>
       </div>
+    </div>
+  </div>
+
+  <!-- Programmatic Background Triggers Section -->
+  <div class="mt-12 space-y-6">
+    <div class="space-y-2">
+      <h2 class="text-xl font-black text-white uppercase tracking-widest flex items-center gap-3 italic">
+        <i class="fas fa-clock text-osttra-rubine animate-pulse"></i> Background Jobs (Triggers)
+      </h2>
+      <p class="text-gray-400 text-xs">Automated server-side routines. Deploy separate, distinct background triggers for UAT and PROD concurrently with dedicated frequencies and intervals.</p>
+    </div>
+
+    <!-- Execution Context Warning Banner -->
+    <div class="bg-yellow-500/10 border border-yellow-500/20 p-4 rounded-xl flex items-start gap-4">
+      <div class="text-yellow-500 mt-0.5">
+        <i class="fas fa-exclamation-triangle"></i>
+      </div>
+      <div>
+        <h4 class="text-yellow-500 text-xs font-bold uppercase tracking-widest mb-1">Execution Context Warning</h4>
+        <p class="text-[11px] text-yellow-500/80 leading-relaxed">
+          When you click "Schedule" or "Toggle", the Google Apps Script engine creates the background cron job under the <strong>currently active Google Account</strong>. 
+          To ensure production schedules are owned by the official service account, you must log into this dashboard as <code class="bg-yellow-500/20 px-1 py-0.5 rounded text-yellow-400">svc-nexus@osttra.com</code> before establishing triggers.
+        </p>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+      
+      <!-- Trigger: Rolling Backup -->
+      <div class="bg-[#1a1a1a]/30 border border-white/5 p-6 rounded-3xl border-l-4 border-emerald-500 flex flex-col justify-between">
+        <div>
+          <span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 text-[8px] font-black uppercase tracking-widest">System</span>
+          <h3 class="text-sm font-bold text-white mt-2 mb-1 tracking-wider uppercase">Rolling Backup</h3>
+          <p class="text-[9px] font-mono text-emerald-400 uppercase tracking-widest mb-3"><i class="fas fa-history text-xs mr-1"></i> Every 30 Minutes</p>
+          <p class="text-[11px] text-gray-500 mb-6 leading-relaxed">Exports and archives a full database snapshot into the Google Drive secure compliance storage.</p>
+        </div>
+        <div class="grid grid-cols-2 gap-2 mt-auto">
+          <button onclick="runAdhocJob('executeRollingBackup', 'Rolling Backup')" class="w-full py-2.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-[9px] font-black uppercase tracking-widest rounded-xl transition-all border border-emerald-500/20 flex items-center justify-center gap-1" title="Execute immediately">
+            <i class="fas fa-play"></i> Run Now
+          </button>
+          <button onclick="reinitializeTrigger('setupRollingBackupTrigger', 'Rolling Backup')" class="w-full py-2.5 bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white text-[9px] font-black uppercase tracking-widest rounded-xl transition-all border border-white/10 flex items-center justify-center gap-1" title="Re-deploy the automated background schedule">
+            <i class="fas fa-sync"></i> Schedule
+          </button>
+        </div>
+      </div>
+
+      <!-- Trigger: Audit Sync -->
+      <div class="bg-[#1a1a1a]/30 border border-white/5 p-6 rounded-3xl border-l-4 border-osttra-violet flex flex-col justify-between">
+        <div>
+          <span class="px-2 py-0.5 rounded bg-osttra-violet/10 text-osttra-violet text-[8px] font-black uppercase tracking-widest">Compliance</span>
+          <h3 class="text-sm font-bold text-white mt-2 mb-1 tracking-wider uppercase">Dayforce Sync Audit</h3>
+          <p class="text-[9px] font-mono text-osttra-violet uppercase tracking-widest mb-3"><i class="fas fa-history text-xs mr-1"></i> Every 1 Hour</p>
+          <p class="text-[11px] text-gray-500 mb-6 leading-relaxed">Cross-references active directory accounts against Dayforce HRIS to identify missing or stale accounts.</p>
+        </div>
+        <div class="grid grid-cols-2 gap-2 mt-auto">
+          <button onclick="runAdhocJob('auditDayforceVsGoogle', 'Dayforce Sync Audit')" class="w-full py-2.5 bg-osttra-violet/10 hover:bg-osttra-violet/20 text-osttra-violet text-[9px] font-black uppercase tracking-widest rounded-xl transition-all border border-osttra-violet/20 flex items-center justify-center gap-1" title="Execute immediately">
+            <i class="fas fa-play"></i> Run Now
+          </button>
+          <button onclick="reinitializeTrigger('toggleAuditTrigger', 'Dayforce Sync Audit')" class="w-full py-2.5 bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white text-[9px] font-black uppercase tracking-widest rounded-xl transition-all border border-white/10 flex items-center justify-center gap-1" title="Toggle the automated background schedule">
+            <i class="fas fa-sync"></i> Toggle
+          </button>
+        </div>
+      </div>
+
+      <!-- Trigger: Allocation Reminders -->
+      <div class="bg-[#1a1a1a]/30 border border-white/5 p-6 rounded-3xl border-l-4 border-osttra-ochre flex flex-col justify-between">
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="px-2 py-0.5 rounded bg-osttra-ochre/10 text-osttra-ochre text-[8px] font-black uppercase tracking-widest">Nudges</span>
+            <span class="px-2 py-0.5 rounded bg-red-500/10 text-red-500 border border-red-500/20 text-[8px] font-black uppercase tracking-widest" title="Emails and Chats are strictly suppressed in the UAT environment to prevent spam"><i class="fas fa-bell-slash mr-1"></i> PROD Only</span>
+          </div>
+          <h3 class="text-sm font-bold text-white mt-2 mb-1 tracking-wider uppercase">Allocation Reminders</h3>
+          <p class="text-[9px] font-mono text-osttra-ochre uppercase tracking-widest mb-3"><i class="fas fa-history text-xs mr-1"></i> Daily at 8:00 AM</p>
+          <p class="text-[11px] text-gray-500 mb-6 leading-relaxed">Fires Google Chat and email reminders to resources with incomplete monthly work allocations.</p>
+        </div>
+        <div class="grid grid-cols-2 gap-2 mt-auto">
+          <button onclick="runAdhocJob('runAutomatedAllocationReminders', 'Allocation Reminders')" class="w-full py-2.5 bg-osttra-ochre/10 hover:bg-osttra-ochre/20 text-osttra-ochre text-[9px] font-black uppercase tracking-widest rounded-xl transition-all border border-osttra-ochre/20 flex items-center justify-center gap-1" title="Execute immediately">
+            <i class="fas fa-play"></i> Run Now
+          </button>
+          <button onclick="reinitializeTrigger('setupAutomatedAllocationRemindersTrigger', 'Allocation Reminders')" class="w-full py-2.5 bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white text-[9px] font-black uppercase tracking-widest rounded-xl transition-all border border-white/10 flex items-center justify-center gap-1" title="Re-deploy the automated background schedule">
+            <i class="fas fa-sync"></i> Schedule
+          </button>
+        </div>
+      </div>
+
+      <!-- Trigger: Monthly Snapshot -->
+      <div class="bg-[#1a1a1a]/30 border border-white/5 p-6 rounded-3xl border-l-4 border-blue-500 flex flex-col justify-between">
+        <div>
+          <span class="px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 text-[8px] font-black uppercase tracking-widest">Data Lock</span>
+          <h3 class="text-sm font-bold text-white mt-2 mb-1 tracking-wider uppercase">Allocation Snapshot</h3>
+          <p class="text-[9px] font-mono text-blue-400 uppercase tracking-widest mb-3"><i class="fas fa-history text-xs mr-1"></i> 1st of Month at 00:00</p>
+          <p class="text-[11px] text-gray-500 mb-6 leading-relaxed">Locks in current monthly allocations, writing baseline stats to the history tables.</p>
+        </div>
+        <div class="grid grid-cols-2 gap-2 mt-auto">
+          <button onclick="runAdhocJob('generateMonthlyAllocationSnapshot', 'Allocation Snapshot')" class="w-full py-2.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 text-[9px] font-black uppercase tracking-widest rounded-xl transition-all border border-blue-500/20 flex items-center justify-center gap-1" title="Execute immediately">
+            <i class="fas fa-play"></i> Run Now
+          </button>
+          <button onclick="reinitializeTrigger('setupAllocationSnapshotTrigger', 'Monthly Allocation Snapshot')" class="w-full py-2.5 bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white text-[9px] font-black uppercase tracking-widest rounded-xl transition-all border border-white/10 flex items-center justify-center gap-1" title="Re-deploy the automated background schedule">
+            <i class="fas fa-sync"></i> Schedule
+          </button>
+        </div>
+      </div>
+
+      <!-- Trigger: Opex Sync -->
+      <div class="bg-[#1a1a1a]/30 border border-white/5 p-6 rounded-3xl border-l-4 border-pink-500 flex flex-col justify-between">
+        <div>
+          <span class="px-2 py-0.5 rounded bg-pink-500/10 text-pink-400 text-[8px] font-black uppercase tracking-widest">OPEX</span>
+          <h3 class="text-sm font-bold text-white mt-2 mb-1 tracking-wider uppercase">OPEX Jira Sync</h3>
+          <p class="text-[9px] font-mono text-pink-400 uppercase tracking-widest mb-3"><i class="fas fa-history text-xs mr-1"></i> Every 4 Hours</p>
+          <p class="text-[11px] text-gray-500 mb-6 leading-relaxed">Queries and caches project boards, parent Epics, and issue logs from the Jira Cloud APIs.</p>
+        </div>
+        <div class="grid grid-cols-2 gap-2 mt-auto">
+          <button onclick="runAdhocJob('syncOpexJiraData', 'OPEX Jira Sync')" class="w-full py-2.5 bg-pink-500/10 hover:bg-pink-500/20 text-pink-400 text-[9px] font-black uppercase tracking-widest rounded-xl transition-all border border-pink-500/20 flex items-center justify-center gap-1" title="Execute immediately">
+            <i class="fas fa-play"></i> Run Now
+          </button>
+          <button onclick="reinitializeTrigger('createOpexJiraSyncTrigger', 'OPEX Jira Sync')" class="w-full py-2.5 bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white text-[9px] font-black uppercase tracking-widest rounded-xl transition-all border border-white/10 flex items-center justify-center gap-1" title="Re-deploy the automated background schedule">
+            <i class="fas fa-sync"></i> Schedule
+          </button>
+        </div>
+      </div>
+
+      <!-- Trigger: TPM Nudge -->
+      <div class="bg-[#1a1a1a]/30 border border-white/5 p-6 rounded-3xl border-l-4 border-purple-500 flex flex-col justify-between">
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="px-2 py-0.5 rounded bg-purple-500/10 text-purple-400 text-[8px] font-black uppercase tracking-widest">TPM</span>
+            <span class="px-2 py-0.5 rounded bg-red-500/10 text-red-500 border border-red-500/20 text-[8px] font-black uppercase tracking-widest" title="Emails and Chats are strictly suppressed in the UAT environment to prevent spam"><i class="fas fa-bell-slash mr-1"></i> PROD Only</span>
+          </div>
+          <h3 class="text-sm font-bold text-white mt-2 mb-1 tracking-wider uppercase">TPM Compliance Nudge</h3>
+          <p class="text-[9px] font-mono text-purple-400 uppercase tracking-widest mb-3"><i class="fas fa-history text-xs mr-1"></i> Fridays at 8:00 AM</p>
+          <p class="text-[11px] text-gray-500 mb-6 leading-relaxed">Dispatches timesheet compliance notifications and reminders to the TPM engineering group.</p>
+        </div>
+        <div class="grid grid-cols-2 gap-2 mt-auto">
+          <button onclick="runAdhocJob('executeAutomatedTpmNudge', 'TPM Compliance Nudge')" class="w-full py-2.5 bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 text-[9px] font-black uppercase tracking-widest rounded-xl transition-all border border-purple-500/20 flex items-center justify-center gap-1" title="Execute immediately">
+            <i class="fas fa-play"></i> Run Now
+          </button>
+          <button onclick="reinitializeTrigger('setupAutomatedTpmNudgeTrigger', 'TPM Compliance Nudge')" class="w-full py-2.5 bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white text-[9px] font-black uppercase tracking-widest rounded-xl transition-all border border-white/10 flex items-center justify-center gap-1" title="Re-deploy the automated background schedule">
+            <i class="fas fa-sync"></i> Schedule
+          </button>
+        </div>
+      </div>
+
+      <!-- Trigger: Org Master Data Export -->
+      <div class="bg-[#1a1a1a]/30 border border-white/5 p-6 rounded-3xl border-l-4 border-cyan-500 flex flex-col justify-between">
+        <div>
+          <span class="px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-400 text-[8px] font-black uppercase tracking-widest">Exports</span>
+          <h3 class="text-sm font-bold text-white mt-2 mb-1 tracking-wider uppercase">Org Master Data Export</h3>
+          <p class="text-[9px] font-mono text-cyan-400 uppercase tracking-widest mb-3"><i class="fas fa-history text-xs mr-1"></i> Daily at 1:00 AM</p>
+          <p class="text-[11px] text-gray-500 mb-6 leading-relaxed">Compiles and exports filtered corporate master data for Anup Hariharan's organization.</p>
+        </div>
+        <div class="grid grid-cols-2 gap-2 mt-auto">
+          <button onclick="runAdhocJob('exportAnupOrgMasterData', 'Org Master Data Export')" class="w-full py-2.5 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 text-[9px] font-black uppercase tracking-widest rounded-xl transition-all border border-cyan-500/20 flex items-center justify-center gap-1" title="Execute immediately">
+            <i class="fas fa-play"></i> Run Now
+          </button>
+          <button onclick="reinitializeTrigger('setupOrgMasterDataTrigger', 'Org Master Data Export')" class="w-full py-2.5 bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white text-[9px] font-black uppercase tracking-widest rounded-xl transition-all border border-white/10 flex items-center justify-center gap-1" title="Re-deploy the automated background schedule">
+            <i class="fas fa-sync"></i> Schedule
+          </button>
+        </div>
+      </div>
+
+      <!-- Trigger: TPM Jira Sync -->
+      <div class="bg-[#1a1a1a]/30 border border-white/5 p-6 rounded-3xl border-l-4 border-teal-500 flex flex-col justify-between">
+        <div>
+          <span class="px-2 py-0.5 rounded bg-teal-500/10 text-teal-400 text-[8px] font-black uppercase tracking-widest">TPM Sync</span>
+          <h3 class="text-sm font-bold text-white mt-2 mb-1 tracking-wider uppercase">TPM Jira Sync</h3>
+          <p class="text-[9px] font-mono text-teal-400 uppercase tracking-widest mb-3"><i class="fas fa-history text-xs mr-1"></i> Daily at 2:00 AM</p>
+          <p class="text-[11px] text-gray-500 mb-6 leading-relaxed">Aggregates and caches detailed engineering ticket schedules and logs from TPM board configurations.</p>
+        </div>
+        <div class="grid grid-cols-2 gap-2 mt-auto">
+          <button onclick="runAdhocJob('syncTpmJiraData', 'TPM Jira Sync')" class="w-full py-2.5 bg-teal-500/10 hover:bg-teal-500/20 text-teal-400 text-[9px] font-black uppercase tracking-widest rounded-xl transition-all border border-teal-500/20 flex items-center justify-center gap-1" title="Execute immediately">
+            <i class="fas fa-play"></i> Run Now
+          </button>
+          <button onclick="reinitializeTrigger('setupTpmJiraDataTrigger', 'TPM Jira Sync')" class="w-full py-2.5 bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white text-[9px] font-black uppercase tracking-widest rounded-xl transition-all border border-white/10 flex items-center justify-center gap-1" title="Re-deploy the automated background schedule">
+            <i class="fas fa-sync"></i> Schedule
+          </button>
+        </div>
+      </div>
+
     </div>
   </div>
 
@@ -182,42 +348,7 @@
     </div>
   </div>
 
-  <!-- Finance Export Period Dialog (New) -->
-  <div id="finance-export-modal" class="hidden fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-    <div class="glass border border-white/10 w-full max-w-md rounded-[2rem] overflow-hidden flex flex-col shadow-2xl animate-in zoom-in duration-300">
-      
-      <!-- Modal Header -->
-      <div class="px-8 py-6 border-b border-white/5 bg-[#1a1a1a]/80">
-        <h3 class="text-lg font-black uppercase text-white tracking-tight italic flex items-center gap-2">
-          <i class="fas fa-file-invoice-dollar text-emerald-500"></i> Finance Export
-        </h3>
-        <p class="text-[10px] text-white/40 uppercase tracking-widest font-semibold mt-1">Select Period from App Employee Allocation Data</p>
-      </div>
 
-      <!-- Modal Content -->
-      <div class="p-8 space-y-6">
-        <div class="space-y-2">
-          <label class="text-[8px] font-black text-white/40 uppercase tracking-widest pl-1">Available Periods</label>
-          <div id="finance-period-loader" class="flex items-center gap-2 py-3 px-4 bg-white/5 border border-white/5 rounded-xl text-xs text-white/50 animate-pulse">
-            <i class="fas fa-circle-notch animate-spin text-emerald-500"></i> Fetching available periods...
-          </div>
-          <select id="finance-period-select" class="hidden w-full bg-[#1a1a1a]/80 border border-white/5 focus:border-emerald-500/40 rounded-xl py-3 px-4 text-xs text-white focus:outline-none transition-all font-semibold cursor-pointer">
-            <!-- Populated dynamically -->
-          </select>
-        </div>
-
-        <!-- Action Buttons -->
-        <div class="flex gap-3 pt-2">
-          <button onclick="closeFinanceExportModal()" class="flex-1 py-3 bg-white/5 hover:bg-white/10 border border-white/10 text-white text-[10px] font-black uppercase tracking-widest rounded-xl transition-all">
-            Cancel
-          </button>
-          <button id="btn-execute-finance-export" disabled onclick="executeFinanceExport()" class="flex-1 py-3 bg-emerald-500/10 hover:bg-emerald-500 text-emerald-400 hover:text-white border border-emerald-500/20 hover:border-transparent text-[10px] font-black uppercase tracking-widest rounded-xl transition-all disabled:opacity-40 disabled:pointer-events-none">
-            Download CSV
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
 
   <!-- Manual Inactive Overrides Modal (New) -->
   <div id="manual-inactives-modal" class="hidden fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
@@ -665,6 +796,48 @@
         showNotification("Cache Flush Error", err.message, "error");
       })
       .flushSystemCaches();
+  }
+
+  /**
+   * Re-initializes a programmatic background trigger.
+   */
+  window.reinitializeTrigger = function(setupFuncName, friendlyName) {
+    if (!confirm(`Are you sure you want to re-initialize "${friendlyName}"?\n\nThis will delete any existing schedules for this job and deploy fresh background triggers for both UAT and PROD concurrently.`)) {
+      return;
+    }
+    showLoading(`Re-initializing ${friendlyName}...`);
+    google.script.run
+      .withSuccessHandler(res => {
+        hideLoading();
+        const msg = res && res.message ? res.message : (typeof res === 'string' ? res : "Triggers successfully established.");
+        showNotification("Trigger Synchronized", msg, "success");
+      })
+      .withFailureHandler(err => {
+        hideLoading();
+        showNotification("Trigger Setup Error", err.message, "error");
+      })
+      .executeAdminTriggerSetup(setupFuncName);
+  }
+
+  /**
+   * Runs an ad-hoc background job on demand.
+   */
+  window.runAdhocJob = function(baseFuncName, friendlyName) {
+    if (!confirm(`Are you sure you want to run "${friendlyName}" immediately?\n\nThis will execute the job ad-hoc on the server using your active environment settings.`)) {
+      return;
+    }
+    showLoading(`Executing ${friendlyName} On-Demand...`);
+    google.script.run
+      .withSuccessHandler(res => {
+        hideLoading();
+        const msg = res && res.message ? res.message : (typeof res === 'string' ? res : "Job completed successfully.");
+        showNotification("Ad-hoc Execution Success", msg, "success");
+      })
+      .withFailureHandler(err => {
+        hideLoading();
+        showNotification("Ad-hoc Execution Error", err.message, "error");
+      })
+      .executeAdhocJob(baseFuncName);
   }
 
   // ==========================================

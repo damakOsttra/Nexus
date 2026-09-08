@@ -5,10 +5,12 @@
 
 // Global state cache for spreadsheet reference (memoized per single execution path)
 let _cachedSpreadsheet = null;
+let _cachedSpreadsheetId = null;
 function getSpreadsheet() {
-  if (!_cachedSpreadsheet) {
-    const spreadsheetId = CONFIG.SPREADSHEET_ID;
+  const spreadsheetId = CONFIG.SPREADSHEET_ID;
+  if (!_cachedSpreadsheet || _cachedSpreadsheetId !== spreadsheetId) {
     _cachedSpreadsheet = SpreadsheetApp.openById(spreadsheetId);
+    _cachedSpreadsheetId = spreadsheetId;
   }
   return _cachedSpreadsheet;
 }
@@ -57,6 +59,7 @@ function createSafeRowForDatabase(row, tz, periodIdxAlloc) {
  * CACHE UTILITY: Puts data into ScriptCache with chunking and atomic batching to handle sizes > 100KB.
  */
 function putCachedData(key, data, expirationSeconds) {
+  const envKey = CONFIG.ENVIRONMENT + "_" + key;
   try {
     const cache = CacheService.getScriptCache();
     const jsonStr = JSON.stringify(data);
@@ -69,10 +72,10 @@ function putCachedData(key, data, expirationSeconds) {
     const exp = expirationSeconds || 300;
     
     const cacheMap = {};
-    cacheMap["CACHE_META_" + key] = String(chunksCount);
+    cacheMap["CACHE_META_" + envKey] = String(chunksCount);
     
     for (let i = 0; i < chunksCount; i++) {
-      cacheMap["CACHE_CHUNK_" + key + "_" + i] = jsonStr.substring(i * chunkSize, (i + 1) * chunkSize);
+      cacheMap["CACHE_CHUNK_" + envKey + "_" + i] = jsonStr.substring(i * chunkSize, (i + 1) * chunkSize);
     }
     
     // Atomically write metadata and all chunks in ONE batch call
@@ -86,15 +89,16 @@ function putCachedData(key, data, expirationSeconds) {
  * CACHE UTILITY: Retrieves chunked data from ScriptCache and reconstructs it atomically in a single trip.
  */
 function getCachedData(key) {
+  const envKey = CONFIG.ENVIRONMENT + "_" + key;
   try {
     const cache = CacheService.getScriptCache();
-    const metaVal = cache.get("CACHE_META_" + key);
+    const metaVal = cache.get("CACHE_META_" + envKey);
     if (!metaVal) return null;
     
     const chunksCount = parseInt(metaVal, 10);
     const chunkKeys = [];
     for (let i = 0; i < chunksCount; i++) {
-      chunkKeys.push("CACHE_CHUNK_" + key + "_" + i);
+      chunkKeys.push("CACHE_CHUNK_" + envKey + "_" + i);
     }
     
     // Atomic fetch of all chunks in ONE batch call
@@ -102,7 +106,7 @@ function getCachedData(key) {
     let jsonStr = "";
     
     for (let i = 0; i < chunksCount; i++) {
-      const chunk = chunkMap["CACHE_CHUNK_" + key + "_" + i];
+      const chunk = chunkMap["CACHE_CHUNK_" + envKey + "_" + i];
       if (!chunk) return null; // If any chunk is evicted, consider cache miss
       jsonStr += chunk;
     }
@@ -118,14 +122,15 @@ function getCachedData(key) {
  * CACHE UTILITY: Removes chunked metadata and chunk keys from cache atomically in a single trip.
  */
 function clearCachedData(key) {
+  const envKey = CONFIG.ENVIRONMENT + "_" + key;
   try {
     const cache = CacheService.getScriptCache();
-    const metaVal = cache.get("CACHE_META_" + key);
+    const metaVal = cache.get("CACHE_META_" + envKey);
     if (metaVal) {
       const chunksCount = parseInt(metaVal, 10);
-      const keysToRemove = ["CACHE_META_" + key];
+      const keysToRemove = ["CACHE_META_" + envKey];
       for (let i = 0; i < chunksCount; i++) {
-        keysToRemove.push("CACHE_CHUNK_" + key + "_" + i);
+        keysToRemove.push("CACHE_CHUNK_" + envKey + "_" + i);
       }
       // Atomic removal of all chunks and metadata in ONE batch call
       cache.removeAll(keysToRemove);
@@ -152,13 +157,14 @@ function clearSheetCache(sheetName) {
   if (complianceSheets.includes(sheetName)) {
     try {
       const cache = CacheService.getScriptCache();
-      const periodsStr = cache.get("ADMIN_COMPLIANCE_MONITOR_PERIODS");
+      const envKey = CONFIG.ENVIRONMENT + "_ADMIN_COMPLIANCE_MONITOR_PERIODS";
+      const periodsStr = cache.get(envKey);
       if (periodsStr) {
         const periods = JSON.parse(periodsStr);
         periods.forEach(p => {
           clearCachedData("ADMIN_COMPLIANCE_MONITOR_" + p);
         });
-        cache.remove("ADMIN_COMPLIANCE_MONITOR_PERIODS");
+        cache.remove(envKey);
         console.log("[CACHE] Successfully invalidated compliance payloads for " + periods.length + " periods.");
       }
     } catch(e) {
@@ -597,6 +603,10 @@ function getProductCatalog() {
     const data = getSheetData(CONFIG.SHEETS.PRODUCTS);
     catalog = {};
     data.forEach(row => {
+      // Check if product is active
+      const isActive = String(row["Is Active"] || row["Is_Active"] || "TRUE").trim().toUpperCase() !== "FALSE";
+      if (!isActive) return; // Skip archived products
+      
       const p = row["Product"];
       const s = row["Sub-Product"];
       if (!p) return;
@@ -817,7 +827,7 @@ function getGlobalHeadcountData(filters) {
       historicalAlloc
         .filter(row => {
           const rawP = row["Month and Year"] !== undefined ? row["Month and Year"] : row["Period"];
-          const rowPeriod = (rawP instanceof Date) ? Utilities.formatDate(rawP, "GMT", "MMMM yyyy") : String(rawP || "");
+          const rowPeriod = (rawP instanceof Date) ? Utilities.formatDate(rawP, tz, "MMMM yyyy") : String(rawP || "");
           return rowPeriod.toLowerCase().trim() === filters.period.toLowerCase().trim();
         })
         .map(row => String(row["Email Address"] || row["Email"] || row["Corporate Email"] || row["Primary Email"] || "").toLowerCase().trim())
@@ -957,7 +967,7 @@ function saveUserAllocation(payload) {
         const row = allocData[i];
         const rowEmail = String(row[emailIdxAlloc]).toLowerCase().trim();
         const rawP = row[periodIdxAlloc];
-        const rowPeriod = (rawP instanceof Date) ? Utilities.formatDate(rawP, "GMT", "MMMM yyyy") : String(rawP);
+        const rowPeriod = (rawP instanceof Date) ? Utilities.formatDate(rawP, tz, "MMMM yyyy") : String(rawP);
         
         if (rowEmail === payload.email.toLowerCase().trim() && 
             rowPeriod.toLowerCase().trim() === payload.period.toLowerCase().trim()) {
@@ -986,7 +996,7 @@ function saveUserAllocation(payload) {
       const rowEmail = String(row[emailIdxAlloc]).toLowerCase().trim();
       
       const rawP = row[periodIdxAlloc];
-      const rowPeriod = (rawP instanceof Date) ? Utilities.formatDate(rawP, "GMT", "MMMM yyyy") : String(rawP);
+      const rowPeriod = (rawP instanceof Date) ? Utilities.formatDate(rawP, tz, "MMMM yyyy") : String(rawP);
       
       const matchesCurrent = (rowEmail === payload.email.toLowerCase().trim() && 
                               rowPeriod.toLowerCase().trim() === payload.period.toLowerCase().trim());
@@ -1114,13 +1124,15 @@ function saveUserAllocation(payload) {
  */
 function getAvailableFinancePeriods() {
   validateTier(3); // Admin Only
+  const ss = getSpreadsheet();
+  const tz = ss.getSpreadsheetTimeZone();
   const allocs = getSheetData(CONFIG.SHEETS.ALLOCATION_HISTORICAL);
   const periods = new Set();
   
   allocs.forEach(a => {
     const rawP = a["Month and Year"] !== undefined ? a["Month and Year"] : a["Period"];
     if (!rawP) return;
-    const period = (rawP instanceof Date) ? Utilities.formatDate(rawP, "GMT", "MMMM yyyy") : String(rawP || "").trim();
+    const period = (rawP instanceof Date) ? Utilities.formatDate(rawP, tz, "MMMM yyyy") : String(rawP || "").trim();
     if (period && period.toLowerCase() !== "period" && period.toLowerCase() !== "month and year") {
       periods.add(period);
     }
@@ -1141,71 +1153,7 @@ function getAvailableFinancePeriods() {
   });
 }
 
-function getFinanceExportData(selectedPeriod) {
-  validateTier(3);
-  if (!selectedPeriod) {
-    throw new Error("Missing required argument: selectedPeriod");
-  }
 
-  const employees = getSheetData(CONFIG.SHEETS.EMPLOYEES);
-  const allocs = getSheetData(CONFIG.SHEETS.ALLOCATION_HISTORICAL);
-  
-  const exportData = [["Employee Name", "Email Address", "Region", "Operational Category", "Finance Classification", "Allocation %"]];
-  
-  // Create quick lookup for employee demographics (Name, Cost Center/Region)
-  const empMap = {};
-  employees.forEach(emp => {
-    if (!emp["Email Address"]) return;
-    const email = String(emp["Email Address"]).toLowerCase().trim();
-    const name = (emp["Google Chat Full Name"] || emp["HR Name"] || `${emp["First Name"] || ""} ${emp["Last Name"] || ""}`).trim();
-    const region = String(emp["Cost Center"] || "Global").trim();
-    empMap[email] = { name, region };
-  });
-
-  // Filter historical allocations down to the selected period
-  const periodLower = selectedPeriod.toLowerCase().trim();
-  const filteredAllocs = allocs.filter(a => {
-    const rawP = a["Month and Year"] !== undefined ? a["Month and Year"] : a["Period"];
-    if (!rawP) return false;
-    const period = (rawP instanceof Date) ? Utilities.formatDate(rawP, "GMT", "MMMM yyyy") : String(rawP || "").trim();
-    return period.toLowerCase().trim() === periodLower;
-  });
-
-  // Aggregate BAU and Non-BAU per employee
-  const aggregates = {};
-  filteredAllocs.forEach(a => {
-    const email = String(a["Email Address"] || "").toLowerCase().trim();
-    if (!email) return;
-    
-    if (!aggregates[email]) {
-      aggregates[email] = { bau: 0, nbau: 0 };
-    }
-    
-    const bauVal = a["Allocation BAU"] !== undefined ? a["Allocation BAU"] : (a["BAU (%)"] !== undefined ? a["BAU (%)"] : 0);
-    const nbauVal = a["Allocation Non-BAU"] !== undefined ? a["Allocation Non-BAU"] : (a["Non-BAU (%)"] !== undefined ? a["Non-BAU (%)"] : 0);
-    
-    aggregates[email].bau += parseInt(bauVal) || 0;
-    aggregates[email].nbau += parseInt(nbauVal) || 0;
-  });
-
-  // Build final rows mapping back to the expected schema
-  Object.keys(aggregates).forEach(email => {
-    const empInfo = empMap[email] || { name: "Unknown Employee", region: "Global" };
-    const { bau, nbau } = aggregates[email];
-
-    if (bau > 0) exportData.push([empInfo.name, email, empInfo.region, "BAU", "Run", bau]);
-    if (nbau > 0) exportData.push([empInfo.name, email, empInfo.region, "Non-BAU", "Change", nbau]);
-  });
-  
-  // Log telemetry for audit (Project Nexus)
-  try {
-    logBackendTelemetry("FINANCE_REPORT_EXPORTED", "None", `Exported capacity data for ${exportData.length - 1} records in period ${selectedPeriod}`, "SYSTEM");
-  } catch (e) {
-    console.warn("Failed to log FINANCE_REPORT_EXPORTED telemetry event:", e.message);
-  }
-
-  return JSON.parse(JSON.stringify(exportData));
-}
 
 /**
  * Exports raw allocation or skill matrix data, excluding the 'Date and time of Submission' column.
@@ -1374,7 +1322,13 @@ function getRegionalHeatmapData(filters) {
   const ss = getSpreadsheet();
   const tz = ss.getSpreadsheetTimeZone();
 
-  const employees = getSheetData(CONFIG.SHEETS.EMPLOYEES);
+  let employees = [];
+  try {
+    employees = getSheetData(CONFIG.SHEETS.ALLOCATION_SNAPSHOT);
+    if (!employees || employees.length === 0) throw new Error("Snapshot empty");
+  } catch (e) {
+    employees = getSheetData(CONFIG.SHEETS.EMPLOYEES);
+  }
   const allocations = getSheetData(CONFIG.SHEETS.ALLOCATION_HISTORICAL);
   const skillMatrix = getSheetData(CONFIG.SHEETS.SKILL_MATRIX);
   const skillLevels = getSheetData(CONFIG.SHEETS.SKILL_LEVELS);
@@ -1388,7 +1342,7 @@ function getRegionalHeatmapData(filters) {
   const periodAllocationsMap = {};
   allocations.forEach(a => {
     const rawP = a["Month and Year"] !== undefined ? a["Month and Year"] : a["Period"];
-    const rowPeriod = (rawP instanceof Date) ? Utilities.formatDate(rawP, "GMT", "MMMM yyyy") : String(rawP || "");
+    const rowPeriod = (rawP instanceof Date) ? Utilities.formatDate(rawP, tz, "MMMM yyyy") : String(rawP || "");
     if (rowPeriod.toLowerCase().trim() === targetPeriodLower) {
       const email = String(a["Email Address"] || "").toLowerCase().trim();
       if (!periodAllocationsMap[email]) {
@@ -1664,7 +1618,7 @@ function getCostOfDeliveryData(filters) {
   const firstAllocationRow = {}; // email -> first raw row for day calculations
   allocations.forEach(a => {
     const rawP = a["Month and Year"] !== undefined ? a["Month and Year"] : a["Period"];
-    const rowPeriod = (rawP instanceof Date) ? Utilities.formatDate(rawP, "GMT", "MMMM yyyy") : String(rawP || "");
+    const rowPeriod = (rawP instanceof Date) ? Utilities.formatDate(rawP, tz, "MMMM yyyy") : String(rawP || "");
     if (rowPeriod.toLowerCase().trim() === targetPeriodLower) {
       const email = String(a["Email Address"] || "").toLowerCase().trim();
       if (!periodAllocationsMap[email]) {
@@ -1864,7 +1818,7 @@ function getCostOfDeliveryData(filters) {
 function clearUserProfileCache(email) {
   if (!email) return;
   const cleanEmail = String(email).toLowerCase().trim().replace(/[^a-z0-9_]/g, "");
-  const cacheKey = "profile_" + cleanEmail;
+  const cacheKey = CONFIG.ENVIRONMENT + "_profile_" + cleanEmail;
   try {
     CacheService.getScriptCache().remove(cacheKey);
     console.log(`[CACHE] Busted profile cache for: ${email}`);
@@ -1882,7 +1836,7 @@ function getEmployeeProfileData(email) {
 
   const searchEmail = String(email).trim().toLowerCase();
   const cleanEmail = searchEmail.replace(/[^a-z0-9_]/g, "");
-  const cacheKey = "profile_" + cleanEmail;
+  const cacheKey = CONFIG.ENVIRONMENT + "_profile_" + cleanEmail;
   const cache = CacheService.getScriptCache();
   
   // Try reading from cache
@@ -2009,7 +1963,13 @@ function getUtilizationData(managerName) {
  */
 function getTeamData() {
   const session = validateTier(2);
-  const employees = getSheetData(CONFIG.SHEETS.EMPLOYEES);
+  let employees = [];
+  try {
+    employees = getSheetData(CONFIG.SHEETS.ALLOCATION_SNAPSHOT);
+    if (!employees || employees.length === 0) throw new Error("Snapshot empty");
+  } catch (e) {
+    employees = getSheetData(CONFIG.SHEETS.EMPLOYEES);
+  }
   const userEmailLower = session.email.toLowerCase();
   const userNameLower = session.name.toLowerCase();
   const isAdmin = session.tier >= 3;
@@ -2036,59 +1996,61 @@ function getTeamData() {
  */
 function assignProductToEmployee(payload) {
   const session = validateTier(2); // Manager or above
-  const ss = getSpreadsheet();
-  const sheet = ss.getSheetByName(CONFIG.SHEETS.SKILL_MATRIX);
-  if (!sheet) throw new Error("Skill Matrix sheet not found.");
-  
-  const data = sheet.getDataRange().getValues();
-  const headers = data[0].map(h => String(h || "").trim());
-  const emailIdx = headers.indexOf("Email Address");
-  const productIdx = headers.indexOf("Product");
-  const subProductIdx = headers.indexOf("Sub-Product");
-  const skillIdx = headers.indexOf("Skill Level");
-  const targetIdx = headers.indexOf("Target Skill Level");
-  
-  if (emailIdx === -1 || productIdx === -1 || subProductIdx === -1) {
-    throw new Error("Missing required headers in Skill Matrix.");
-  }
-  
-  const targetEmail = payload.email.toLowerCase().trim();
-  const targetProduct = payload.product.trim();
-  const targetSubProduct = (payload.subProduct || "General").trim();
-  const tz = ss.getSpreadsheetTimeZone();
-  
-  let rowIndex = -1;
-  for (let i = 1; i < data.length; i++) {
-    const rowEmail = String(data[i][emailIdx]).toLowerCase().trim();
-    const rowProduct = String(data[i][productIdx]).trim();
-    const rowSubProduct = String(data[i][subProductIdx] || "General").trim();
+  return runWithWriteLock(() => {
+    const ss = getSpreadsheet();
+    const sheet = ss.getSheetByName(CONFIG.SHEETS.SKILL_MATRIX);
+    if (!sheet) throw new Error("Skill Matrix sheet not found.");
     
-    if (rowEmail === targetEmail && rowProduct === targetProduct && rowSubProduct === targetSubProduct) {
-      rowIndex = i + 1;
-      break;
+    const data = sheet.getDataRange().getValues();
+    const headers = data[0].map(h => String(h || "").trim());
+    const emailIdx = headers.indexOf("Email Address");
+    const productIdx = headers.indexOf("Product");
+    const subProductIdx = headers.indexOf("Sub-Product");
+    const skillIdx = headers.indexOf("Skill Level");
+    const targetIdx = headers.indexOf("Target Skill Level");
+    
+    if (emailIdx === -1 || productIdx === -1 || subProductIdx === -1) {
+      throw new Error("Missing required headers in Skill Matrix.");
     }
-  }
-  
-  const rowValues = headers.map(h => {
-    switch(h.toLowerCase()) {
-      case "email address": return targetEmail;
-      case "product": return targetProduct;
-      case "sub-product": return targetSubProduct;
-      case "skill level": return parseInt(payload.skillLevel) || 1;
-      case "target skill level": return parseInt(payload.targetSkillLevel) || 5;
-      case "last updated by": return session.realEmail || session.email;
-      case "date and time of submission": return Utilities.formatDate(new Date(), tz, "dd/MM/yyyy HH:mm:ss");
-      default: return rowIndex !== -1 ? data[rowIndex-1][headers.indexOf(h)] : "";
+    
+    const targetEmail = payload.email.toLowerCase().trim();
+    const targetProduct = payload.product.trim();
+    const targetSubProduct = (payload.subProduct || "General").trim();
+    const tz = ss.getSpreadsheetTimeZone();
+    
+    let rowIndex = -1;
+    for (let i = 1; i < data.length; i++) {
+      const rowEmail = String(data[i][emailIdx]).toLowerCase().trim();
+      const rowProduct = String(data[i][productIdx]).trim();
+      const rowSubProduct = String(data[i][subProductIdx] || "General").trim();
+      
+      if (rowEmail === targetEmail && rowProduct === targetProduct && rowSubProduct === targetSubProduct) {
+        rowIndex = i + 1;
+        break;
+      }
     }
+    
+    const rowValues = headers.map(h => {
+      switch(h.toLowerCase()) {
+        case "email address": return targetEmail;
+        case "product": return targetProduct;
+        case "sub-product": return targetSubProduct;
+        case "skill level": return parseInt(payload.skillLevel) || 1;
+        case "target skill level": return parseInt(payload.targetSkillLevel) || 5;
+        case "last updated by": return session.realEmail || session.email;
+        case "date and time of submission": return Utilities.formatDate(new Date(), tz, "dd/MM/yyyy HH:mm:ss");
+        default: return rowIndex !== -1 ? data[rowIndex-1][headers.indexOf(h)] : "";
+      }
+    });
+    
+    if (rowIndex !== -1) {
+      sheet.getRange(rowIndex, 1, 1, rowValues.length).setValues([rowValues]);
+    } else {
+      sheet.appendRow(rowValues);
+    }
+    
+    return true;
   });
-  
-  if (rowIndex !== -1) {
-    sheet.getRange(rowIndex, 1, 1, rowValues.length).setValues([rowValues]);
-  } else {
-    sheet.appendRow(rowValues);
-  }
-  
-  return true;
 }
 
 /**
@@ -2096,49 +2058,51 @@ function assignProductToEmployee(payload) {
  */
 function removeProductFromEmployee(email, product, subProduct) {
   const session = validateTier(2); // Manager or above
-  const ss = getSpreadsheet();
-  const sheet = ss.getSheetByName(CONFIG.SHEETS.SKILL_MATRIX);
-  if (!sheet) throw new Error("Skill Matrix sheet not found.");
-  
-  const data = sheet.getDataRange().getValues();
-  const headers = data[0].map(h => String(h || "").trim());
-  const emailIdx = headers.indexOf("Email Address");
-  const productIdx = headers.indexOf("Product");
-  const subProductIdx = headers.indexOf("Sub-Product");
-  
-  if (emailIdx === -1 || productIdx === -1 || subProductIdx === -1) {
-    throw new Error("Missing required headers in Skill Matrix.");
-  }
-  
-  const targetEmail = email.toLowerCase().trim();
-  const targetProduct = product.trim();
-  const targetSubProduct = (subProduct || "General").trim();
-  
-  const filteredRows = [headers];
-  let removedCount = 0;
-  
-  for (let i = 1; i < data.length; i++) {
-    const row = data[i];
-    const rowEmail = String(row[emailIdx]).toLowerCase().trim();
-    const rowProduct = String(row[productIdx]).trim();
-    const rowSubProduct = String(row[subProductIdx] || "General").trim();
+  return runWithWriteLock(() => {
+    const ss = getSpreadsheet();
+    const sheet = ss.getSheetByName(CONFIG.SHEETS.SKILL_MATRIX);
+    if (!sheet) throw new Error("Skill Matrix sheet not found.");
     
-    const matchesTarget = (rowEmail === targetEmail && 
-                            rowProduct === targetProduct && 
-                            rowSubProduct === targetSubProduct);
-    if (matchesTarget) {
-      removedCount++;
-    } else {
-      filteredRows.push(row);
+    const data = sheet.getDataRange().getValues();
+    const headers = data[0].map(h => String(h || "").trim());
+    const emailIdx = headers.indexOf("Email Address");
+    const productIdx = headers.indexOf("Product");
+    const subProductIdx = headers.indexOf("Sub-Product");
+    
+    if (emailIdx === -1 || productIdx === -1 || subProductIdx === -1) {
+      throw new Error("Missing required headers in Skill Matrix.");
     }
-  }
-  
-  if (removedCount > 0) {
-    sheet.clearContents();
-    sheet.getRange(1, 1, filteredRows.length, filteredRows[0].length).setValues(filteredRows);
-  }
-  
-  return true;
+    
+    const targetEmail = email.toLowerCase().trim();
+    const targetProduct = product.trim();
+    const targetSubProduct = (subProduct || "General").trim();
+    
+    const filteredRows = [headers];
+    let removedCount = 0;
+    
+    for (let i = 1; i < data.length; i++) {
+      const row = data[i];
+      const rowEmail = String(row[emailIdx]).toLowerCase().trim();
+      const rowProduct = String(row[productIdx]).trim();
+      const rowSubProduct = String(row[subProductIdx] || "General").trim();
+      
+      const matchesTarget = (rowEmail === targetEmail && 
+                              rowProduct === targetProduct && 
+                              rowSubProduct === targetSubProduct);
+      if (matchesTarget) {
+        removedCount++;
+      } else {
+        filteredRows.push(row);
+      }
+    }
+    
+    if (removedCount > 0) {
+      sheet.clearContents();
+      sheet.getRange(1, 1, filteredRows.length, filteredRows[0].length).setValues(filteredRows);
+    }
+    
+    return true;
+  });
 }
 
 /**
@@ -2208,7 +2172,7 @@ function initializeDatabaseSchema() {
     },
     {
       name: CONFIG.SHEETS.PRODUCTS,
-      headers: ["Product ID", "Product", "Sub-Product"]
+      headers: ["Product ID", "Product", "Sub-Product", "Is Active"]
     },
     {
       name: CONFIG.SHEETS.SKILL_MATRIX,
@@ -2254,6 +2218,14 @@ function initializeDatabaseSchema() {
         "Project ID", "Jira Key", "Stream", "Project Name", "Ops Ex Lead Email", 
         "Project Champion Emails", "Status", "Last Updated By", "Last Updated"
       ]
+    },
+    {
+      name: CONFIG.SHEETS.FINANCE_PRODUCTS,
+      headers: ["Finance Product ID", "Finance Product", "Finance Sub-Product", "Is Active"]
+    },
+    {
+      name: CONFIG.SHEETS.FINANCE_MAPPING,
+      headers: ["Mapping ID", "CS Product ID", "CS Product Name", "CS Sub-Product", "Finance Product ID", "Finance Product Name", "Finance Sub-Product", "Cap Tag", "Is Active", "Updated By", "Updated At"]
     }
   ];
   
@@ -2435,9 +2407,15 @@ function getManagerBulkAllocationData() {
   const session = validateTier(2); // Manager or above
   const ss = getSpreadsheet();
   const tz = ss.getSpreadsheetTimeZone();
-  
+
   // 1. Fetch Downstream Team Hierarchy
-  const employees = getSheetData(CONFIG.SHEETS.EMPLOYEES);
+  let employees = [];
+  try {
+    employees = getSheetData(CONFIG.SHEETS.ALLOCATION_SNAPSHOT);
+    if (!employees || employees.length === 0) throw new Error("Snapshot empty");
+  } catch (e) {
+    employees = getSheetData(CONFIG.SHEETS.EMPLOYEES);
+  }
   const userEmailLower = session.email.toLowerCase();
   const userNameLower = session.name.toLowerCase();
   const isAdmin = session.tier >= 3;
@@ -2478,7 +2456,7 @@ function getManagerBulkAllocationData() {
   const teamAllocations = allAllocations.filter(a => {
     const isTeam = reportEmails.includes(String(a["Email Address"]).toLowerCase().trim());
     const rawP = a["Month and Year"] !== undefined ? a["Month and Year"] : a["Period"];
-    const period = (rawP instanceof Date) ? Utilities.formatDate(rawP, "GMT", "MMMM yyyy") : String(rawP || "");
+    const period = (rawP instanceof Date) ? Utilities.formatDate(rawP, tz, "MMMM yyyy") : String(rawP || "");
     return isTeam && period.toLowerCase().trim() === currentPeriod.toLowerCase();
   });
   
@@ -2549,7 +2527,7 @@ function getManagerBulkAllocationData() {
             const mProd = String(a["Product"]).trim() === String(prod).trim();
             const mSub = String(a["Sub-Product"] || "General").trim() === String(subProd).trim();
             const rawP = a["Month and Year"] !== undefined ? a["Month and Year"] : a["Period"];
-            const mPeriod = (rawP instanceof Date) ? Utilities.formatDate(rawP, "GMT", "MMMM yyyy") : String(rawP || "");
+            const mPeriod = (rawP instanceof Date) ? Utilities.formatDate(rawP, tz, "MMMM yyyy") : String(rawP || "");
             return mEmail && mProd && mSub && mPeriod.toLowerCase().trim() !== currentPeriod.toLowerCase();
           });
           if (pastAllocations.length > 0) {
@@ -2688,7 +2666,7 @@ function saveManagerBulkAllocation(payload) {
       let allocRowIndex = -1;
       for (let i = 1; i < allocValues.length; i++) {
         const rawP = allocValues[i][aPeriodIdx];
-        const rowPeriod = (rawP instanceof Date) ? Utilities.formatDate(rawP, "GMT", "MMMM yyyy") : String(rawP);
+        const rowPeriod = (rawP instanceof Date) ? Utilities.formatDate(rawP, tz, "MMMM yyyy") : String(rawP);
         
         if (String(allocValues[i][aEmailIdx]).toLowerCase().trim() === email &&
             String(allocValues[i][aProdIdx]).trim() === prod &&
@@ -2809,6 +2787,7 @@ function recalculateEmployeesFteCacheBatch(emails) {
   const lowerEmails = emails.map(e => String(e).toLowerCase().trim());
 
   const ss = getSpreadsheet();
+  const tz = ss.getSpreadsheetTimeZone();
   const empSheet = ss.getSheetByName(CONFIG.SHEETS.EMPLOYEES);
   const allocSheet = ss.getSheetByName(CONFIG.SHEETS.ALLOCATION_HISTORICAL);
   
@@ -2838,7 +2817,7 @@ function recalculateEmployeesFteCacheBatch(emails) {
     if (totalsMap[rawEmail] === undefined) continue;
 
     const rawP = allocValues[i][aPeriodIdx];
-    const rowPeriod = (rawP instanceof Date) ? Utilities.formatDate(rawP, "GMT", "MMMM yyyy") : String(rawP);
+    const rowPeriod = (rawP instanceof Date) ? Utilities.formatDate(rawP, tz, "MMMM yyyy") : String(rawP);
     
     if (rowPeriod.toLowerCase().trim() === currentPeriod) {
       totalsMap[rawEmail].sumBau += parseFloat(allocValues[i][aBauIdx]) || 0;
@@ -2900,7 +2879,7 @@ function recalculateEmployeeFteCache(email) {
 
   for (let i = 1; i < allocValues.length; i++) {
     const rawP = allocValues[i][aPeriodIdx];
-    const rowPeriod = (rawP instanceof Date) ? Utilities.formatDate(rawP, "GMT", "MMMM yyyy") : String(rawP);
+    const rowPeriod = (rawP instanceof Date) ? Utilities.formatDate(rawP, tz, "MMMM yyyy") : String(rawP);
     
     if (String(allocValues[i][aEmailIdx]).toLowerCase().trim() === email.toLowerCase().trim() &&
         rowPeriod.toLowerCase().trim() === currentPeriod.toLowerCase()) {
@@ -3004,7 +2983,13 @@ function getTeamProductsData() {
   const ss = getSpreadsheet();
   
   // 1. Fetch Downstream Team Hierarchy
-  const employees = getSheetData(CONFIG.SHEETS.EMPLOYEES);
+  let employees = [];
+  try {
+    employees = getSheetData(CONFIG.SHEETS.ALLOCATION_SNAPSHOT);
+    if (!employees || employees.length === 0) throw new Error("Snapshot empty");
+  } catch (e) {
+    employees = getSheetData(CONFIG.SHEETS.EMPLOYEES);
+  }
   const userNameLower = session.name.toLowerCase();
   const userEmailLower = session.email.toLowerCase();
   const isAdmin = session.tier >= 3;
@@ -3639,9 +3624,10 @@ function getAuditDiscrepancies() {
  */
 function checkAuditTriggerStatus() {
   validateTier(3);
+  const targetFunctions = ['auditDayforceVsGoogle_UAT', 'auditDayforceVsGoogle_PROD', 'auditDayforceVsGoogle'];
   const triggers = ScriptApp.getProjectTriggers();
   for (let i = 0; i < triggers.length; i++) {
-    if (triggers[i].getHandlerFunction() === 'auditDayforceVsGoogle') {
+    if (targetFunctions.indexOf(triggers[i].getHandlerFunction()) !== -1) {
       return true;
     }
   }
@@ -3655,25 +3641,28 @@ function checkAuditTriggerStatus() {
 function toggleAuditTrigger() {
   validateTier(3); // Admin Only
   
+  const targetFunctions = ['auditDayforceVsGoogle_UAT', 'auditDayforceVsGoogle_PROD', 'auditDayforceVsGoogle'];
   const triggers = ScriptApp.getProjectTriggers();
   let found = false;
   
   triggers.forEach(t => {
-    if (t.getHandlerFunction() === 'auditDayforceVsGoogle') {
+    if (targetFunctions.indexOf(t.getHandlerFunction()) !== -1) {
       ScriptApp.deleteTrigger(t);
       found = true;
     }
   });
   
   if (found) {
-    return { isEnabled: false, message: "Daily scan trigger has been DISABLED." };
+    return { isEnabled: false, message: "Daily scan triggers have been DISABLED." };
   } else {
-    ScriptApp.newTrigger('auditDayforceVsGoogle')
-      .timeBased()
-      .everyDays(1)
-      .atHour(0)
-      .create();
-    return { isEnabled: true, message: "Successfully ENABLED daily midnight scan." };
+    const functionsToCreate = ['auditDayforceVsGoogle_UAT', 'auditDayforceVsGoogle_PROD'];
+    functionsToCreate.forEach(fn => {
+      ScriptApp.newTrigger(fn)
+        .timeBased()
+        .everyHours(1)
+        .create();
+    });
+    return { isEnabled: true, message: "Successfully ENABLED hourly scans for UAT and PROD." };
   }
 }
 
@@ -3728,7 +3717,7 @@ function deleteEmployeeAllocation(email, period) {
       const rowEmail = String(row[emailIdx]).toLowerCase().trim();
       
       const rawP = row[periodIdx];
-      const rowPeriod = (rawP instanceof Date) ? Utilities.formatDate(rawP, "GMT", "MMMM yyyy") : String(rawP);
+      const rowPeriod = (rawP instanceof Date) ? Utilities.formatDate(rawP, tz, "MMMM yyyy") : String(rawP);
       
       if (rowEmail === targetEmail && rowPeriod.toLowerCase().trim() === targetPeriod) {
         removedCount++;
@@ -3794,7 +3783,7 @@ function cleanupCorruptedRows() {
     
     if (rawP instanceof Date) {
       isValid = true;
-      normalizedPeriod = Utilities.formatDate(rawP, "GMT", "MMMM yyyy");
+      normalizedPeriod = Utilities.formatDate(rawP, tz, "MMMM yyyy");
     } else {
       const rowPeriod = String(rawP || "").trim();
       if (validPeriodRegex.test(rowPeriod)) {
@@ -3901,7 +3890,18 @@ function getAdminMonitorData(period) {
   const tz = ss.getSpreadsheetTimeZone();
   
   // Fetch lists
-  const employees = getSheetData(CONFIG.SHEETS.EMPLOYEES);
+  let employees = [];
+  try {
+    employees = getSheetData(CONFIG.SHEETS.ALLOCATION_SNAPSHOT);
+    if (!employees || employees.length === 0) {
+      console.warn("[MONITOR] Allocation snapshot missing or empty. Falling back to live employee data.");
+      employees = getSheetData(CONFIG.SHEETS.EMPLOYEES);
+    }
+  } catch (e) {
+    console.warn("[MONITOR] Allocation snapshot missing or empty. Falling back to live employee data.");
+    employees = getSheetData(CONFIG.SHEETS.EMPLOYEES);
+  }
+  
   const allocations = getSheetData(CONFIG.SHEETS.ALLOCATION_HISTORICAL);
   const skills = getSheetData(CONFIG.SHEETS.SKILL_MATRIX);
   const productScopes = getSheetData(CONFIG.SHEETS.MANAGER_PRODUCT_ALLOCATION);
@@ -3925,7 +3925,7 @@ function getAdminMonitorData(period) {
   const firstAllocationRow = {}; // email -> first matching raw allocation row
   allocations.forEach(a => {
     const rawP = a["Month and Year"] !== undefined ? a["Month and Year"] : a["Period"];
-    const rowPeriod = (rawP instanceof Date) ? Utilities.formatDate(rawP, "GMT", "MMMM yyyy") : String(rawP || "");
+    const rowPeriod = (rawP instanceof Date) ? Utilities.formatDate(rawP, tz, "MMMM yyyy") : String(rawP || "");
     if (rowPeriod.toLowerCase().trim() === currentPeriod.toLowerCase()) {
       const email = String(a["Email Address"] || "").toLowerCase().trim();
       
@@ -4030,19 +4030,20 @@ function getAdminMonitorData(period) {
   
   // Track this period key so we can invalidate it on updates
   try {
-    const cache = CacheService.getScriptCache();
-    const periodsStr = cache.get("ADMIN_COMPLIANCE_MONITOR_PERIODS");
-    let periods = [];
-    if (periodsStr) {
-      periods = JSON.parse(periodsStr);
-    }
-    const cleanPeriod = currentPeriod.toLowerCase().replace(/[^a-z0-9]/g, "_");
-    if (!periods.includes(cleanPeriod)) {
-      periods.push(cleanPeriod);
-      cache.put("ADMIN_COMPLIANCE_MONITOR_PERIODS", JSON.stringify(periods), 3600); // 1 hour tracking
-    }
+   const cache = CacheService.getScriptCache();
+   const envKey = CONFIG.ENVIRONMENT + "_ADMIN_COMPLIANCE_MONITOR_PERIODS";
+   const periodsStr = cache.get(envKey);
+   let periods = [];
+   if (periodsStr) {
+     periods = JSON.parse(periodsStr);
+   }
+   const cleanPeriod = currentPeriod.toLowerCase().replace(/[^a-z0-9]/g, "_");
+   if (!periods.includes(cleanPeriod)) {
+     periods.push(cleanPeriod);
+     cache.put(envKey, JSON.stringify(periods), 3600); // 1 hour tracking
+   }
   } catch(e) {
-    console.warn("Failed to update period compliance tracking", e.message);
+   console.warn("Failed to update period compliance tracking", e.message);
   }
   
   return output;
@@ -4151,12 +4152,18 @@ function sendBulkNotifications(payload) {
       if (notificationType === "ALLOCATION") {
         const introBlock = customMessage 
           ? customMessage.replace(/\n/g, "<br>")
-          : `Hello,<br><br>This is an administrative reminder that your Monthly Allocation is currently pending for the <strong>${payload.period || "current"}</strong> period.`;
-        
+          : `Hello,<br><br>This is an administrative reminder for your Monthly Allocation for the <strong>${payload.period || "current"}</strong> period.`;
+
+        const urgencyText = payload.isAutomated
+          ? (payload.chatOnly 
+              ? "Please complete your submission in the portal by the end of the week." 
+              : "Please complete your submission in the portal immediately.")
+          : "Please ensure your allocation records are up to date in the portal.";
+
         htmlBody = getEmailHtml("Action Required: Complete Your Monthly Allocation", `
           <p class="body-text">${introBlock}</p>
-          <p class="body-text">Keeping these records accurate is critical for resource visibility and delivery reporting. Please complete your submission in the portal immediately.</p>
-          
+          <p class="body-text">Keeping these records accurate is critical for resource visibility and delivery reporting. ${urgencyText}</p>
+
           <table>
             <thead>
               <tr>
@@ -4185,9 +4192,8 @@ function sendBulkNotifications(payload) {
           </div>
         `);
 
-        const plainIntro = customMessage || `Hello,\n\nThis is an administrative reminder that your Monthly Allocation is currently pending for the ${payload.period || "current"} period.`;
+        const plainIntro = customMessage || `Hello,\n\nThis is an administrative reminder for your Monthly Allocation for the ${payload.period || "current"} period.`;
         textBody = `Action Required: Complete Your Monthly Allocation\n\n${plainIntro}\n\nAccess Nexus: ${prodUrl}\nSupport: ${supportUrl}\nTutorial: ${videoUrl}`;
-
       } else if (notificationType === "SKILLS") {
         const introBlock = customMessage 
           ? customMessage.replace(/\n/g, "<br>")
@@ -4248,19 +4254,27 @@ function sendBulkNotifications(payload) {
         textBody = `Action Required: Team Product & Skills Mapping\n\nDear Manager,\n\nYour direct reports have pending product mappings or skill certifications.\n\nAccess Nexus: ${prodUrl}\nSupport: ${supportUrl}\nTutorial: ${videoUrl}`;
       }
 
-      const options = {
-        htmlBody: htmlBody
-      };
-      
-      if (finalCcList.length > 0) {
-        options.cc = finalCcList.join(",");
-      }
-      if (bccList.length > 0) {
-        options.bcc = bccList.join(",");
-      }
+      const chatOnly = payload.chatOnly || false;
+      if (!chatOnly) {
+        const options = {
+          htmlBody: htmlBody
+        };
+        
+        if (finalCcList.length > 0) {
+          options.cc = finalCcList.join(",");
+        }
+        if (bccList.length > 0) {
+          options.bcc = bccList.join(",");
+        }
 
-      MailApp.sendEmail(to, subject, textBody, options);
-      successCount++;
+        if (CONFIG.ENVIRONMENT === 'PROD') {
+          MailApp.sendEmail(to, subject, textBody, options);
+          successCount++;
+        } else {
+          console.log(`[UAT GUARD] Suppressed email to ${to} (Subject: ${subject})`);
+          successCount++; // Count as success in UAT to avoid triggering false failure analytics
+        }
+      }
 
       // Simultaneous Google Chat Group Ping
       if (pingChat) {
@@ -4284,7 +4298,15 @@ function sendBulkNotifications(payload) {
           if (customMessage) chatMessage += `${customMessage}\n\n`;
           
           if (notificationType === "ALLOCATION") {
-            chatMessage += `Your Allocation is pending for *${payload.period || "current"}*. Please complete it immediately.\n\n`;
+            if (payload.isAutomated) {
+              if (chatOnly) {
+                chatMessage += `This is a reminder that your Monthly Allocation is currently pending for *${payload.period || "current"}*. Please complete by the end of the week.\n\n`;
+              } else {
+                chatMessage += `This is a reminder that your Monthly Allocation is overdue for *${payload.period || "current"}*. Please complete it immediately.\n\n`;
+              }
+            } else {
+              chatMessage += `This is an administrative reminder to review and submit your Monthly Allocation for *${payload.period || "current"}*.\n\n`;
+            }
           } else {
             chatMessage += `The following direct reports have pending product mappings or skill certifications:\n`;
             user.employees.forEach(emp => {
@@ -4294,8 +4316,13 @@ function sendBulkNotifications(payload) {
           }
           chatMessage += `*Portal Link:* ${prodUrl}\n\n*Support:* ${supportUrl}\n\n*Tutorial:* ${videoUrl}`;
           
-          Chat.Spaces.Messages.create({ text: chatMessage }, space.name);
-          chatSuccessCount++;
+          if (CONFIG.ENVIRONMENT === 'PROD') {
+            Chat.Spaces.Messages.create({ text: chatMessage }, space.name);
+            chatSuccessCount++;
+          } else {
+            console.log(`[UAT GUARD] Suppressed Google Chat Ping to ${to} (Subject: ${subject})`);
+            chatSuccessCount++; // Count as success in UAT to keep dashboard clean
+          }
         } catch (chatErr) {
           console.error(`Google Chat Ping failed for ${to}: ${chatErr.message}`);
           errors.push(`Chat Ping Error (${to}): ${chatErr.message}`);
@@ -4395,8 +4422,6 @@ function getSystemTelemetry() {
   validateTier(3); // Admin Only
   
   const rawLogs = getSheetData(CONFIG.SHEETS.SYSTEM_LOGS);
-  const now = new Date();
-  const thirtyDaysAgo = new Date(now.getTime() - (30 * 24 * 60 * 60 * 1000));
   
   const dailyActivity = {}; // "YYYY-MM-DD" -> Set of unique active users
   const eventCounts = {
@@ -4446,48 +4471,47 @@ function getSystemTelemetry() {
     const timestamp = new Date(timestampStr);
     if (isNaN(timestamp.getTime())) return;
     
-    // Aggregate over the last 30 days
-    if (timestamp >= thirtyDaysAgo) {
-      uniqueUsers.add(actor);
-      
-      // Daily Active Users
-      const dateKey = Utilities.formatDate(timestamp, "GMT", "yyyy-MM-dd");
-      if (!dailyActivity[dateKey]) dailyActivity[dateKey] = new Set();
-      dailyActivity[dateKey].add(actor);
-      
-      // Counts
-      if (eventCounts[action] !== undefined) {
-        eventCounts[action]++;
-      }
+    // Aggregate over ALL-TIME (removed 30 days restriction)
+    uniqueUsers.add(actor);
+    
+    // Daily Active Users
+    const dateKey = Utilities.formatDate(timestamp, "GMT", "yyyy-MM-dd");
+    if (!dailyActivity[dateKey]) dailyActivity[dateKey] = new Set();
+    dailyActivity[dateKey].add(actor);
+    
+    // Counts
+    if (eventCounts[action] !== undefined) {
+      eventCounts[action]++;
+    }
 
-      // ACCUMULATE GRANULAR ANALYTICS CONSUMPTION
-      if (action === "ANALYTICS_VIEWED") {
-        const targetClean = String(row["Target Email"] || row["Target"] || "N/A").trim();
-        const targetLower = targetClean.toLowerCase();
-        
-        if (targetLower.includes("nexus tracker") || targetLower.includes("finance")) {
+    // ACCUMULATE GRANULAR ANALYTICS CONSUMPTION
+    if (action === "ANALYTICS_VIEWED") {
+      const sheetAffectedKey = Object.keys(row).find(k => k.toLowerCase().replace(/[^a-z0-9]/g, '') === 'sheetaffected') || 'Sheet Affected';
+      const targetClean = String(row[sheetAffectedKey] || row["Target Email"] || row["Target"] || "N/A").trim();
+      const targetLower = targetClean.toLowerCase();
+      
+      if (targetLower.includes("nexus tracker") || targetLower.includes("finance")) {
+        detailedAnalytics["Nexus Tracker"]++;
+      } else if (targetLower.includes("allocation heatmap") || targetLower.includes("heatmap")) {
+        detailedAnalytics["Allocation Heatmap"]++;
+      } else if (targetLower.includes("skills heatmap")) {
+        detailedAnalytics["Skills Heatmap"]++;
+      } else if (targetLower.includes("report directory") || targetLower.includes("looker directory")) {
+        detailedAnalytics["Report Directory"]++;
+      } else if (targetLower.includes("global headcount") || targetLower.includes("headcount")) {
+        detailedAnalytics["Global Headcount"]++;
+      } else if (targetLower.includes("organization chart") || targetLower.includes("org chart")) {
+        detailedAnalytics["Org Chart"]++;
+      } else if (targetLower.includes("looker")) {
+        detailedAnalytics["Looker Dashboards"]++;
+      } else {
+        // Fallback based on page Name passed in old telemetry
+        if (targetLower.includes("execanalytics")) {
           detailedAnalytics["Nexus Tracker"]++;
-        } else if (targetLower.includes("allocation heatmap") || targetLower.includes("heatmap")) {
-          detailedAnalytics["Allocation Heatmap"]++;
-        } else if (targetLower.includes("skills heatmap")) {
-          detailedAnalytics["Skills Heatmap"]++;
-        } else if (targetLower.includes("report directory") || targetLower.includes("looker directory")) {
+        } else if (targetLower.includes("analyticshub")) {
           detailedAnalytics["Report Directory"]++;
-        } else if (targetLower.includes("global headcount") || targetLower.includes("headcount")) {
-          detailedAnalytics["Global Headcount"]++;
-        } else if (targetLower.includes("organization chart") || targetLower.includes("org chart")) {
+        } else if (targetLower.includes("orgchart")) {
           detailedAnalytics["Org Chart"]++;
-        } else if (targetLower.includes("looker")) {
-          detailedAnalytics["Looker Dashboards"]++;
-        } else {
-          // Fallback based on page Name passed in old telemetry
-          if (targetLower.includes("execanalytics")) {
-            detailedAnalytics["Nexus Tracker"]++;
-          } else if (targetLower.includes("analyticshub")) {
-            detailedAnalytics["Report Directory"]++;
-          } else if (targetLower.includes("orgchart")) {
-            detailedAnalytics["Org Chart"]++;
-          }
         }
       }
     }
@@ -4832,4 +4856,286 @@ function getHeadcountDashboardData() {
   }
 
   return { trend: trendData, audit: auditData };
+}
+
+/**
+ * Automated Cron Job: Executed daily to send allocation reminders on the 1st, 3rd, and 5th of each month.
+ */
+function runAutomatedAllocationReminders() {
+  const today = new Date();
+  const day = today.getDate();
+
+  // ONLY execute on the 1st, 3rd, and 5th days of the month
+  if (day !== 1 && day !== 3 && day !== 5) {
+    console.log(`[AUTO-REMINDERS] Day ${day} of the month. No auto-reminders scheduled for today.`);
+    return;
+  }
+
+  // Calculate target period: The previous month
+  // E.g., if today is Aug 12, 2026 -> previous month is July 2026.
+  const tempDate = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+  const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+  const targetPeriod = `${months[tempDate.getMonth()]} ${tempDate.getFullYear()}`;
+
+  console.log(`[AUTO-REMINDERS] Initiating automated reminders for Day ${day} for period: ${targetPeriod}`);
+
+  // Fetch compliance list
+  let monitorData;
+  try {
+    monitorData = getAdminMonitorData(targetPeriod);
+  } catch (err) {
+    console.error(`[AUTO-REMINDERS] Failed to fetch monitor data for period ${targetPeriod}: ${err.message}`);
+    return;
+  }
+
+  // Filter for active employees with pending allocations (isActive === true, hasAllocation === false)
+  const pendingEmployees = monitorData.filter(e => e.isActive && !e.hasAllocation);
+
+  if (pendingEmployees.length === 0) {
+    console.log(`[AUTO-REMINDERS] Excellent! No pending allocations found for ${targetPeriod}.`);
+    return;
+  }
+
+  console.log(`[AUTO-REMINDERS] Found ${pendingEmployees.length} pending allocations.`);
+
+  const usersToNotify = pendingEmployees.map(emp => {
+    return {
+      email: emp.email,
+      toEmail: emp.email,
+      managerEmail: emp.managerEmail || "",
+      managerName: emp.managerName || "",
+      hasAllocation: false,
+      employees: []
+    };
+  });
+
+  // Schedule tier based on day of month
+  let payload = {
+    notificationType: "ALLOCATION",
+    selectedUsers: usersToNotify,
+    period: targetPeriod,
+    subject: `Action Required: Complete Your Monthly Allocation - ${targetPeriod}`,
+    customMessage: "", // use default language
+    isAutomated: true
+  };
+
+  if (day === 1) {
+    // 1st Notification: Chat only (Employee only)
+    payload.pingChat = true;
+    payload.ccManagers = false;
+    payload.chatOnly = true;
+  } else if (day === 3) {
+    // 2nd Notification: Chat only (Employee only)
+    payload.pingChat = true;
+    payload.ccManagers = false;
+    payload.chatOnly = true;
+  } else if (day === 5) {
+    // 3rd Notification: Chat and Email (Employee and Manager)
+    payload.pingChat = true;
+    payload.ccManagers = true;
+    payload.chatOnly = false;
+  }
+
+  try {
+    const result = sendBulkNotifications(payload);
+    console.log(`[AUTO-REMINDERS] Dispatched automated notifications. Success: ${result.successCount}, Chat Success: ${result.chatSuccessCount}, Failures: ${result.failureCount}, Chat Failures: ${result.chatFailureCount}`);
+  } catch (e) {
+    console.error(`[AUTO-REMINDERS] Critical Failure dispatching notifications: ${e.message}`);
+  }
+}
+
+/**
+ * ADMIN: Setup daily automated allocation reminder cron job.
+ */
+function setupAutomatedAllocationRemindersTrigger() {
+  validateTier(3); // Admin Only
+
+  const functionsToRegister = ['runAutomatedAllocationReminders_UAT', 'runAutomatedAllocationReminders_PROD'];
+  const triggers = ScriptApp.getProjectTriggers();
+  
+  triggers.forEach(t => {
+    if (functionsToRegister.indexOf(t.getHandlerFunction()) !== -1 || t.getHandlerFunction() === 'runAutomatedAllocationReminders') {
+      ScriptApp.deleteTrigger(t);
+    }
+  });
+
+  functionsToRegister.forEach(fn => {
+    ScriptApp.newTrigger(fn)
+      .timeBased()
+      .everyDays(1)
+      .atHour(8) // Runs daily at 8:00 AM
+      .create();
+  });
+  
+  console.log("[AUTO-REMINDERS] Daily cron triggers successfully established.");
+  return { success: true, message: "Successfully established daily 8 AM cron triggers for UAT and PROD." };
+}
+
+/**
+ * Generates a static snapshot of the Live Employee Roster for the Allocation period.
+ * Intended to be run on the 1st of every month to prevent mid-month Dayforce fluctuations from altering the compliance baseline.
+ */
+function generateMonthlyAllocationSnapshot() {
+  console.log("[SNAPSHOT] Generating Monthly Allocation Snapshot...");
+  try {
+    const ss = SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID);
+
+    // Get live data
+    const liveSheet = ss.getSheetByName(CONFIG.SHEETS.EMPLOYEES);
+    if (!liveSheet) throw new Error("Live Employees sheet not found.");
+    
+    // Get or Create Snapshot sheet
+    let snapshotSheet = ss.getSheetByName(CONFIG.SHEETS.ALLOCATION_SNAPSHOT);
+    if (!snapshotSheet) {
+      snapshotSheet = ss.insertSheet(CONFIG.SHEETS.ALLOCATION_SNAPSHOT);
+    }
+    
+    // Capture data
+    const fullRange = liveSheet.getDataRange();
+    const data = fullRange.getValues();
+    
+    // Clear and rewrite snapshot
+    snapshotSheet.clear();
+    snapshotSheet.getRange(1, 1, data.length, data[0].length).setValues(data);
+    
+    console.log(`[SNAPSHOT] Successfully captured ${data.length} rows into ${CONFIG.SHEETS.ALLOCATION_SNAPSHOT}.`);
+  } catch (err) {
+    console.error(`[SNAPSHOT] Error generating snapshot: ${err.message}`);
+  }
+}
+
+/**
+ * ADMIN: Setup the 1st-of-month snapshot generator trigger.
+ */
+function setupAllocationSnapshotTrigger() {
+  validateTier(3); // Admin Only
+
+  const functionsToRegister = ['generateMonthlyAllocationSnapshot_UAT', 'generateMonthlyAllocationSnapshot_PROD'];
+  const triggers = ScriptApp.getProjectTriggers();
+  
+  triggers.forEach(t => {
+    if (functionsToRegister.indexOf(t.getHandlerFunction()) !== -1 || t.getHandlerFunction() === 'generateMonthlyAllocationSnapshot') {
+      ScriptApp.deleteTrigger(t);
+    }
+  });
+
+  functionsToRegister.forEach(fn => {
+    ScriptApp.newTrigger(fn)
+      .timeBased()
+      .onMonthDay(1)
+      .atHour(0) // Runs on the 1st of the month between midnight and 1:00 AM
+      .create();
+  });
+
+  console.log("[SNAPSHOT] Monthly snapshot triggers successfully established.");
+  return { success: true, message: "Successfully established monthly snapshot triggers for UAT and PROD." };
+}
+
+/**
+ * ADMIN API: Executes a requested programmatic trigger setup function on the backend,
+ * logging telemetry and verifying administrative credentials.
+ * @param {string} functionName Name of the setup function to execute.
+ */
+function executeAdminTriggerSetup(functionName) {
+  const session = validateTier(3); // Admin Only Check
+  
+  const allowedSetups = [
+    "setupRollingBackupTrigger",
+    "toggleAuditTrigger",
+    "setupAutomatedAllocationRemindersTrigger",
+    "setupAllocationSnapshotTrigger",
+    "createOpexJiraSyncTrigger",
+    "setupAutomatedTpmNudgeTrigger",
+    "setupOrgMasterDataTrigger",
+    "setupTpmJiraDataTrigger"
+  ];
+  
+  if (allowedSetups.indexOf(functionName) === -1) {
+    throw new Error("Unauthorized: Invalid setup function specified: " + functionName);
+  }
+  
+  let result;
+  try {
+    // Dynamic execution of global function (either from this context or global space)
+    if (typeof this[functionName] === "function") {
+      result = this[functionName]();
+    } else if (typeof globalThis[functionName] === "function") {
+      result = globalThis[functionName]();
+    } else {
+      throw new Error(`Function ${functionName} not found in execution context.`);
+    }
+    
+    // Log telemetry / audit log
+    logSystemEvent(
+      session.realEmail || session.email,
+      "SYSTEM",
+      `Re-initialized Background Triggers via UI: ${functionName}`,
+      "N/A",
+      "Prior Trigger State",
+      "Re-initialized UAT and PROD triggers"
+    );
+    
+  } catch (e) {
+    console.error(`Failed to execute trigger setup [${functionName}]: ${e.message}`);
+    throw new Error(`Trigger re-initialization failed: ${e.message}`);
+  }
+  
+  return result;
+}
+
+/**
+ * ADMIN API: Executes a core background job on-demand.
+ * Spawns a near-instant one-time background trigger to prevent UI timeouts and permissions conflicts,
+ * executing as the script owner (Project Owner context).
+ */
+function executeAdhocJob(functionName) {
+  const session = validateTier(3); // Admin Only Check
+  
+  const allowedJobs = [
+    "executeRollingBackup",
+    "auditDayforceVsGoogle",
+    "runAutomatedAllocationReminders",
+    "generateMonthlyAllocationSnapshot",
+    "syncOpexJiraData",
+    "executeAutomatedTpmNudge",
+    "exportAnupOrgMasterData",
+    "syncTpmJiraData"
+  ];
+  
+  if (allowedJobs.indexOf(functionName) === -1) {
+    throw new Error("Unauthorized ad-hoc function: " + functionName);
+  }
+  
+  try {
+    const activeEnv = CONFIG.ENVIRONMENT || "UAT";
+    const wrapperFuncName = `${functionName}_${activeEnv}`;
+    
+    // Create a one-time programmatic trigger to run in 100 milliseconds.
+    // This executes as the Script/Project Owner (with high quotas, Drive folder access, and 6-minute timeout).
+    const trigger = ScriptApp.newTrigger(wrapperFuncName)
+      .timeBased()
+      .after(100)
+      .create();
+      
+    console.log(`[ADHOC] Successfully spawned background worker trigger for ${wrapperFuncName}() [Trigger ID: ${trigger.getUniqueId()}]`);
+    
+    // Log telemetry / audit log
+    logSystemEvent(
+      session.realEmail || session.email,
+      "SYSTEM",
+      `Ad-hoc Job Queued: ${functionName} (${activeEnv})`,
+      "N/A",
+      "Manual Trigger",
+      `Trigger queued for background worker: ${wrapperFuncName}`
+    );
+    
+    return {
+      success: true,
+      message: `Successfully queued "${functionName}" to execute in the background (${activeEnv} environment). It will run in 1-2 seconds. Check Execution Logs or System Logs for outcomes.`
+    };
+    
+  } catch (e) {
+    console.error(`Ad-hoc queueing failed for [${functionName}]: ${e.message}`);
+    throw new Error(`Failed to queue job: ${e.message}`);
+  }
 }

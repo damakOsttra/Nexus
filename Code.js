@@ -84,9 +84,10 @@ function getView(pageName) {
   const permissions = {
     'SystemSettings': 3,
     'ReportHubAdmin': 3,
-    'MonitoringAdmin': 3,
+    'MonitoringAdmin': 1, // Explicitly secured via dynamic check below
     'BackupAdmin': 3,
     'NexusAdoption': 3,
+    'BmaMasterData': 1, // Explicitly secured via session.isBmaUser below
     'AssignProduct': 2, 'AssignSkill': 2, 'TeamAllocationsReview': 2,
     'About': 1, 'Profile': 1, 'MyAllocations': 1, 'AnalyticsHub': 1, 'ExecAnalytics': 2,
     'UserGuide': 1, 'OrganizationChart': 1,
@@ -115,6 +116,14 @@ function getView(pageName) {
     return `<div class="p-8 text-red-500">🚫 Restricted Access: Tier-4 TPM manager clearance required.</div>`;
   }
 
+  // Dynamic checks for BMA access
+  if (pageName === 'BmaMasterData' && !session.isBmaUser) {
+    return `<div class="p-8 text-red-500">🚫 Restricted Access: BMA team or System Admin credentials required.</div>`;
+  }
+  if (pageName === 'MonitoringAdmin' && !session.isBmaUser && session.tier < 3) {
+    return `<div class="p-8 text-red-500">🚫 Restricted Access: BMA team or System Admin credentials required.</div>`;
+  }
+
   // Dynamic checks for OPEX access
   if (pageName === 'OpexProjectBoard' && !session.isOpexUser) {
     return `<div class="p-8 text-red-500">🚫 Restricted Access: OPEX hierarchy required.</div>`;
@@ -136,6 +145,7 @@ function getView(pageName) {
     'BackupAdmin': 'ui/Admin/BackupAdmin',
     'NexusAdoption': 'ui/Admin/NexusAdoption',
     'TpmDashboard': 'ui/Admin/TpmDashboard',
+    'BmaMasterData': 'ui/Admin/BmaMasterData',
 
     // Teams
     'AssignProduct': 'ui/Teams/AssignProduct',
@@ -174,9 +184,10 @@ function getView(pageName) {
     const permissions = {
       'SystemSettings': 3,
       'ReportHubAdmin': 3,
-      'MonitoringAdmin': 3,
+      'MonitoringAdmin': 1, // Explicitly gated by isBmaUser or Admin below
       'BackupAdmin': 3,
       'NexusAdoption': 3,
+      'BmaMasterData': 1, // Explicitly gated by isBmaUser
       'AssignProduct': 2, 'AssignSkill': 2, 'TeamAllocationsReview': 2,
       'About': 1, 'Profile': 1, 'MyAllocations': 1, 'AnalyticsHub': 1,
       'UserGuide': 1,
@@ -190,6 +201,8 @@ function getView(pageName) {
     if (pageName === 'TpmTimesheet' && !session.isTpmUser) hasPerm = false;
     if (pageName === 'TpmDashboard' && !session.isTpmManager) hasPerm = false;
     if (pageName === 'OpexProjectBoard' && !session.isOpexUser) hasPerm = false;
+    if (pageName === 'BmaMasterData' && !session.isBmaUser) hasPerm = false;
+    if (pageName === 'MonitoringAdmin' && !session.isBmaUser && session.tier < 3) hasPerm = false;
 
     if (hasPerm) {
       try {

@@ -302,7 +302,8 @@ function executeYearEndPurge() {
     // 4. Clear all operational configs caches
     try {
       const cache = CacheService.getScriptCache();
-      cache.removeAll(["system_config", "product_catalog", "filter_metadata"]);
+      const prefix = CONFIG.ENVIRONMENT + "_";
+      cache.removeAll([prefix + "system_config", prefix + "product_catalog", prefix + "filter_metadata"]);
     } catch(e) {
       console.warn("Failed to clear config caches during Year-End Purge:", e);
     }
@@ -346,16 +347,16 @@ function setupAuthorization() {
 }
 
 /**
- * ROLLING BACKUP: Performs a silent, automated spreadsheet backup every 4 hours,
- * overwriting the previous "Nexus_4Hour_Rolling_Backup.xlsx" file in the root backup folder.
+ * ROLLING BACKUP: Performs a silent, automated spreadsheet backup every 30 minutes,
+ * overwriting the previous "Nexus_30Minute_Rolling_Backup.xlsx" file in the root backup folder.
  * This prevents Drive storage bloat and avoids email notifications.
  */
 function executeRollingBackup() {
-  console.log("[BACKUP] Starting automated 4-hour rolling backup...");
+  console.log("[BACKUP] Starting automated 30-minute rolling backup...");
   
   try {
     const fileBlob = exportSpreadsheetAsXlsx();
-    const fileName = "Nexus_4Hour_Rolling_Backup.xlsx";
+    const fileName = "Nexus_30Minute_Rolling_Backup.xlsx";
     fileBlob.setName(fileName);
     
     // Locate the root Nexus Application Data folder
@@ -373,44 +374,76 @@ function executeRollingBackup() {
     // Save the new XLSX file
     const file = nexusFolder.createFile(fileBlob);
     const fileUrl = file.getUrl();
-    console.log(`[BACKUP] Automated 4-hour rolling backup saved successfully: ${fileUrl}`);
+    console.log(`[BACKUP] Automated 30-minute rolling backup saved successfully: ${fileUrl}`);
     
     // Log the transaction quietly inside App System Logs
-    logSystemEvent("System Automator", "GLOBAL", "Executed 4-Hour Rolling Backup", "Entire Workbook", "Live Sheet", fileName);
+    logSystemEvent("System Automator", "GLOBAL", "Executed 30-Minute Rolling Backup", "Entire Workbook", "Live Sheet", fileName);
     try {
-      logBackendTelemetry("DB_BACKUP_EXECUTED", "Entire Workbook", `Silent 4-Hour Rolling Backup | Link: ${fileUrl}`, "SYSTEM");
+      logBackendTelemetry("DB_BACKUP_EXECUTED", "Entire Workbook", `Silent 30-Minute Rolling Backup | Link: ${fileUrl}`, "SYSTEM");
     } catch(telErr) {
       console.warn("Failed to log DB_BACKUP_EXECUTED telemetry event for rolling backup:", telErr.message);
     }
     
     return fileUrl;
   } catch(e) {
-    console.error("[BACKUP] Automated 4-hour rolling backup failed:", e.message);
+    console.error("[BACKUP] Automated 30-minute rolling backup failed:", e.message);
     throw e;
   }
 }
 
 /**
- * TRIGGER SETUP: Registers the time-driven rolling backup to run every 4 hours.
+ * TRIGGER SETUP: Registers the time-driven rolling backup to run every 30 minutes.
  * Admins can run this once from the Apps Script editor or via Admin panel.
  */
 function setupRollingBackupTrigger() {
   validateTier(3); // Admin Only
-  const functionName = "executeRollingBackup";
+  const functionsToRegister = ["executeRollingBackup_UAT", "executeRollingBackup_PROD"];
   
   const triggers = ScriptApp.getProjectTriggers();
   triggers.forEach(t => {
-    if (t.getHandlerFunction() === functionName) {
+    if (functionsToRegister.indexOf(t.getHandlerFunction()) !== -1 || t.getHandlerFunction() === "executeRollingBackup") {
       ScriptApp.deleteTrigger(t);
-      console.log(`[BACKUP] Deleted existing trigger for ${functionName}`);
+      console.log(`[BACKUP] Deleted existing trigger for ${t.getHandlerFunction()}`);
     }
   });
   
-  ScriptApp.newTrigger(functionName)
-    .timeBased()
-    .everyHours(4)
-    .create();
+  functionsToRegister.forEach(fn => {
+    ScriptApp.newTrigger(fn)
+      .timeBased()
+      .everyMinutes(30)
+      .create();
+  });
     
-  console.log(`[BACKUP] Successfully established 4-hour rolling backup trigger for ${functionName}()`);
-  return "Successfully established 4-hour rolling backup trigger.";
+  console.log(`[BACKUP] Successfully established 30-minute rolling backup triggers for ${functionsToRegister.join(", ")}()`);
+  return "Successfully established 30-minute rolling backup triggers.";
+}
+
+/**
+ * ADMIN: Retrieves the timestamp and URL of the last successful 30-minute rolling backup from Drive.
+ * @returns {object} Object with { status: string, url: string|null }
+ */
+function getLastRollingBackupTime() {
+  validateTier(3); // Admin Only
+  try {
+    const parentFolder = DriveApp.getFolderById(CONFIG.DRIVE_BACKUP_FOLDER_ID);
+    const folders = parentFolder.getFoldersByName("Nexus Application Data");
+    if (!folders.hasNext()) return { status: "No backups recorded", url: null };
+    
+    const nexusFolder = folders.next();
+    const files = nexusFolder.getFilesByName("Nexus_30Minute_Rolling_Backup.xlsx");
+    
+    if (files.hasNext()) {
+      const file = files.next();
+      const ss = getSpreadsheet();
+      const tz = ss.getSpreadsheetTimeZone();
+      return {
+        status: Utilities.formatDate(file.getLastUpdated(), tz, "yyyy-MM-dd HH:mm:ss"),
+        url: file.getUrl()
+      };
+    }
+    return { status: "No backups recorded", url: null };
+  } catch(e) {
+    console.error("Failed to get rolling backup time:", e.message);
+    return { status: "Error checking status", url: null };
+  }
 }
